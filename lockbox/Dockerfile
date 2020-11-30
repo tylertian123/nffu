@@ -45,7 +45,7 @@ RUN pip install -r requirements.txt
 
 # install package
 COPY setup.py .
-COPY lockbox/ .
+COPY lockbox/ ./lockbox
 RUN pip install .
 
 
