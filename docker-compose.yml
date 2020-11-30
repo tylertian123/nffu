@@ -1,0 +1,22 @@
+version: "3.2"
+
+services:
+  lockbox:
+    build: ./lockbox
+    image: docker-registry.i.mm12.xyz/nffu-lockbox:0.0.0
+    ports:
+      - "80:80"
+    volumes:
+      - type: volume
+        source: lockbox-data
+        target: /usr/src/lockbox/data
+    secrets:
+      - lockbox-credential-key
+
+secrets:
+  lockbox-credential-key:
+    file: lockbox-credential-key
+    # external: true
+
+volumes:
+  lockbox-data:
