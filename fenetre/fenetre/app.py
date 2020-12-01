@@ -15,9 +15,6 @@ def create_app():
     app = Quart(__name__)
     app.secret_key = os.urandom(32)
 
-    app.static_folder = "../static"
-    app.template_folder = "../templates"
-
     static_digest.init_app(app)
 
     # static page routes (frontend)

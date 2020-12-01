@@ -1,4 +1,4 @@
 node_modules/
-static/*
-!static/.keep
+fenetre/static/*
+!fenetre/static/.keep
 *.pyc

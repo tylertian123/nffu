@@ -9,7 +9,7 @@ module.exports = (env, options) => {
 			main: "./websrc/main.js"
 		},
 		output: {
-			path: path.resolve(__dirname, './static'),
+			path: path.resolve(__dirname, './fenetre/static'),
 			filename: '[name].js'
 		},
 		module: {

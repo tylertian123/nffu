@@ -7,8 +7,8 @@ def setup_digest(app):
     @app.cli.command()
     def digest_compile():
         """Generate optimized static files and a cache manifest."""
-        _compile(app.static_folder,
-                 app.static_folder,
+        _compile(str(app.static_folder),
+                 str(app.static_folder),
                  app.config.get("FLASK_STATIC_DIGEST_BLACKLIST_FILTER"),
                  app.config.get("FLASK_STATIC_DIGEST_GZIP_FILES"))
 
@@ -16,6 +16,6 @@ def setup_digest(app):
     @app.cli.command()
     def digest_clean():
         """Remove generated static files and cache manifest."""
-        _clean(app.static_folder,
+        _clean(str(app.static_folder),
                app.config.get("FLASK_STATIC_DIGEST_BLACKLIST_FILTER"),
                app.config.get("FLASK_STATIC_DIGEST_GZIP_FILES"))
