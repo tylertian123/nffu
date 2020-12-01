@@ -1,0 +1,36 @@
+version: "3.2"
+
+services:
+  lockbox:
+    build: ./lockbox
+    image: docker-registry.i.mm12.xyz/nffu-lockbox:0.0.0
+    expose:
+        - "80"
+    secrets:
+      - lockbox-credential-key
+  fenetre:
+    build: ./fenetre
+    image: docker-registry.i.mm12.xyz/nffu-fenetre:0.0.0
+    ports:
+        - "8080:8083"
+    volumes:
+        - type: bind
+          source: ./fenetre/fenetre/static
+          target: /opt/venv/lib/fenetre/static
+  db:
+    image: mongodb
+    volumes:
+        - db-data:/data/db
+    deploy:
+        resources:
+            limits:
+                cpus: '0.1'
+                memory: 64M
+
+secrets:
+  lockbox-credential-key:
+    file: lockbox-credential-key
+    # external: true
+
+volumes:
+  lockbox-data:

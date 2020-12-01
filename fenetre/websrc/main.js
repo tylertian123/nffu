@@ -6,14 +6,22 @@ import "./css/boot.scss";
 import ReactDOM from 'react-dom';
 import React from 'react';
 
-import Container from 'react-bootstrap/Container';
+import {BrowserRouter as Router, Route} from 'react-router-dom'
+import {LinkContainer} from 'react-router-bootstrap'
+import Navbar from 'react-bootstrap/Navbar'
+import Nav from 'react-bootstrap/Nav'
+import Container from 'react-bootstrap/Container'
 
-class App extends React.Component {
-	render() {
-		return <Container>
-			<p> hi! </p>
-		</Container>;
-	}
+function App() {
+	return <Router basename="/app">
+				<Navbar>
+					<Navbar.Brand>nffu</Navbar.Brand>
+				</Navbar>
+				<Container>
+					<Route path="/" exact>
+					</Route>
+				</Container>
+			</Router>
 }
 
 const mount = document.getElementById("mount");
