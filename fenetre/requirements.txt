@@ -1,0 +1,3 @@
+quart
+flask-static-digest
+quart-auth
