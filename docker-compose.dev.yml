@@ -34,3 +34,4 @@ secrets:
 
 volumes:
   lockbox-data:
+  db-data:
