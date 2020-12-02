@@ -12,7 +12,7 @@ import Navbar from 'react-bootstrap/Navbar'
 import Nav from 'react-bootstrap/Nav'
 import Container from 'react-bootstrap/Container'
 
-import {UserInfoProvider, UserInfoContext} from './common/userinfo';
+import {UserInfoProvider, UserInfoContext, AdminOnly} from './common/userinfo';
 
 function App() {
 	const userinfo = React.useContext(UserInfoContext);
@@ -26,13 +26,14 @@ function App() {
 							<LinkContainer to="/" exact>
 								<Nav.Link>Home</Nav.Link>
 							</LinkContainer>
-							{/*todo: filter based on user admin type*/}
-							<LinkContainer to="/forms">
-								<Nav.Link>Forms</Nav.Link>
-							</LinkContainer>
-							<LinkContainer to="/authcfg">
-								<Nav.Link>Authentication Config</Nav.Link>
-							</LinkContainer>
+							<AdminOnly>
+								<LinkContainer to="/forms">
+									<Nav.Link>Forms</Nav.Link>
+								</LinkContainer>
+								<LinkContainer to="/authcfg">
+									<Nav.Link>Authentication Config</Nav.Link>
+								</LinkContainer>
+							</AdminOnly>
 							<LinkContainer to="/lockbox">
 								<Nav.Link>TDSB Credentials</Nav.Link>
 							</LinkContainer>

@@ -8,4 +8,10 @@ function UserInfoProvider(props) {
 	</UserInfoContext.Provider>;
 }
 
-export { UserInfoProvider, UserInfoContext };
+function AdminOnly(props) {
+	const userinfo = React.useContext(UserInfoContext);
+	if (userinfo.admin) return props.children;
+	else return null;
+}
+
+export { UserInfoProvider, UserInfoContext, AdminOnly };
