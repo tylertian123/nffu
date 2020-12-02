@@ -16,6 +16,14 @@ function App() {
 	return <Router basename="/app">
 				<Navbar bg="light">
 					<Navbar.Brand>nffu</Navbar.Brand>
+					<Navbar.Toggle aria-controls="responsive-navbar-nav" />
+					<Navbar.Collapse id="responsive-navbar-nav">
+						<Nav className="mr-auto">
+						</Nav>
+						<Nav>
+							<Nav.Link href="/logout">Logout</Nav.Link>
+						</Nav>
+				  </Navbar.Collapse>
 				</Navbar>
 				<Container>
 					<Route path="/" exact>
