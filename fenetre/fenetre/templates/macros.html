@@ -1,0 +1,13 @@
+{% macro flashjs() %}
+	{% with messages = get_flashed_messages() %}
+		{% if messages %}
+			<script type="text/javascript">
+				window.flashed_msgs = {{ messages|tojson }};
+			</script>
+		{% else %}
+			<script type="text/javascript">
+				window.flashed_msgs = [];
+			</script>
+		{% endif %}
+	{% endwith %}
+{% endmacro %}

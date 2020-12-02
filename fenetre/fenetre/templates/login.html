@@ -1,0 +1,17 @@
+{% from 'macros.html' import flashjs %}
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<link rel="stylesheet" type="text/css" href="{{ static_url_for('static', filename='login.css') }}" />
+		<script src="{{ static_url_for('static', filename='vendors.js') }}"></script>
+		<title>nffu - login</title>
+
+		{{ flashjs() }}
+	</head>
+	<body>
+		<div id="mount" />
+
+		<script src="{{ static_url_for('static', filename='login.js') }}"></script>
+	</body>
+</html>

@@ -1,5 +1,4 @@
 quart
 flask-static-digest
 quart-auth
-quart-motor
-motor
+umongo[motor]

@@ -12,13 +12,15 @@ services:
     build: ./fenetre
     image: docker-registry.i.mm12.xyz/nffu-fenetre:0.0.0
     ports:
-        - "8080:8083"
+        - "8083:8080"
     volumes:
         - type: bind
-          source: ./fenetre/fenetre/static
-          target: /opt/venv/lib/fenetre/static
+          source: ./fenetre/fenetre
+          target: /opt/venv/lib/python3.7/site-packages/fenetre
+    environment:
+        - "QUART_DEBUG=1"
   db:
-    image: mongodb
+    image: mongo
     volumes:
         - db-data:/data/db
     deploy:

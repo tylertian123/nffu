@@ -6,7 +6,8 @@ const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 module.exports = (env, options) => {
 	return {
 		entry: {
-			main: "./websrc/main.js"
+			main: "./websrc/main.js",
+			login: "./websrc/login"
 		},
 		output: {
 			path: path.resolve(__dirname, './fenetre/static'),
