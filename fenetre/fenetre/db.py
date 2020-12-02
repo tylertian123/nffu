@@ -34,6 +34,12 @@ class BinaryField(fields.BaseField, ma_fields.Field):
     def _deserialize_from_mongo(self, value):
         return bytes(value)
 
+def init_db_in_cli_context():
+    # connect to the database
+    client = AsyncIOMotorClient("db", 27017)
+    priv_db = client['fenetre']
+    _private_instance.init(priv_db)
+
 def init_app(app: Quart):
     @app.before_serving
     async def load_database():
@@ -54,12 +60,11 @@ class User(Document):
     signed_eula = fields.BoolField(default=False)
 
     # support for oauth via discord
-    discord_id = fields.StrField()
+    discord_id = fields.StrField(default=None)
     # potential other oauth?
     # might do github here.
     # we still force a password to exist on the account though.
 
-    lockbox_token = fields.StrField() # not always present if not setup
-
+    lockbox_token = fields.StrField(default=None) # not always present if not setup
 
 

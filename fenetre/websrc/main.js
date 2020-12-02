@@ -14,7 +14,7 @@ import Container from 'react-bootstrap/Container'
 
 function App() {
 	return <Router basename="/app">
-				<Navbar>
+				<Navbar bg="light">
 					<Navbar.Brand>nffu</Navbar.Brand>
 				</Navbar>
 				<Container>

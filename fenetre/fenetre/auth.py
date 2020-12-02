@@ -1,5 +1,5 @@
 from quart_auth import login_user, logout_user, current_user, AuthUser, AuthManager, Unauthorized
-from fenetre.db import User
+from fenetre.db import User, init_db_in_cli_context
 from fenetre.lockbox import create_new_lockbox_identity
 from motor.motor_asyncio import AsyncIOMotorCollection
 from functools import wraps
@@ -8,17 +8,20 @@ import hashlib
 import hmac
 import bson
 import os
+import click
+import asyncio
 
 auth_manager = AuthManager()
 
 class UserProxy(AuthUser):
     def __init__(self, auth_id):
         super().__init__(auth_id)
-        self._resolved = auth_id is not None
+        self._resolved = auth_id is None
         self._object = None
+        print(auth_id)
 
     @staticmethod
-    def from_db(self, dbu: User):
+    def from_db(dbu: User):
         return UserProxy(str(dbu.pk))
 
     @property
@@ -28,6 +31,7 @@ class UserProxy(AuthUser):
     async def _resolve(self):
         if not self._resolved:
             self._object = await User.find_one({"_id": bson.ObjectId(self.auth_id)})
+            print("o", self._object)
             self._resolved = True
 
     @property
@@ -36,9 +40,6 @@ class UserProxy(AuthUser):
         return self._object
 
 auth_manager.user_class = UserProxy
-
-def init_app(app):
-    auth_manager.init_app(app)
 
 class EulaRequired(Unauthorized):
     pass
@@ -94,7 +95,7 @@ async def try_login_user(username: str, password: str, remember_me: bool):
     if not hmac.compare_digest(compute_passhash(password, check_user.passsalt), check_user.passhash):
         raise AuthenticationError("Wrong password")
 
-    await login_user(UserProxy.from_db(check_user), remember_me)
+    login_user(UserProxy.from_db(check_user), remember_me)
 
 async def add_blank_user(username: str, password: str, *, discord_id: str=None) -> User:
     """
@@ -131,3 +132,26 @@ async def sign_eula(user: User):
         user.signed_eula = True
     finally:
         await user.commit()
+
+async def init_auth_cli(user, password):
+    usr = await add_blank_user(user, password)
+    # don't have them sign the EULA but _do_ mark them admin
+    usr.admin = True
+    await usr.commit()
+
+    click.echo("done!")
+
+def init_app(app):
+    auth_manager.init_app(app)
+
+    @app.cli.command()
+    @click.option("-u", "--username", type=str, prompt=True)
+    @click.password_option()
+    def init_auth(username: str, password: str):
+        """
+        Setup an admin user with the given credentials
+        """
+
+        init_db_in_cli_context()
+        asyncio.get_event_loop().run_until_complete(init_auth_cli(username, password))
+

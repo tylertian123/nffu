@@ -2,7 +2,7 @@ import quart.flask_patch
 
 from flask_static_digest import FlaskStaticDigest
 from quart import Quart, render_template, url_for, redirect, request, flash
-from quart_auth import login_required, Unauthorized
+from quart_auth import login_required, Unauthorized, current_user, logout_user
 
 from fenetre.db import init_app as db_init_app
 from fenetre.auth import init_app as auth_init_app, try_login_user, AuthenticationError
@@ -40,12 +40,21 @@ def create_app():
         if request.method == 'POST':
             form = await request.form
             try:
-                await try_login_user(form['username'], form['password'], "remember_me" in form and form["remember_me"] == "on") # TODO remember me
+                await try_login_user(form['username'], form['password'], "remember_me" in form and form["remember_me"] == "on")
             except AuthenticationError as e:
                 await flash(str(e), "auth-error")
             else:
                 return redirect(url_for("main"))
+        elif await current_user.is_authenticated:
+            return redirect(url_for("main"))
         return await render_template("login.html")
+
+    @app.route("/logout")
+    @login_required
+    async def logout():
+        logout_user()
+        await flash("You have been logged out")
+        return redirect(url_for("login"))
 
     @app.errorhandler(Unauthorized)
     async def unauthorized(_):
