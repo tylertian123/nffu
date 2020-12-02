@@ -12,14 +12,34 @@ import Navbar from 'react-bootstrap/Navbar'
 import Nav from 'react-bootstrap/Nav'
 import Container from 'react-bootstrap/Container'
 
+import {UserInfoProvider, UserInfoContext} from './common/userinfo';
+
 function App() {
+	const userinfo = React.useContext(UserInfoContext);
+
 	return <Router basename="/app">
 				<Navbar bg="light">
 					<Navbar.Brand>nffu</Navbar.Brand>
 					<Navbar.Toggle aria-controls="responsive-navbar-nav" />
 					<Navbar.Collapse id="responsive-navbar-nav">
 						<Nav className="mr-auto">
+							<LinkContainer to="/" exact>
+								<Nav.Link>Home</Nav.Link>
+							</LinkContainer>
+							{/*todo: filter based on user admin type*/}
+							<LinkContainer to="/forms">
+								<Nav.Link>Forms</Nav.Link>
+							</LinkContainer>
+							<LinkContainer to="/authcfg">
+								<Nav.Link>Authentication Config</Nav.Link>
+							</LinkContainer>
+							<LinkContainer to="/lockbox">
+								<Nav.Link>TDSB Credentials</Nav.Link>
+							</LinkContainer>
 						</Nav>
+						<Navbar.Text>
+							Logged in as <b>{userinfo.name}</b>
+						</Navbar.Text>
 						<Nav>
 							<Nav.Link href="/logout">Logout</Nav.Link>
 						</Nav>
@@ -33,4 +53,4 @@ function App() {
 }
 
 const mount = document.getElementById("mount");
-ReactDOM.render(<App />, mount);
+ReactDOM.render(<UserInfoProvider><App /></UserInfoProvider>, mount);

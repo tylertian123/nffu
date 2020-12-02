@@ -11,3 +11,12 @@
 		{% endif %}
 	{% endwith %}
 {% endmacro %}
+
+{% macro userinfo(current_user) %}
+	<script type="text/javascript">
+		window.userinfo = {
+			name: "{{ current_user.user.username }}",
+			admin: {{ current_user.user.admin | tojson }}
+		};
+	</script>
+{% endmacro %}

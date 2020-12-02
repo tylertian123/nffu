@@ -18,7 +18,6 @@ class UserProxy(AuthUser):
         super().__init__(auth_id)
         self._resolved = auth_id is None
         self._object = None
-        print(auth_id)
 
     @staticmethod
     def from_db(dbu: User):
@@ -31,7 +30,6 @@ class UserProxy(AuthUser):
     async def _resolve(self):
         if not self._resolved:
             self._object = await User.find_one({"_id": bson.ObjectId(self.auth_id)})
-            print("o", self._object)
             self._resolved = True
 
     @property
@@ -154,4 +152,3 @@ def init_app(app):
 
         init_db_in_cli_context()
         asyncio.get_event_loop().run_until_complete(init_auth_cli(username, password))
-
