@@ -6,7 +6,7 @@ import "./css/boot.scss";
 import ReactDOM from 'react-dom';
 import React from 'react';
 
-import {BrowserRouter as Router, Route} from 'react-router-dom'
+import {BrowserRouter as Router, Route, Switch} from 'react-router-dom'
 import {LinkContainer} from 'react-router-bootstrap'
 import Navbar from 'react-bootstrap/Navbar'
 import Nav from 'react-bootstrap/Nav'
@@ -47,8 +47,11 @@ function App() {
 				  </Navbar.Collapse>
 				</Navbar>
 				<Container>
-					<Route path="/" exact>
-					</Route>
+					<Switch>
+						
+						<Route path="/" exact>
+						</Route>
+					</Switch>
 				</Container>
 			</Router>
 }

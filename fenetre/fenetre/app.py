@@ -11,6 +11,7 @@ from fenetre.static import setup_digest
 import secrets
 
 # blueprints
+from fenetre.api import blueprint as api_blueprint
 
 # plugins
 static_digest = FlaskStaticDigest()
@@ -18,11 +19,14 @@ static_digest = FlaskStaticDigest()
 def create_app():
     app = Quart(__name__)
     app.secret_key = secrets.token_urlsafe()
+    if app.debug:
+        app.secret_key = "thisisverysecret"
 
     static_digest.init_app(app)
 
     db_init_app(app)
     auth_init_app(app)
+    app.register_blueprint(api_blueprint)
 
     # static page routes (frontend)
     @app.route("/app", defaults={"path": ""})

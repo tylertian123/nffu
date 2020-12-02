@@ -49,7 +49,7 @@ def admin_required(func):
 
     @wraps(func)
     async def wrapper(*args, **kwargs):
-        if (await current_user.user()).admin:
+        if (await current_user.user).admin:
             return await func(*args, **kwargs)
         else:
             raise Unauthorized()
@@ -63,7 +63,7 @@ def eula_required(func):
 
     @wraps(func)
     async def wrapper(*args, **kwargs):
-        if (await current_user.user()).signed_eula:
+        if (await current_user.user).signed_eula:
             return await func(*args, **kwargs)
         else:
             raise EulaRequired()
@@ -130,6 +130,23 @@ async def sign_eula(user: User):
         user.signed_eula = True
     finally:
         await user.commit()
+
+async def change_password(user: User, password: str):
+    """
+    Update the password of the given user
+    """
+
+    # pick a random salt
+    salt = os.urandom(32)
+
+    # generate the passhash
+    passhash = compute_passhash(password, salt)
+
+    user.passhash = passhash
+    user.passsalt = salt
+
+    await user.commit()
+
 
 async def init_auth_cli(user, password):
     usr = await add_blank_user(user, password)
