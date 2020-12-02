@@ -26,6 +26,7 @@ def create_app():
 
     # static page routes (frontend)
     @app.route("/app", defaults={"path": ""})
+    @app.route("/app/", defaults={"path": ""})
     @app.route("/app/<path:path>")
     @login_required
     async def main(path):
