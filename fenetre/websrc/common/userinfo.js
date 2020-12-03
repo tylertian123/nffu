@@ -1,6 +1,7 @@
 import React from 'react';
 
 const UserInfoContext = React.createContext();
+const AdminStateContext = React.createContext();
 
 function UserInfoProvider(props) {
 	return <UserInfoContext.Provider value={window.userinfo}>
