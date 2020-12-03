@@ -20,10 +20,10 @@ class BinaryField(fields.BaseField, ma_fields.Field):
         'invalid': 'Not a valid byte sequence.'
     }
 
-    def _serialize(self, value, attr, data):
+    def _serialize(self, value, attr, data, **kwargs):
         return bytes(value)
 
-    def _deserialize(self, value, attr, data):
+    def _deserialize(self, value, attr, data, **kwargs):
         if not isinstance(value, bytes):
             self.fail('invalid')
         return value
