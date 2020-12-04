@@ -63,7 +63,7 @@ def create_app():
 
     @app.errorhandler(Unauthorized)
     async def unauthorized(_):
-        flash("You are not authorized to access that page")
+        await flash("You are not authorized to access that page")
         return redirect(url_for("login"))
 
     @app.route("/signup", defaults={"code": None})
