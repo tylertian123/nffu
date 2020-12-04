@@ -204,15 +204,25 @@ async def create_signup_provider(name: str):
     TODO: this shouldn't be failing and should retry
     """
 
-    # create a new random key
-    secret_key = os.urandom(32)
+    attempt = 0
+    while True:
+        # create a new random key
+        secret_key = os.urandom(32)
 
-    # generate the subkeys
-    digested = hashlib.sha256(secret_key).hexdigest()
+        # generate the subkeys
+        digested = hashlib.sha256(secret_key).hexdigest()
 
-    identifiers = [
-        digested[i:i+3] for i in range(0, len(digested), 4)
-    ]
+        identifiers = [
+            digested[i:i+3] for i in range(0, len(digested), 4)
+        ]
+
+        if await SignupProvider.count_documents({"$or": [
+            {"hmac_secret": secret_key},
+            {"identify_tokens": {"$in": identifiers}}
+        ]}):
+            attempt += 1
+            if attempt > 5:
+                raise RuntimeError("couldn't create new provider")
 
     new_provider = SignupProvider(
         name=name,

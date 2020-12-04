@@ -4,12 +4,15 @@ from fenetre.auth import admin_required, eula_required
 from fenetre import auth
 from quart_auth import login_required, current_user
 import quart_auth
-from fenetre.db import User, LockboxFailure
+from fenetre.db import User, LockboxFailure, SignupProvider
 import bson
 import marshmallow as ma
 import marshmallow.fields as ma_fields
 import marshmallow.validate as ma_validate
+import binascii
 import json
+import random
+import time
 
 blueprint = Blueprint("api", __name__, url_prefix="/api/v1")
 
@@ -52,6 +55,8 @@ class LockboxFailureDump(LockboxFailure.schema.as_marshmallow_schema()):
     class Meta:
         fields = ("time_logged", "kind", "message", "id")
 
+lockbox_failure_dump = LockboxFailureDump()
+
 @blueprint.route("/me/lockbox_errors")
 @login_required
 @eula_required
@@ -61,7 +66,7 @@ async def lockbox_errors():
     result = [] 
 
     async for x in LockboxFailure.find({"token": userdata.lockbox_token}):
-        result.append(LockboxFailureDump.dump(x))
+        result.append(lockbox_failure_dump.dump(x))
 
     return {
         "lockbox_errors": result
@@ -147,4 +152,74 @@ async def do_signup():
     # login user (so subsequent api calls will still work)
     quart_auth.login_user(auth.UserProxy.from_db(new_user))
     
+    return '', 201
+
+class SignupProviderDump(LockboxFailure.schema.as_marshmallow_schema()):
+    class Meta:
+        fields = ("id", "name")
+
+signup_provider_dump = SignupProviderDump()
+
+@blueprint.route("/signup_provider")
+@admin_required
+async def enumerate_signups():
+    result = [] 
+
+    async for x in SignupProvider.find({}):
+        result.append(signup_provider_dump.dump(x))
+
+    return {
+        "signup_providers": result
+    }
+
+class NewSignupProviderSchema(ma.Schema):
+    name = ma_fields.String(required=True)
+
+new_signup_provider_schema = NewSignupProviderSchema()
+
+@blueprint.route("/signup_provider", methods=["POST"])
+@admin_required 
+async def new_signup_provider():
+    msg = await request.json
+    payload = new_signup_provider_schema.load(msg)
+
+    new_provider = await auth.create_signup_provider(payload["name"])
+
+    return {
+        "id": str(new_provider.id),
+        "name": new_provider.name,
+        "secret_key": binascii.hexlify(new_provider.hmac_secret).decode('ascii')
+    }, 201
+
+@blueprint.route("/signup_provider/<idx>")
+@admin_required
+async def get_signup_provider(idx):
+    requested = await SignupProvider.find_one({"id": bson.ObjectId(idx)})
+
+    if requested is None:
+        return {"error": "no such provider exists"}, 404
+
+    return signup_provider_dump.dump(requested)
+
+@blueprint.route("/signup_provider/<idx>", methods=["DELETE"])
+@admin_required
+async def delete_signup_provider(idx):
+    requested = await SignupProvider.find_one({"id": bson.ObjectId(idx)})
+
+    if requested is None:
+        return {"error": "no such provider exists"}, 404
+
+    await requested.remove()
     return '', 204
+
+@blueprint.route("/signup_provider/<idx>/generate")
+@admin_required
+async def generate_code_for_provider(idx):
+    requested = await SignupProvider.find_one({"id": bson.ObjectId(idx)})
+
+    if requested is None:
+        return {"error": "no such provider exists"}, 404
+
+    return {
+        "token": random.choice(requested.identify_tokens) + auth.generate_signup_code(requested.hmac_secret, int(time.time()))
+    }
