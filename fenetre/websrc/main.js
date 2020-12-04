@@ -15,6 +15,7 @@ import Container from 'react-bootstrap/Container'
 import {UserInfoProvider, UserInfoContext, AdminOnly} from './common/userinfo';
 
 import Home from './pane/home.js';
+import AuthCfg from './pane/authcfg.js';
 
 function App() {
 	const userinfo = React.useContext(UserInfoContext);
@@ -52,6 +53,9 @@ function App() {
 					<Switch>
 						<Route path="/" exact>
 							<Home />
+						</Route>
+						<Route path="/authcfg">
+							<AuthCfg />
 						</Route>
 					</Switch>
 				</Container>
