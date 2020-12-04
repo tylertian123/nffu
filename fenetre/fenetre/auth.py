@@ -1,5 +1,5 @@
 from quart_auth import login_user, logout_user, current_user, AuthUser, AuthManager, Unauthorized
-from fenetre.db import User, init_db_in_cli_context
+from fenetre.db import User, init_db_in_cli_context, SignupProvider
 from fenetre.lockbox import create_new_lockbox_identity
 from motor.motor_asyncio import AsyncIOMotorCollection
 from functools import wraps
@@ -147,6 +147,52 @@ async def change_password(user: User, password: str):
 
     await user.commit()
 
+def generate_signup_code(hmac_secret: bytes, unix_time: int):
+    """
+    Generate the HOTP part of the signup code
+
+    :param unix_time: should be in UTC
+    """
+
+    unix_minutes = unix_time // 60
+
+    data = unix_minutes.to_bytes(8, byteorder='big', signed=False)
+    mac  = hmac.new(hmac_secret, data, 'sha256').digest()
+    i    = mac[-1] % 16
+    trun = int.from_bytes(mac[i:i+4], byteorder='big', signed=False) % 2**31
+    hexa = trun % 16**6
+    return format(hexa, "06x")
+
+async def verify_signup_code(signup_code: str):
+    """
+    Verify a sign up code.
+
+    Format:
+
+    XXXYYYYYY
+    |//|///// 
+    ---+- generator id
+       |
+       -- actual HOTP (in hexadecimal to 6 digits)
+
+    All hexadecimal letters are lowercase only.
+    """
+
+    identifier, token = signup_code[0:3], signup_code[3:]
+
+    # try to find a signup provider that matches the identifier
+    potential_provider = await SignupProvider.find_one({"identify_tokens": identifier})
+    
+    if potential_provider is None:
+        return False
+
+    # try 2 minutes in the past to 6 minutes in the future
+    current_time = int(time.time())
+
+    for offset in range(-2, 7):
+        if token == generate_signup_code(potential_provider.hmac_secret, current_time + offset*60):
+            return True
+    return False
 
 async def init_auth_cli(user, password):
     usr = await add_blank_user(user, password)
