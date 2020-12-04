@@ -28,6 +28,25 @@ function EulaSigningCeremony() {
 		document.location.pathname = "/";
 	};
 
+	const delete_account = async () => {
+		setSending(true);
+
+		const result = await fetch("/api/v1/me", {
+			credentials: "same-origin",
+			method: "DELETE"
+		});
+
+		if (!result.ok) {
+			// TODO: make me less awful
+			alert("Failed to delete account");
+			setSending(false);
+			return;
+		}
+
+		// Send the user back to the main page.
+		document.location.pathname = "/";
+	};
+
 	return <>
 			<h1>Disclaimers &amp; Warnings</h1>
 				<p>Yes, I'm aware you probably weren't expecting to see this from <i>us</i> of all people, but there are important security implications you should be aware of if 
@@ -64,7 +83,7 @@ function EulaSigningCeremony() {
 			<p>If you wish to further verify our claims, <code>nffu</code>'s source code is available by clicking <a href="https://github.com/tylertian123/nffu" target="_blank">here</a> for your perusal.</p>
 		<hr />
 		<Button disabled={sending} variant="success" onClick={sign_eula}>Agree</Button>{' '}
-		<Button disabled={sending} variant="danger" className="float-right">Disagree and Delete Account</Button>
+		<Button disabled={sending} variant="danger"  onClick={delete_account} className="float-right">Disagree and Delete Account</Button>
 		{sending ? (<>
 			<hr />
 			<Row className="justify-content-center"><Spinner animation="border" variant="primary" /></Row>

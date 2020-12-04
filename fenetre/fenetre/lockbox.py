@@ -13,3 +13,12 @@ async def create_new_lockbox_identity(user: User):
 
     # currently does nothing TODO
     pass
+
+async def destroy_lockbox_identity(user: User):
+    """
+    Delete all information in lockbox for this user
+
+    If this fails the entire delete fails.
+    """
+
+    pass

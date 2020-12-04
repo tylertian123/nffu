@@ -2,7 +2,7 @@ from quart import Blueprint, request
 from quart.exceptions import HTTPException
 from fenetre.auth import admin_required, eula_required
 from fenetre import auth
-from quart_auth import login_required, current_user
+from quart_auth import login_required, current_user, logout_user
 import quart_auth
 from fenetre.db import User, LockboxFailure, SignupProvider
 import bson
@@ -123,6 +123,16 @@ async def sign_eula():
         return {"error": "you have already signed the eula"}, 403
 
     await auth.sign_eula(user)
+
+    return '', 204
+
+@blueprint.route("/me", methods=["DELETE"])
+@login_required
+async def delete_self():
+    user = await current_user.user
+
+    await auth.delete_user(user)
+    logout_user()
 
     return '', 204
 

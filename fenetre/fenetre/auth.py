@@ -1,6 +1,6 @@
 from quart_auth import login_user, logout_user, current_user, AuthUser, AuthManager, Unauthorized, login_required
 from fenetre.db import User, init_db_in_cli_context, SignupProvider
-from fenetre.lockbox import create_new_lockbox_identity
+from fenetre.lockbox import create_new_lockbox_identity, destroy_lockbox_identity
 from motor.motor_asyncio import AsyncIOMotorCollection
 from functools import wraps
 import enum
@@ -134,6 +134,16 @@ async def sign_eula(user: User):
         user.signed_eula = True
     finally:
         await user.commit()
+
+async def delete_user(user: User):
+    """
+    Destroy this user and associated lockbox data
+    """
+
+    if user.lockbox_token:
+        await destroy_lockbox_identity(user)
+
+    await user.remove()
 
 async def change_password(user: User, password: str):
     """
