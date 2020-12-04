@@ -45,7 +45,7 @@ async def userinfo():
         "username": userdata.username,
         "admin": userdata.admin,
         "has_discord_integration": userdata.discord_id is not None,
-        "has_lockbox_integreation": userdata.lockbox_token is not None,
+        "has_lockbox_integration": userdata.lockbox_token is not None,
         "lockbox_error": await LockboxFailure.count_documents({"token": userdata.lockbox_token}) > 0,                              
         "signed_eula": userdata.signed_eula
         # is something up with lockbox config?

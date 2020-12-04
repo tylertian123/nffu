@@ -14,6 +14,8 @@ import Container from 'react-bootstrap/Container'
 
 import {UserInfoProvider, UserInfoContext, AdminOnly} from './common/userinfo';
 
+import Home from './pane/home.js';
+
 function App() {
 	const userinfo = React.useContext(UserInfoContext);
 
@@ -46,10 +48,10 @@ function App() {
 						</Nav>
 				  </Navbar.Collapse>
 				</Navbar>
-				<Container>
+				<Container className="mt-2">
 					<Switch>
-						
 						<Route path="/" exact>
+							<Home />
 						</Route>
 					</Switch>
 				</Container>

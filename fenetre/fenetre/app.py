@@ -87,7 +87,8 @@ def create_app():
     @login_required
     async def eula_confirmation():
         # if the eula is already signed don't present this page
-        if (await current_user.user).signed_eula:
+        acct = (await current_user.user)
+        if acct.signed_eula and acct.lockbox_token:
             return redirect(url_for("main"))
 
         # the signup page still handles eula signing
