@@ -133,13 +133,13 @@ signup_schema = SignupSchema()
 @blueprint.route("/signup", methods=["POST"])
 async def do_signup():
     if await current_user.is_authenticated:
-        return {"error": "can't signup while still logged in"}, 403
+        return {"error": "Can't signup while still logged in."}, 403
 
     msg = await request.json
     payload = signup_schema.load(msg)
 
     if not await auth.verify_signup_code(payload["token"]):
-        return {"error": "invalid signup code"}, 401
+        return {"error": "Invalid signup code."}, 401
 
     # create a new user TODO: proper error checking and nicer response
     new_user = await auth.add_blank_user(payload["username"], payload["password"])
