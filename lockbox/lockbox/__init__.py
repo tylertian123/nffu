@@ -1,2 +1,5 @@
+from .server import LockboxServer
+
 def main():
-    print("hello, world", flush=True)
+    server = LockboxServer()
+    server.run()

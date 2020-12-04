@@ -4,30 +4,36 @@ services:
   lockbox:
     build: ./lockbox
     image: docker-registry.i.mm12.xyz/nffu-lockbox:0.0.0
-    expose:
-        - "80"
+    ports:
+      - "8082:80"
+    volumes:
+      - type: bind
+        source: ./lockbox/lockbox
+        target: /opt/venv/lib/python3.7/site-packages/lockbox
     secrets:
       - lockbox-credential-key
+    environment:
+      - LOCKBOX_CREDENTIAL_KEY_FILE=/run/secrets/lockbox-credential-key
   fenetre:
     build: ./fenetre
     image: docker-registry.i.mm12.xyz/nffu-fenetre:0.0.0
     ports:
-        - "8083:8080"
+      - "8083:8080"
     volumes:
-        - type: bind
-          source: ./fenetre/fenetre
-          target: /opt/venv/lib/python3.7/site-packages/fenetre
+      - type: bind
+        source: ./fenetre/fenetre
+        target: /opt/venv/lib/python3.7/site-packages/fenetre
     environment:
-        - "QUART_DEBUG=1"
+      - "QUART_DEBUG=1"
   db:
     image: mongo
     volumes:
-        - db-data:/data/db
+      - db-data:/data/db
     deploy:
-        resources:
-            limits:
-                cpus: '0.1'
-                memory: 64M
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 64M
 
 secrets:
   lockbox-credential-key:
@@ -35,5 +41,4 @@ secrets:
     # external: true
 
 volumes:
-  lockbox-data:
   db-data:
