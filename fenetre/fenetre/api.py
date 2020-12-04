@@ -142,7 +142,7 @@ async def do_signup():
         return {"error": "invalid signup code"}, 401
 
     # create a new user TODO: proper error checking and nicer response
-    new_user = await auth.add_blank_user(signup_schema["username"], signup_schema["password"])
+    new_user = await auth.add_blank_user(payload["username"], payload["password"])
 
     # login user (so subsequent api calls will still work)
     quart_auth.login_user(auth.UserProxy.from_db(new_user))

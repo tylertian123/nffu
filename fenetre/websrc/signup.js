@@ -11,7 +11,7 @@ import {BrowserRouter as Router, Route, Switch} from 'react-router-dom'
 import Container from 'react-bootstrap/Container'
 import FlashBox from './common/flashbox'
 
-import {SignupManualCode} from './signup_wizard/create_account';
+import {SignupManualCode, SignupProvidedCode} from './signup_wizard/create_account';
 
 function SignupWizard() {
 	return (
@@ -30,6 +30,9 @@ function SignupWizard() {
 					<Switch>
 						<Route path="/" exact>
 							<SignupManualCode />
+						</Route>
+						<Route path="/with/:code">
+							<SignupProvidedCode />
 						</Route>
 					</Switch>
 				</div>

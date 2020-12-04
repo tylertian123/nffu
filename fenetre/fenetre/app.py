@@ -5,7 +5,7 @@ from quart import Quart, render_template, url_for, redirect, request, flash
 from quart_auth import login_required, Unauthorized, current_user, logout_user
 
 from fenetre.db import init_app as db_init_app
-from fenetre.auth import init_app as auth_init_app, try_login_user, AuthenticationError, verify_signup_code, eula_required
+from fenetre.auth import init_app as auth_init_app, try_login_user, AuthenticationError, verify_signup_code, eula_required, EulaRequired
 from fenetre.static import setup_digest
 
 import secrets
@@ -92,6 +92,10 @@ def create_app():
 
         # the signup page still handles eula signing
         return await render_template("signup.html")
+
+    @app.errorhandler(EulaRequired)
+    async def handle_eula(*_: EulaRequired):
+        return redirect(url_for("eula_confirmation"))
 
     # setup static digest commands
     setup_digest(app)

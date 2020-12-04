@@ -70,7 +70,7 @@ function SignupBase(props) {
 					username: "",
 					password: "",
 					passwordConfirm: "",
-					code: ""
+					code: props.code === undefined ? "" : props.code
 				}}
 			>
 			    {({
