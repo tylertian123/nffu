@@ -22,11 +22,12 @@ function SignupWizard() {
 			minHeight: "100vh",
 			height: "100vh",
 			display: "flex",
-			alignItems: "center"
+			flexDirection: "column",
+			overflow: "auto"
 		}}>
-			<Container>
+			<Container className="m-auto">
 				<FlashBox />
-				<div className="justify-content-center">
+				<div>
 					<Switch>
 						<Route path="/" exact>
 							<SignupManualCode />
