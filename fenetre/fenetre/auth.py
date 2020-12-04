@@ -1,4 +1,4 @@
-from quart_auth import login_user, logout_user, current_user, AuthUser, AuthManager, Unauthorized
+from quart_auth import login_user, logout_user, current_user, AuthUser, AuthManager, Unauthorized, login_required
 from fenetre.db import User, init_db_in_cli_context, SignupProvider
 from fenetre.lockbox import create_new_lockbox_identity
 from motor.motor_asyncio import AsyncIOMotorCollection
@@ -48,6 +48,7 @@ def admin_required(func):
     """
 
     @wraps(func)
+    @login_required
     async def wrapper(*args, **kwargs):
         if (await current_user.user).admin:
             return await func(*args, **kwargs)
@@ -62,6 +63,7 @@ def eula_required(func):
     """
 
     @wraps(func)
+    @login_required
     async def wrapper(*args, **kwargs):
         if (await current_user.user).signed_eula:
             return await func(*args, **kwargs)
