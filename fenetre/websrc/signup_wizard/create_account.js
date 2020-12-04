@@ -78,9 +78,11 @@ function SignupBase(props) {
 					handleChange,
 					values,
 					errors,
-					isSubmitting
+					isSubmitting,
+					status
 				}) => (
 					<Form noValidate onSubmit={handleSubmit}>
+						{status ? (<p className="text-danger">{status}</p>) : null}
 						<Form.Group>
 							<Form.Control
 								type="text"
