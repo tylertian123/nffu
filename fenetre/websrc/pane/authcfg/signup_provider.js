@@ -3,6 +3,8 @@ import React from 'react';
 import {Form, Spinner, ListGroup, Button} from 'react-bootstrap';
 import {BsClipboard, BsPlus} from 'react-icons/bs';
 
+import {confirmationDialog} from '../../common/confirms';
+
 import "regenerator-runtime/runtime";
 
 function FixedSignupProvider(props) {
@@ -20,6 +22,11 @@ function FixedSignupProvider(props) {
 
 	const deleteMe = () => {
 		(async () => {
+			// Confirm the deletion
+			if (!await confirmationDialog(<p>Are you sure you want to delete the signup provider <code>{props.name}</code></p>)) {
+				return;
+			}
+
 			const response = await fetch("/api/v1/signup_provider/" + props.id, {
 				"method": "DELETE"
 			});
@@ -40,7 +47,7 @@ function FixedSignupProvider(props) {
 		<div className="float-right">
 			{generated ? (<Button onClick={copy} size="sm" variant="outline-secondary"><BsClipboard /></Button>) : null}
 			<span className="align-middle mx-1"> {generated}</span>{' '}
-			<Button variant="secondary" size="sm" onClick={updateGenerated}>Generate</Button>{' '}
+			<Button variant="outline-secondary" size="sm" onClick={updateGenerated}>Generate</Button>{' '}
 			<Button variant="danger" size="sm" onClick={deleteMe}>Delete</Button>
 		</div>
 	</ListGroup.Item>;

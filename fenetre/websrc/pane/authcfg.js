@@ -6,13 +6,14 @@ import {Route, Switch} from 'react-router'
 import {AdminOnly} from '../common/userinfo';
 
 import SignupProviders from './authcfg/signup_provider';
+import Users from './authcfg/users';
 
 import "regenerator-runtime/runtime";
 
 function AuthCfg() {
 	return <AdminOnly>
 		<Row>
-			<Col xs="5" md="4" lg="3">
+			<Col sm md="4" lg="2" className="mb-1">
 				<Nav variant="pills" className="flex-column">
 					<LinkContainer to="/authcfg/users">
 						<Nav.Link>Users</Nav.Link>
@@ -22,10 +23,10 @@ function AuthCfg() {
 					</LinkContainer>
 				</Nav>
 			</Col>
-			<Col xs="7" md="8" lg="9">
+			<Col sm md="8" lg="10">
 				<Switch>
 					<Route path="/authcfg/users">
-						<p>I exist</p>
+						<Users />
 					</Route>
 					<Route path="/authcfg/signup_providers">
 						<SignupProviders />

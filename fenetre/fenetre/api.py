@@ -96,14 +96,15 @@ async def lockbox_error_del(idx):
 class UpdateUserInfoSchema(ma.Schema):
     password = ma_fields.String(required=False, validate=ma_validate.Length(min=8))
     username = ma_fields.String(required=False, validate=ma_validate.Length(min=6))
+    admin    = ma_fields.Bool(required=False)
 
-update_user_info_schema = UpdateUserInfoSchema()
+update_user_info_schema_user = UpdateUserInfoSchema(only=["password", "username"])
 
 @blueprint.route("/me", methods=["PUT"])
 @login_required
 async def update_userinfo():
     msg = await request.json
-    payload = update_user_info_schema.load(msg)
+    payload = update_user_info_schema_user.load(msg)
 
     if "password" in payload:
         await auth.change_password(await current_user.user, payload["password"])
@@ -233,3 +234,66 @@ async def generate_code_for_provider(idx):
     return {
         "token": random.choice(requested.identify_tokens) + auth.generate_signup_code(requested.hmac_secret, int(time.time()))
     }
+
+class UserDump(User.schema.as_marshmallow_schema()):
+    class Meta:
+        fields = ["username", "id", "admin", "signed_eula"]
+
+user_dump = UserDump()
+
+@blueprint.route("/user")
+@admin_required
+async def list_users():
+    # TODO: should this paginate the responses? I can't be arsed to implement it
+    # right now
+    
+    return {"users": [user_dump.dump(x) async for x in User.find({})]}
+
+
+update_user_info_schema_admin = UpdateUserInfoSchema()
+
+@blueprint.route("/user/<idx>")
+@admin_required
+async def show_user(idx):
+    usr = await User.find_one({"id": bson.ObjectId(idx)})
+
+    if usr is None:
+        return {"error": "no such user"}, 404
+
+    return user_dump.dump(usr)
+
+@blueprint.route("/user/<idx>", methods=["PUT"])
+@admin_required
+async def update_user(idx):
+    u = await User.find_one({"id": bson.ObjectId(idx)})
+
+    if u is None:
+        return {"error": "no such user"}, 404
+
+    msg = await request.json
+    payload = update_user_info_schema_admin.load(msg)
+
+    if "password" in payload:
+        await auth.change_password(u, payload["password"])
+
+    if "username" in payload:
+        u.username = payload["username"]
+
+    if "admin" in payload:
+        u.admin = payload["admin"]
+
+    await u.commit()
+
+    return '', 204
+
+@blueprint.route("/user/<idx>", methods=["DELETE"])
+@admin_required
+async def delete_user(idx):
+    u = await User.find_one({"id": bson.ObjectId(idx)})
+
+    if u is None:
+        return {"error": "no such user"}, 404
+
+    await auth.delete_user(u)
+
+    return '', 204
