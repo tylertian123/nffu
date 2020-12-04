@@ -50,7 +50,7 @@ function UserEntry(props) {
 
 			try {
 				const response = await fetch("/api/v1/user/" + props.id, {
-					"method": "PUT",
+					"method": "PATCH",
 					"headers": {"Content-Type": "application/json"},
 					"body": JSON.stringify({
 						"password": data
@@ -75,7 +75,7 @@ function UserEntry(props) {
 				setAdmin(value);
 
 				const response = await fetch("/api/v1/user/" + props.id, {
-					"method": "PUT",
+					"method": "PATCH",
 					"headers": {"Content-Type": "application/json"},
 					"body": JSON.stringify({
 						"admin": value

@@ -100,7 +100,7 @@ class UpdateUserInfoSchema(ma.Schema):
 
 update_user_info_schema_user = UpdateUserInfoSchema(only=["password", "username"])
 
-@blueprint.route("/me", methods=["PUT"])
+@blueprint.route("/me", methods=["PATCH"])
 @login_required
 async def update_userinfo():
     msg = await request.json
@@ -262,7 +262,7 @@ async def show_user(idx):
 
     return user_dump.dump(usr)
 
-@blueprint.route("/user/<idx>", methods=["PUT"])
+@blueprint.route("/user/<idx>", methods=["PATCH"])
 @admin_required
 async def update_user(idx):
     u = await User.find_one({"id": bson.ObjectId(idx)})
