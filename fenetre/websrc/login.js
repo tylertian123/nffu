@@ -27,12 +27,12 @@ function Login() {
 		<Container>
 			<FlashBox />
 			<Row className="justify-content-center">
-				<Col lg="6" xs="8">
+				<Col lg="6" xs="12">
 					<h1>Login</h1>
 				</Col>
 			</Row>
 			<Row className="justify-content-center">
-				<Col lg="6" xs="8">
+				<Col lg="6" xs="12">
 					<Form method="post">
 						<Form.Group>
 							<Form.Control required name="username" type="text" placeholder="Enter your username" />

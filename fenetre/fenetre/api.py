@@ -3,6 +3,7 @@ from quart.exceptions import HTTPException
 from fenetre.auth import admin_required, eula_required
 from fenetre import auth
 from quart_auth import login_required, current_user
+import quart_auth
 from fenetre.db import User, LockboxFailure
 import bson
 import marshmallow as ma
@@ -43,6 +44,7 @@ async def userinfo():
         "has_discord_integration": userdata.discord_id is not None,
         "has_lockbox_integreation": userdata.lockbox_token is not None,
         "lockbox_error": await LockboxFailure.count_documents({"token": userdata.lockbox_token}) > 0,                              
+        "signed_eula": userdata.signed_eula
         # is something up with lockbox config?
     }
 
@@ -111,7 +113,38 @@ async def update_userinfo():
 @blueprint.route("/me/sign_eula", methods=["POST"])
 @login_required
 async def sign_eula():
-    await auth.sign_eula(await current_user.user)
+    user = await current_user.user
+    if user.signed_eula and user.lockbox_token:
+        return {"error": "you have already signed the eula"}, 403
+
+    await auth.sign_eula(user)
 
     return '', 204
 
+class SignupSchema(ma.Schema):
+    token = ma_fields.String(required=True, validate=ma_validate.Regexp("[0-9a-f]{9}"))
+
+    password = ma_fields.String(required=True, validate=ma_validate.Length(min=8))
+    username = ma_fields.String(required=True, validate=ma_validate.Length(min=6))
+
+signup_schema = SignupSchema()
+
+# this route is handled separately since it'll sign in the user too
+@blueprint.route("/signup", methods=["POST"])
+async def do_signup():
+    if await current_user.is_authenticated:
+        return {"error": "can't signup while still logged in"}, 403
+
+    msg = await request.json
+    payload = signup_schema.load(msg)
+
+    if not await auth.verify_signup_code(payload["token"]):
+        return {"error": "invalid signup code"}, 401
+
+    # create a new user TODO: proper error checking and nicer response
+    new_user = await auth.add_blank_user(signup_schema["username"], signup_schema["password"])
+
+    # login user (so subsequent api calls will still work)
+    quart_auth.login_user(auth.UserProxy.from_db(new_user))
+    
+    return '', 204

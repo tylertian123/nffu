@@ -7,7 +7,8 @@ module.exports = (env, options) => {
 	return {
 		entry: {
 			main: "./websrc/main.js",
-			login: "./websrc/login"
+			login: "./websrc/login.js",
+			signup: "./websrc/signup.js"
 		},
 		output: {
 			path: path.resolve(__dirname, './fenetre/static'),

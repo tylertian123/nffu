@@ -5,7 +5,7 @@ from quart import Quart, render_template, url_for, redirect, request, flash
 from quart_auth import login_required, Unauthorized, current_user, logout_user
 
 from fenetre.db import init_app as db_init_app
-from fenetre.auth import init_app as auth_init_app, try_login_user, AuthenticationError
+from fenetre.auth import init_app as auth_init_app, try_login_user, AuthenticationError, verify_signup_code, eula_required
 from fenetre.static import setup_digest
 
 import secrets
@@ -32,7 +32,7 @@ def create_app():
     @app.route("/app", defaults={"path": ""})
     @app.route("/app/", defaults={"path": ""})
     @app.route("/app/<path:path>")
-    @login_required
+    @eula_required
     async def main(path):
         return await render_template("app.html")
 
@@ -63,7 +63,35 @@ def create_app():
 
     @app.errorhandler(Unauthorized)
     async def unauthorized(_):
+        flash("You are not authorized to access that page")
         return redirect(url_for("login"))
+
+    @app.route("/signup", defaults={"code": None})
+    @app.route("/signup/with/<code>")
+    async def signup(code):
+        # make sure the user isn't signed in
+        if await current_user.is_authenticated:
+            return redirect(url_for("main"))
+
+        # if the code was provided, verify it
+        if code is not None:
+            if not await verify_signup_code(code):
+                await flash("Invalid signup code in URL; please enter a fresh one")
+                return redirect(url_for("signup", code=None))
+            # the code is actually parsed through the react-router in the signup page
+
+        # render the signup page
+        return await render_template("signup.html")
+
+    @app.route("/signup/eula")
+    @login_required
+    async def eula_confirmation():
+        # if the eula is already signed don't present this page
+        if (await current_user.user).signed_eula:
+            return redirect(url_for("main"))
+
+        # the signup page still handles eula signing
+        return await render_template("signup.html")
 
     # setup static digest commands
     setup_digest(app)
