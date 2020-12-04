@@ -18,7 +18,7 @@ function App() {
 	const userinfo = React.useContext(UserInfoContext);
 
 	return <Router basename="/app">
-				<Navbar bg="light">
+				<Navbar bg="light" expand="sm">
 					<Navbar.Brand>nffu</Navbar.Brand>
 					<Navbar.Toggle aria-controls="responsive-navbar-nav" />
 					<Navbar.Collapse id="responsive-navbar-nav">
