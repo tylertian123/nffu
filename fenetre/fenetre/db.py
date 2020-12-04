@@ -85,7 +85,7 @@ class SignupProvider(Document):
     name = fields.StrField(required=True)
 
     hmac_secret = BinaryField(required=True, unique=True, validate=validate.Length(equal=32))  # sha-256 secret key
-    identify_tokens = fields.ListField(fields.StringField(validate=validate.Length(equal=3)), validate=validate.Length(min=8), unique=True)
+    identify_tokens = fields.ListField(fields.StringField(validate=validate.Length(equal=3)), validate=validate.Length(min=2), unique=True)
 
 
 @_shared_instance.register

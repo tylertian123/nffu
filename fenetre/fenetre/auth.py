@@ -213,7 +213,7 @@ async def create_signup_provider(name: str):
         digested = hashlib.sha256(secret_key).hexdigest()
 
         identifiers = [
-            digested[i:i+3] for i in range(0, len(digested), 4)
+            digested[i:i+3] for i in range(0, len(digested), 16)
         ]
 
         if await SignupProvider.count_documents({"$or": [
@@ -221,8 +221,10 @@ async def create_signup_provider(name: str):
             {"identify_tokens": {"$in": identifiers}}
         ]}):
             attempt += 1
-            if attempt > 5:
+            if attempt > 10:
                 raise RuntimeError("couldn't create new provider")
+        else:
+            break
 
     new_provider = SignupProvider(
         name=name,
