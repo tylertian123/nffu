@@ -2,6 +2,9 @@ from aiohttp import web
 from .db import LockboxDB
 
 class LockboxServer:
+    """
+    Main server class.
+    """
 
     def __init__(self, **kwargs):
         self.app = web.Application(**kwargs)
@@ -10,5 +13,17 @@ class LockboxServer:
 
         self.db = LockboxDB("db", 27017)
     
+    async def make_app(self):
+        """
+        Perform async initialization for the app.
+        """
+        await self.db.init()
+        return self.app
+    
     def run(self):
-        web.run_app(self.app, host="0.0.0.0", port=80)
+        """
+        Run the sever.
+
+        Does not return until the server is killed.
+        """
+        web.run_app(self.make_app(), host="0.0.0.0", port=80)
