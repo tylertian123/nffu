@@ -12,6 +12,7 @@ import Container from 'react-bootstrap/Container'
 import FlashBox from './common/flashbox'
 
 import {SignupManualCode, SignupProvidedCode} from './signup_wizard/create_account';
+import {EulaSigningCeremony} from './signup_wizard/sign_eula';
 
 function SignupWizard() {
 	return (
@@ -34,6 +35,9 @@ function SignupWizard() {
 						</Route>
 						<Route path="/with/:code">
 							<SignupProvidedCode />
+						</Route>
+						<Route path="/eula">
+							<EulaSigningCeremony />
 						</Route>
 					</Switch>
 				</div>
