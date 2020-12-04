@@ -50,6 +50,15 @@ def init_app(app: Quart):
         _shared_instance.set_db(shared_db())
         _private_instance.set_db(private_db())
 
+    @app.cli.command()
+    async def build_indexes():
+        init_db_in_cli_context()
+
+        await User.ensure_indexes()
+        await SignupProvider.ensure_indexes()
+
+        print("ok")
+
 @_private_instance.register
 class User(Document):
     username = fields.StrField(required=True, unique=True, validate=validate.Length(min=6))
@@ -66,6 +75,14 @@ class User(Document):
     # we still force a password to exist on the account though.
 
     lockbox_token = fields.StrField(default=None) # not always present if not setup
+
+@_private_instance.register
+class SignupProvider(Document):
+    name = fields.StrField(required=True)
+
+    hmac_secret = BinaryField(required=True, unique=True, validate=validate.Length(equal=32))  # sha-256 secret key
+    identify_tokens = fields.ListField(fields.StringField(validate=validate.Length(equal=3)), validate=validate.Length(min=8), unique=True)
+
 
 @_shared_instance.register
 class LockboxFailure(Document):
