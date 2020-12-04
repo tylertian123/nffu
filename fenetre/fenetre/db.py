@@ -3,6 +3,7 @@ from quart import Quart, g
 from umongo.frameworks import MotorAsyncIOInstance
 from marshmallow import fields as ma_fields, missing as missing_
 from umongo import Document, fields, validate
+import asyncio
 import bson
 
 def private_db() -> AsyncIOMotorDatabase:
@@ -51,11 +52,14 @@ def init_app(app: Quart):
         _private_instance.set_db(private_db())
 
     @app.cli.command()
-    async def build_indexes():
+    def build_indexes():
         init_db_in_cli_context()
 
-        await User.ensure_indexes()
-        await SignupProvider.ensure_indexes()
+        async def inner():
+            await User.ensure_indexes()
+            await SignupProvider.ensure_indexes()
+
+        asyncio.get_event_loop().run_until_complete(inner())
 
         print("ok")
 
