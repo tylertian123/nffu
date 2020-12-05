@@ -40,7 +40,7 @@ function Login() {
 							<Form.Control required name="password" type="password" placeholder="Enter your password" />
 						</Form.Group>
 						<Form.Group>
-							<FormCheck type="checkbox" label="Stay logged in?" name="remember_me" id="remember-me" />
+							<FormCheck custom type="checkbox" label="Stay logged in?" name="remember_me" id="remember-me" />
 						</Form.Group>
 						<Button variant="success" type="submit">Go</Button>
 					</Form>
