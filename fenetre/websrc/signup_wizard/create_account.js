@@ -29,7 +29,7 @@ function SignupBase(props) {
 
 	const [isDone, setDone] = React.useState(false);
 
-	const doSubmit = async (values, {setStatus}) => {
+	const doSubmit = async (values, {setStatus, setFieldError}) => {
 		try {
 			const response = await fetch('/api/v1/signup', {
 				method: "POST",
@@ -43,7 +43,15 @@ function SignupBase(props) {
 			});
 			if (!response.ok) {
 				const data = await response.json();
-				setStatus(data.error);
+
+				if (data.error == "invalid request" && "extra" in data) {
+					if ("username" in data.extra) setFieldError("username", data.extra["username"]);
+					if ("password" in data.extra) setFieldError("password", data.extra["password"]);
+					if ("token" in data.extra) setFieldError("code", data.extra["token"]);
+				}
+				else {
+					setStatus(data.error);
+				}
 			}
 			else {
 				setDone(true);

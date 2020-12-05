@@ -1,4 +1,4 @@
-from quart import Blueprint, request
+from quart import Blueprint, request, flash
 from quart.exceptions import HTTPException
 from fenetre.auth import admin_required, eula_required
 from fenetre import auth
@@ -134,6 +134,8 @@ async def delete_self():
 
     await auth.delete_user(user)
     logout_user()
+
+    await flash("Your account was deleted")
 
     return '', 204
 

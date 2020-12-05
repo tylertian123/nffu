@@ -1,6 +1,7 @@
 import React from 'react';
 import {useParams, Redirect} from 'react-router-dom';
 
+import {confirmationDialog} from "../common/confirms";
 import Button from 'react-bootstrap/Button'
 import Spinner from 'react-bootstrap/Spinner'
 import Row from 'react-bootstrap/Row'
@@ -29,6 +30,10 @@ function EulaSigningCeremony() {
 	};
 
 	const delete_account = async () => {
+		if (!await confirmationDialog(<p>Are you sure?</p>)) {
+			return;
+		}
+
 		setSending(true);
 
 		const result = await fetch("/api/v1/me", {
@@ -44,7 +49,7 @@ function EulaSigningCeremony() {
 		}
 
 		// Send the user back to the main page.
-		document.location.pathname = "/";
+		document.location.pathname = "/login";
 	};
 
 	return <>

@@ -109,7 +109,7 @@ async def add_blank_user(username: str, password: str, *, discord_id: str=None) 
     """
 
     # pick a random salt
-    salt = os.urandom(32)
+    salt = os.urandom(64)
 
     # generate the passhash
     passhash = compute_passhash(password, salt)
