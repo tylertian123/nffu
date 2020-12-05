@@ -18,6 +18,7 @@ static_digest = FlaskStaticDigest()
 
 def create_app():
     app = Quart(__name__)
+    app.config["QUART_AUTH_COOKIE_SECURE"] = False
     app.secret_key = secrets.token_urlsafe()
     if app.debug:
         app.secret_key = "thisisverysecret"
