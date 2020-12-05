@@ -38,7 +38,7 @@ function App() {
 								</LinkContainer>
 							</AdminOnly>
 							<LinkContainer to="/lockbox">
-								<Nav.Link>TDSB Credentials</Nav.Link>
+								<Nav.Link>Attendance Setup</Nav.Link>
 							</LinkContainer>
 						</Nav>
 						<Navbar.Text>
