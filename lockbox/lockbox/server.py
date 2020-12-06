@@ -11,7 +11,8 @@ class LockboxServer:
         self.app = web.Application(**kwargs)
         self.app.router.add_routes([
             web.post("/user", self._post_user),
-            web.patch("/user", self._patch_user)
+            web.patch("/user", self._patch_user),
+            web.get("/user", self._get_user)
         ])
 
         self.db = LockboxDB("db", 27017)
@@ -39,7 +40,6 @@ class LockboxServer:
 
         Returns the following JSON on success:
         {
-            "status": "ok",
             "token": "...", // A token consisting of 64 hex digits for this user
         }
         """
@@ -47,9 +47,9 @@ class LockboxServer:
         try:
             token = await self.db.create_user()
         except ValueError as e:
-            return web.json_response({"status": "error", "reason": str(e)}, status=400)
+            return web.json_response({"error": str(e)}, status=400)
         print("Created new user")
-        return web.json_response({"status": "ok", "token": token}, status=200)
+        return web.json_response({"token": token}, status=200)
     
     async def _patch_user(self, request: web.Request):
         """
@@ -68,26 +68,64 @@ class LockboxServer:
 
         Returns the following JSON on failure:
         {
-            "status": "error",
-            "reason": "...", // Reason for error, e.g. "Missing body", "Bad token", etc.
+            "error": "...", // Reason for error, e.g. "Missing body", "Bad token", etc.
         }
         """
-        print("Got request: POST to /user")
+        print("Got request: PATCH to /user")
         if "authorization" not in request.headers:
-            return web.json_response({"status": "error", "reason": "Missing token"}, status=401)
+            return web.json_response({"error": "Missing token"}, status=401)
         auth_parts = request.headers["authorization"].split(" ")
         if len(auth_parts) != 2 or auth_parts[0].lower() != "bearer":
-            return web.json_response({"status": "error", "reason": "Bearer auth not used"}, status=401)
+            return web.json_response({"error": "Bearer auth not used"}, status=401)
         token = auth_parts[1]
         if not request.can_read_body:
-            return web.json_response({"status": "error", "reason": "Missing body"}, status=400)
+            return web.json_response({"error": "Missing body"}, status=400)
         if not request.content_type in ("application/json", "text/json"):
-            return web.json_response({"status": "error", "reason": "Bad content type"}, status=400)
+            return web.json_response({"error": "Bad content type"}, status=400)
         data = await request.json()
         try:
             await self.db.modify_user(token, **data)
         except ValueError:
-            return web.json_response({"status": "error", "reason": "Bad token"}, status=401)
+            return web.json_response({"error": "Bad token"}, status=401)
         except ValidationError as e:
-            return web.json_response({"status": "error", "reason": f"ValidationError: {e}"}, status=400)
+            return web.json_response({"error": f"ValidationError: {e}"}, status=400)
+        print("User modified")
         return web.Response(status=204)
+    
+    async def _get_user(self, request: web.Request):
+        """
+        Handle a GET to /user.
+
+        The request should use bearer auth with a token given on user creation.
+
+        Returns the following JSON on success:
+        {
+            "login": "...", // Optional, TDSB login (student number) (missing if unconfigured)
+            "active": true, // Whether form-filling is active for this user
+            "errors": [], // An array of LockboxFailures listing the errors
+            "credentials_set": true, // Whether credentials are set (both student number and password)
+        }
+
+        Returns the following JSON on failure:
+        {
+            "error": "...", // Reason for error, e.g. "Missing body", "Bad token", etc.
+        }
+        """
+        print("Got request: GET to /user")
+        if "authorization" not in request.headers:
+            return web.json_response({"error": "Missing token"}, status=401)
+        auth_parts = request.headers["authorization"].split(" ")
+        if len(auth_parts) != 2 or auth_parts[0].lower() != "bearer":
+            return web.json_response({"error": "Bearer auth not used"}, status=401)
+        token = auth_parts[1]
+        try:
+            data = await self.db.get_user(token)
+        except ValueError:
+            return web.json_response({"error": "Bad token"}, status=401)
+        # Modify data
+        data["credentials_set"] = "password" in data and "login" in data
+        data.pop("id", None)
+        data.pop("password", None)
+        data.pop("token", None)
+        print("User data returned")
+        return web.json_response(data, status=200)

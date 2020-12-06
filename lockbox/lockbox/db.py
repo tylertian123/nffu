@@ -2,10 +2,11 @@ import base64
 import bson
 import os
 import secrets
+import typing
 from cryptography.fernet import Fernet
 from marshmallow import fields as ma_fields
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from umongo import Document, fields, validate, ValidationError
+from umongo import Document, EmbeddedDocument, fields, validate, ValidationError
 from umongo.frameworks import MotorAsyncIOInstance
 
 class BinaryField(fields.BaseField, ma_fields.Field):
@@ -33,6 +34,15 @@ class BinaryField(fields.BaseField, ma_fields.Field):
     def _deserialize_from_mongo(self, value):
         return bytes(value)
 
+class LockboxFailure(EmbeddedDocument): # pylint: disable=abstract-method
+    """
+    A document used to report lockbox failures to fenetre.
+    """
+    _id = fields.ObjectIdField(required=True)
+    time_logged = fields.DateTimeField(required=True)
+    kind = fields.StrField(required=True, marshmallow_default="unknown")
+    message = fields.StrField(required=False, default="")
+
 class User(Document): # pylint: disable=abstract-method
     """
     A user in the private database.
@@ -44,18 +54,7 @@ class User(Document): # pylint: disable=abstract-method
     password = BinaryField(required=False)
 
     active = fields.BoolField(default=True)
-
-class LockboxFailure(Document): # pylint: disable=abstract-method
-    """
-    A document used to report lockbox failures to fenetre.
-
-    Copied from fenetre/db.py.
-    """
-    token = fields.StrField(required=True) # TODO: Make this unique and validate, move document to private db
-    time_logged = fields.DateTimeField(required=True)
-    
-    kind = fields.StrField(required=True, marshmallow_default="unknown")
-    message = fields.StrField(required=False, default="")
+    errors = fields.ListField(fields.EmbeddedField(LockboxFailure), default=[])
 
 class LockboxDB:
     """
@@ -85,14 +84,14 @@ class LockboxDB:
         self._private_instance = MotorAsyncIOInstance(self._private_db)
         self._shared_instance = MotorAsyncIOInstance(self._shared_db)
 
+        self.LockboxFailureImpl = self._private_instance.register(LockboxFailure)
         self.UserImpl = self._private_instance.register(User)
-        self.LockboxFailureImpl = self._shared_instance.register(LockboxFailure)
         
     async def init(self):
         """
         Initialize the databases.
         """
-        await self.LockboxFailureImpl.ensure_indexes()
+        await self.UserImpl.ensure_indexes()
     
     def private_db(self) -> AsyncIOMotorDatabase:
         return self._private_db
@@ -124,3 +123,12 @@ class LockboxDB:
         if active is not None:
             user.active = active
         await user.commit()
+    
+    async def get_user(self, token: str) -> typing.Dict[str, typing.Any]:
+        """
+        Get user data as a formatted dict.
+        """
+        user = await self.UserImpl.find_one({"token": token})
+        if user is None:
+            raise ValueError("Bad token")
+        return user.dump()
