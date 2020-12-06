@@ -1,7 +1,7 @@
 from quart import Blueprint, request, flash
 from quart.exceptions import HTTPException
 from fenetre.auth import admin_required, eula_required
-from fenetre import auth
+from fenetre import auth, lockbox
 from quart_auth import login_required, current_user, logout_user
 import quart_auth
 from fenetre.db import User, LockboxFailure, SignupProvider
@@ -40,6 +40,7 @@ async def invalid_data(e: ma.ValidationError):
 @login_required
 async def userinfo():
     userdata = await current_user.user
+    lockbox_status = await lockbox.get_lockbox_status_for(userdata)
 
     return {
         "username": userdata.username,
@@ -47,8 +48,9 @@ async def userinfo():
         "has_discord_integration": userdata.discord_id is not None,
         "has_lockbox_integration": userdata.lockbox_token is not None,
         "lockbox_error": await LockboxFailure.count_documents({"token": userdata.lockbox_token}) > 0,                              
-        "signed_eula": userdata.signed_eula
-        # is something up with lockbox config?
+        "signed_eula": userdata.signed_eula,
+        "lockbox_credentials_present": lockbox_status is not None and lockbox_status.has_credentials,
+        "lockbox_form_active": lockbox_status is not None and lockbox_status.active
     }
 
 class LockboxFailureDump(LockboxFailure.schema.as_marshmallow_schema()):
@@ -94,11 +96,16 @@ async def lockbox_error_del(idx):
         return '', 204
 
 class UpdateUserInfoSchema(ma.Schema):
+    current_password = ma_fields.String(required=False)
     password = ma_fields.String(required=False, validate=ma_validate.Length(min=8))
     username = ma_fields.String(required=False, validate=ma_validate.Length(min=6))
-    admin    = ma_fields.Bool(required=False)
 
-update_user_info_schema_user = UpdateUserInfoSchema(only=["password", "username"])
+    @ma.validates_schema
+    def validate_mutinc(self, data):
+        if 'password' in data and 'current_password' not in data or 'password' not in data and 'current_password' in data:
+            raise ma.ValidationError("current_password and password are mutually inclusive")
+
+update_user_info_schema_user = UpdateUserInfoSchema()
 
 @blueprint.route("/me", methods=["PATCH"])
 @login_required
@@ -107,6 +114,8 @@ async def update_userinfo():
     payload = update_user_info_schema_user.load(msg)
 
     if "password" in payload:
+        if not auth.verify_password_for_user(await current_user.user, payload["current_password"]):
+            return {"error": "incorrect current password"}, 401
         await auth.change_password(await current_user.user, payload["password"])
 
     if "username" in payload:
@@ -251,8 +260,12 @@ async def list_users():
     
     return {"users": [user_dump.dump(x) async for x in User.find({})]}
 
+class UpdateUserInfoAdminSchema(ma.Schema):
+    password = ma_fields.String(required=False, validate=ma_validate.Length(min=8))
+    username = ma_fields.String(required=False, validate=ma_validate.Length(min=6))
+    admin    = ma_fields.Bool(required=False)
 
-update_user_info_schema_admin = UpdateUserInfoSchema()
+update_user_info_schema_admin = UpdateUserInfoAdminSchema()
 
 @blueprint.route("/user/<idx>")
 @admin_required
