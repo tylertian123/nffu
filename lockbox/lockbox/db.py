@@ -9,6 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from umongo import Document, EmbeddedDocument, fields, validate, ValidationError
 from umongo.frameworks import MotorAsyncIOInstance
 
+
 class BinaryField(fields.BaseField, ma_fields.Field):
     """
     A field storing binary data in a document.
@@ -34,6 +35,7 @@ class BinaryField(fields.BaseField, ma_fields.Field):
     def _deserialize_from_mongo(self, value):
         return bytes(value)
 
+
 class LockboxFailure(EmbeddedDocument): # pylint: disable=abstract-method
     """
     A document used to report lockbox failures to fenetre.
@@ -42,6 +44,7 @@ class LockboxFailure(EmbeddedDocument): # pylint: disable=abstract-method
     time_logged = fields.DateTimeField(required=True)
     kind = fields.StrField(required=True, marshmallow_default="unknown")
     message = fields.StrField(required=False, default="")
+
 
 class User(Document): # pylint: disable=abstract-method
     """
@@ -55,6 +58,7 @@ class User(Document): # pylint: disable=abstract-method
 
     active = fields.BoolField(default=True)
     errors = fields.ListField(fields.EmbeddedField(LockboxFailure), default=[])
+
 
 class LockboxDB:
     """
@@ -132,3 +136,12 @@ class LockboxDB:
         if user is None:
             raise ValueError("Bad token")
         return user.dump()
+    
+    async def delete_user(self, token: str) -> typing.Dict[str, typing.Any]:
+        """
+        Delete a user by token.
+        """
+        user = await self.UserImpl.find_one({"token": token})
+        if user is None:
+            raise ValueError("Bad token")
+        await user.remove()  

@@ -1,6 +1,24 @@
+import functools
 from aiohttp import web
 from umongo import ValidationError
 from .db import LockboxDB
+
+
+def _extract_token(handler):
+    """
+    Use this decorator on web handlers to require token auth and extract the token.
+    """
+    @functools.wraps(handler)
+    async def _handler(self, request: web.Request):
+        if "authorization" not in request.headers:
+            return web.json_response({"error": "Missing token"}, status=401)
+        auth_parts = request.headers["authorization"].split(" ")
+        if len(auth_parts) != 2 or auth_parts[0].lower() != "bearer":
+            return web.json_response({"error": "Bearer auth not used"}, status=401)
+        token = auth_parts[1]
+        return await handler(self, request, token)
+    return _handler
+
 
 class LockboxServer:
     """
@@ -12,7 +30,8 @@ class LockboxServer:
         self.app.router.add_routes([
             web.post("/user", self._post_user),
             web.patch("/user", self._patch_user),
-            web.get("/user", self._get_user)
+            web.get("/user", self._get_user),
+            web.delete("/user", self._delete_user)
         ])
 
         self.db = LockboxDB("db", 27017)
@@ -51,7 +70,8 @@ class LockboxServer:
         print("Created new user")
         return web.json_response({"token": token}, status=200)
     
-    async def _patch_user(self, request: web.Request):
+    @_extract_token
+    async def _patch_user(self, request: web.Request, token: str):
         """
         Handle a PATCH to /user.
 
@@ -72,12 +92,6 @@ class LockboxServer:
         }
         """
         print("Got request: PATCH to /user")
-        if "authorization" not in request.headers:
-            return web.json_response({"error": "Missing token"}, status=401)
-        auth_parts = request.headers["authorization"].split(" ")
-        if len(auth_parts) != 2 or auth_parts[0].lower() != "bearer":
-            return web.json_response({"error": "Bearer auth not used"}, status=401)
-        token = auth_parts[1]
         if not request.can_read_body:
             return web.json_response({"error": "Missing body"}, status=400)
         if not request.content_type in ("application/json", "text/json"):
@@ -92,7 +106,8 @@ class LockboxServer:
         print("User modified")
         return web.Response(status=204)
     
-    async def _get_user(self, request: web.Request):
+    @_extract_token
+    async def _get_user(self, request: web.Request, token): # pylint: disable=unused-argument
         """
         Handle a GET to /user.
 
@@ -108,16 +123,10 @@ class LockboxServer:
 
         Returns the following JSON on failure:
         {
-            "error": "...", // Reason for error, e.g. "Missing body", "Bad token", etc.
+            "error": "...", // Reason for error, e.g. "Bad token", etc.
         }
         """
         print("Got request: GET to /user")
-        if "authorization" not in request.headers:
-            return web.json_response({"error": "Missing token"}, status=401)
-        auth_parts = request.headers["authorization"].split(" ")
-        if len(auth_parts) != 2 or auth_parts[0].lower() != "bearer":
-            return web.json_response({"error": "Bearer auth not used"}, status=401)
-        token = auth_parts[1]
         try:
             data = await self.db.get_user(token)
         except ValueError:
@@ -129,3 +138,25 @@ class LockboxServer:
         data.pop("token", None)
         print("User data returned")
         return web.json_response(data, status=200)
+    
+    @_extract_token
+    async def _delete_user(self, request: web.Request, token: str):
+        """
+        Handle a DELETE to /user.
+
+        The request should use bearer auth with a token given on user creation.
+
+        204 on success.
+
+        Returns the following JSON on failure:
+        {
+            "error": "...", // Reason for error, e.g. "Bad token", etc.
+        }
+        """
+        print("Got request: DELETE to /user")
+        try:
+            await self.db.delete_user(token)
+        except ValueError:
+            return web.json_response({"error": "Bad token"}, status=401)
+        print("User deleted")
+        return web.Response(status=204)
