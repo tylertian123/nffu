@@ -11,7 +11,8 @@ import {BrowserRouter as Router, Route, Switch} from 'react-router-dom'
 import Container from 'react-bootstrap/Container'
 import FlashBox from './common/flashbox'
 
-import {SignupManualCode} from './signup_wizard/create_account';
+import {SignupManualCode, SignupProvidedCode} from './signup_wizard/create_account';
+import {EulaSigningCeremony} from './signup_wizard/sign_eula';
 
 function SignupWizard() {
 	return (
@@ -22,14 +23,21 @@ function SignupWizard() {
 			minHeight: "100vh",
 			height: "100vh",
 			display: "flex",
-			alignItems: "center"
+			flexDirection: "column",
+			overflow: "auto"
 		}}>
-			<Container>
+			<Container className="m-auto">
 				<FlashBox />
-				<div className="justify-content-center">
+				<div>
 					<Switch>
 						<Route path="/" exact>
 							<SignupManualCode />
+						</Route>
+						<Route path="/with/:code">
+							<SignupProvidedCode />
+						</Route>
+						<Route path="/eula">
+							<EulaSigningCeremony />
 						</Route>
 					</Switch>
 				</div>

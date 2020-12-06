@@ -5,7 +5,7 @@ from quart import Quart, render_template, url_for, redirect, request, flash
 from quart_auth import login_required, Unauthorized, current_user, logout_user
 
 from fenetre.db import init_app as db_init_app
-from fenetre.auth import init_app as auth_init_app, try_login_user, AuthenticationError, verify_signup_code, eula_required
+from fenetre.auth import init_app as auth_init_app, try_login_user, AuthenticationError, verify_signup_code, eula_required, EulaRequired
 from fenetre.static import setup_digest
 
 import secrets
@@ -63,7 +63,7 @@ def create_app():
 
     @app.errorhandler(Unauthorized)
     async def unauthorized(_):
-        flash("You are not authorized to access that page")
+        await flash("You are not authorized to access that page")
         return redirect(url_for("login"))
 
     @app.route("/signup", defaults={"code": None})
@@ -87,11 +87,16 @@ def create_app():
     @login_required
     async def eula_confirmation():
         # if the eula is already signed don't present this page
-        if (await current_user.user).signed_eula:
+        acct = (await current_user.user)
+        if acct.signed_eula and acct.lockbox_token:
             return redirect(url_for("main"))
 
         # the signup page still handles eula signing
         return await render_template("signup.html")
+
+    @app.errorhandler(EulaRequired)
+    async def handle_eula(*_: EulaRequired):
+        return redirect(url_for("eula_confirmation"))
 
     # setup static digest commands
     setup_digest(app)

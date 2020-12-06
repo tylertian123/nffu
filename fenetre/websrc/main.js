@@ -14,11 +14,14 @@ import Container from 'react-bootstrap/Container'
 
 import {UserInfoProvider, UserInfoContext, AdminOnly} from './common/userinfo';
 
+import Home from './pane/home.js';
+import AuthCfg from './pane/authcfg.js';
+
 function App() {
 	const userinfo = React.useContext(UserInfoContext);
 
 	return <Router basename="/app">
-				<Navbar bg="light">
+				<Navbar bg="light" expand="sm">
 					<Navbar.Brand>nffu</Navbar.Brand>
 					<Navbar.Toggle aria-controls="responsive-navbar-nav" />
 					<Navbar.Collapse id="responsive-navbar-nav">
@@ -46,10 +49,13 @@ function App() {
 						</Nav>
 				  </Navbar.Collapse>
 				</Navbar>
-				<Container>
+				<Container className="mt-2">
 					<Switch>
-						
 						<Route path="/" exact>
+							<Home />
+						</Route>
+						<Route path="/authcfg">
+							<AuthCfg />
 						</Route>
 					</Switch>
 				</Container>

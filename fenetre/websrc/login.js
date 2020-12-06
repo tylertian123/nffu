@@ -22,9 +22,10 @@ function Login() {
 			minHeight: "100vh",
 			height: "100vh",
 			display: "flex",
-			alignItems: "center"
+			flexDirection: "column",
+			overflow: "auto"
 		}}>
-		<Container>
+			<Container className="m-auto">
 			<FlashBox />
 			<Row className="justify-content-center">
 				<Col lg="6" xs="12">
@@ -44,7 +45,9 @@ function Login() {
 						<Button variant="success" type="submit">Go</Button>
 					</Form>
 					<hr />
-					<p className="text-light">or maybe try</p>
+					<p className="text-light">or maybe login with</p>
+					<hr />
+					<p className="text-light">don't have an account? sign up <a href="/signup">here</a></p>
 				</Col>
 			</Row>
 		</Container>

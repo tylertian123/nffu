@@ -1,6 +1,6 @@
 from quart_auth import login_user, logout_user, current_user, AuthUser, AuthManager, Unauthorized, login_required
 from fenetre.db import User, init_db_in_cli_context, SignupProvider
-from fenetre.lockbox import create_new_lockbox_identity
+from fenetre.lockbox import create_new_lockbox_identity, destroy_lockbox_identity
 from motor.motor_asyncio import AsyncIOMotorCollection
 from functools import wraps
 import enum
@@ -10,6 +10,8 @@ import bson
 import os
 import click
 import asyncio
+import binascii
+import time
 
 auth_manager = AuthManager()
 
@@ -133,6 +135,16 @@ async def sign_eula(user: User):
     finally:
         await user.commit()
 
+async def delete_user(user: User):
+    """
+    Destroy this user and associated lockbox data
+    """
+
+    if user.lockbox_token:
+        await destroy_lockbox_identity(user)
+
+    await user.remove()
+
 async def change_password(user: User, password: str):
     """
     Update the password of the given user
@@ -183,18 +195,56 @@ async def verify_signup_code(signup_code: str):
     identifier, token = signup_code[0:3], signup_code[3:]
 
     # try to find a signup provider that matches the identifier
-    potential_provider = await SignupProvider.find_one({"identify_tokens": identifier})
-    
-    if potential_provider is None:
-        return False
+    potential_providers = SignupProvider.find({"identify_tokens": identifier})
 
     # try 2 minutes in the past to 6 minutes in the future
     current_time = int(time.time())
 
-    for offset in range(-2, 7):
-        if token == generate_signup_code(potential_provider.hmac_secret, current_time + offset*60):
-            return True
+    async for potential_provider in potential_providers:
+        for offset in range(-2, 7):
+            if token == generate_signup_code(potential_provider.hmac_secret, current_time + offset*60):
+                return True
     return False
+
+async def create_signup_provider(name: str):
+    """
+    Create a new signup provider, returning the created database object.
+
+    This may fail if the randomly generated code is in the database; but it's fairly unlikely for this to occur.
+    TODO: this shouldn't be failing and should retry
+    """
+
+    attempt = 0
+    while True:
+        # create a new random key
+        secret_key = os.urandom(32)
+
+        # generate the subkeys
+        digested = hashlib.sha256(secret_key).hexdigest()
+
+        identifiers = [
+            digested[i:i+3] for i in range(0, len(digested), 16)
+        ]
+
+        if await SignupProvider.count_documents({"$or": [
+            {"hmac_secret": secret_key},
+            {"identify_tokens": {"$in": identifiers}}
+        ]}):
+            attempt += 1
+            if attempt > 10:
+                raise RuntimeError("couldn't create new provider")
+        else:
+            break
+
+    new_provider = SignupProvider(
+        name=name,
+        hmac_secret=secret_key,
+        identify_tokens=identifiers
+    )
+
+    await new_provider.commit()
+
+    return new_provider
 
 async def init_auth_cli(user, password):
     usr = await add_blank_user(user, password)
@@ -203,6 +253,15 @@ async def init_auth_cli(user, password):
     await usr.commit()
 
     click.echo("done!")
+
+async def init_signup_source_cli(name):
+    new_provider = await create_signup_provider(name)
+
+    secret_key = binascii.hexlify(new_provider.hmac_secret).decode('ascii')
+    click.echo("new signup source:")
+    click.echo(f" name: {name}")
+    click.echo(f" key: {secret_key}")
+    click.echo(f" identifiers: {new_provider.identify_tokens}")
 
 def init_app(app):
     auth_manager.init_app(app)
@@ -217,3 +276,13 @@ def init_app(app):
 
         init_db_in_cli_context()
         asyncio.get_event_loop().run_until_complete(init_auth_cli(username, password))
+
+    @app.cli.command()
+    @click.option("-n", "--name", type=str, default="CLI-generated signup source")
+    def init_signup_source(name: str):
+        """
+        Create a random signup provider
+        """
+
+        init_db_in_cli_context()
+        asyncio.get_event_loop().run_until_complete(init_signup_source_cli(name))
