@@ -1,7 +1,11 @@
+import base64
 import bson
+import os
+import secrets
+from cryptography.fernet import Fernet
 from marshmallow import fields as ma_fields
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from umongo import Document, fields, validate
+from umongo import Document, fields, validate, ValidationError
 from umongo.frameworks import MotorAsyncIOInstance
 
 class BinaryField(fields.BaseField, ma_fields.Field):
@@ -34,7 +38,10 @@ class User(Document): # pylint: disable=abstract-method
     A user in the private database.
     """
     token = fields.StrField(required=True, unique=True, validate=validate.Length(equal=64))
-    credentials = BinaryField(required=True)
+    login = fields.StrField(required=True, unique=True, validate=validate.Regexp(r"\d+"))
+    password = BinaryField(required=True)
+
+    active = fields.BoolField(default=True)
 
 class LockboxFailure(Document): # pylint: disable=abstract-method
     """
@@ -54,6 +61,22 @@ class LockboxDB:
     """
 
     def __init__(self, host: str, port: int):
+        # Set up fernet
+        # Read from base64 encoded key
+        if os.environ.get("LOCKBOX_CREDENTIAL_KEY"):
+            key = os.environ.get("LOCKBOX_CREDENTIAL_KEY")
+        # Read from key file
+        elif os.environ.get("LOCKBOX_CREDENTIAL_KEY_FILE"):
+            try:
+                with open(os.environ.get("LOCKBOX_CREDENTIAL_KEY_FILE"), "rb") as f:
+                    key = base64.b64encode(f.read())
+            except IOError as e:
+                raise ValueError("Cannot read password encryption key file") from e
+        else:
+            raise ValueError("Encryption key for passwords must be provided! Set LOCKBOX_CREDENTIAL_KEY or LOCKBOX_CREDENTIAL_KEY_FILE.")
+        # Should raise ValueError if key is invalid
+        self.fernet = Fernet(key)
+
         self.client = AsyncIOMotorClient(host, port)
         self._private_db = self.client["lockbox"]
         self._shared_db = self.client["shared"]
@@ -74,3 +97,20 @@ class LockboxDB:
     
     def shared_db(self) -> AsyncIOMotorDatabase:
         return self._shared_db
+    
+    async def create_user(self, login: str, password: str, active: bool) -> str:
+        """
+        Create a new user.
+
+        Returns token on success.
+        """
+        if await self.UserImpl.find_one({"login": login}):
+            raise ValueError("user already exists")
+        token = secrets.token_hex(32)
+        pass_token = self.fernet.encrypt(password.encode("utf-8"))
+        try:
+            user = self.UserImpl(token=token, login=login, password=pass_token, active=active)
+            await user.commit()
+        except ValidationError as e:
+            raise ValueError(f"validation error: {e}") from e
+        return token
