@@ -1,5 +1,5 @@
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from quart import Quart, g
+from quart import Quart, current_app
 from umongo.frameworks import MotorAsyncIOInstance
 from marshmallow import fields as ma_fields, missing as missing_
 from umongo import Document, fields, validate
@@ -7,10 +7,10 @@ import asyncio
 import bson
 
 def private_db() -> AsyncIOMotorDatabase:
-    return g.priv_db
+    return current_app.priv_db
 
 def shared_db() -> AsyncIOMotorDatabase:
-    return g.shared_db
+    return current_app.shared_db
 
 _shared_instance = MotorAsyncIOInstance()
 _private_instance = MotorAsyncIOInstance()
@@ -44,9 +44,9 @@ def init_db_in_cli_context():
 def init_app(app: Quart):
     @app.before_serving
     async def load_database():
-        g.client = AsyncIOMotorClient("db", 27017)
-        g.priv_db = g.client['fenetre']
-        g.shared_db = g.client['shared']
+        current_app.client = AsyncIOMotorClient("db", 27017)
+        current_app.priv_db = current_app.client['fenetre']
+        current_app.shared_db = current_app.client['shared']
 
         _shared_instance.set_db(shared_db())
         _private_instance.set_db(private_db())
