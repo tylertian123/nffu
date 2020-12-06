@@ -4,7 +4,14 @@ const UserInfoContext = React.createContext();
 const AdminStateContext = React.createContext();
 
 function UserInfoProvider(props) {
-	return <UserInfoContext.Provider value={window.userinfo}>
+	const [invalidator, setInvalidator] = React.useState();
+
+	const proxyvalue = {
+		...window.userinfo,
+		invalidate: () => {setInvalidator(!invalidator)}
+	};
+
+	return <UserInfoContext.Provider value={proxyvalue}>
 		{props.children}
 	</UserInfoContext.Provider>;
 }
