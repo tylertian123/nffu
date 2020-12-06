@@ -16,9 +16,9 @@ function ConstantAlerts(props) {
 				<Alert variant="warning">There were problems when we last tried to fill in your attendance. You should probably see what they are <a>hereTODO</a></Alert>],
 		[!extraUserInfo.has_lockbox_integration,
 				<Alert variant="danger">Something went wrong while agreeing to the warnings and disclaimers and we don't have a place to store your credentials; please <a href="/signup/eula">click here</a> to try again.</Alert>],
-		[/*extraUserInfo.has_lockbox_integration &&*/ !extraUserInfo.lockbox_credentials_present,
+		[extraUserInfo.has_lockbox_integration && !extraUserInfo.lockbox_credentials_present,
 				<Alert variant="info">You haven't setup your TDSB credentials yet, so we aren't filling in your attendance forms. Go <a>here</a> to set it up!</Alert>],
-		[/*extraUserInfo.has_lockbox_integration &&*/ !extraUserInfo.lockbox_form_active /*&& extraUserInfo.lockbox_credentials_present*/,
+		[extraUserInfo.has_lockbox_integration && !extraUserInfo.lockbox_form_active,
 				<Alert variant="info">You've disabled automatic attendance form filling. You can always turn it back on <a>here</a>!</Alert>]
 	];
 

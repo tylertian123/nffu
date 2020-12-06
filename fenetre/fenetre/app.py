@@ -7,6 +7,7 @@ from quart_auth import login_required, Unauthorized, current_user, logout_user
 from fenetre.db import init_app as db_init_app
 from fenetre.auth import init_app as auth_init_app, try_login_user, AuthenticationError, verify_signup_code, eula_required, EulaRequired
 from fenetre.static import setup_digest
+from fenetre.lockbox import init_app as lockbox_init_app
 
 import secrets
 
@@ -27,6 +28,7 @@ def create_app():
 
     db_init_app(app)
     auth_init_app(app)
+    lockbox_init_app(app)
     app.register_blueprint(api_blueprint)
 
     # static page routes (frontend)

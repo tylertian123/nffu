@@ -48,7 +48,7 @@ async def userinfo():
         "admin": userdata.admin,
         "has_discord_integration": userdata.discord_id is not None,
         "has_lockbox_integration": userdata.lockbox_token is not None,
-        "lockbox_error": lockbox_status.has_errors,                              
+        "lockbox_error": lockbox_status is not None and lockbox_status.has_errors,                              
         "signed_eula": userdata.signed_eula,
         "lockbox_credentials_present": lockbox_status is not None and lockbox_status.has_credentials,
         "lockbox_form_active": lockbox_status is not None and lockbox_status.active
