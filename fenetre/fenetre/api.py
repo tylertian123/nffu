@@ -101,7 +101,7 @@ class UpdateUserInfoSchema(ma.Schema):
     username = ma_fields.String(required=False, validate=ma_validate.Length(min=6))
 
     @ma.validates_schema
-    def validate_mutinc(self, data):
+    def validate_mutinc(self, data, **kwargs):
         if 'password' in data and 'current_password' not in data or 'password' not in data and 'current_password' in data:
             raise ma.ValidationError("current_password and password are mutually inclusive")
 
