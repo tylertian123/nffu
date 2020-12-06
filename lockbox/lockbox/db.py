@@ -38,8 +38,10 @@ class User(Document): # pylint: disable=abstract-method
     A user in the private database.
     """
     token = fields.StrField(required=True, unique=True, validate=validate.Length(equal=64))
-    login = fields.StrField(required=True, unique=True, validate=validate.Regexp(r"\d+"))
-    password = BinaryField(required=True)
+
+    # Could be unconfigured
+    login = fields.StrField(required=False, unique=True, validate=validate.Regexp(r"\d+"))
+    password = BinaryField(required=False)
 
     active = fields.BoolField(default=True)
 
@@ -49,7 +51,7 @@ class LockboxFailure(Document): # pylint: disable=abstract-method
 
     Copied from fenetre/db.py.
     """
-    token = fields.StrField(required=True)
+    token = fields.StrField(required=True) # TODO: Make this unique and validate, move document to private db
     time_logged = fields.DateTimeField(required=True)
     
     kind = fields.StrField(required=True, marshmallow_default="unknown")
@@ -98,19 +100,27 @@ class LockboxDB:
     def shared_db(self) -> AsyncIOMotorDatabase:
         return self._shared_db
     
-    async def create_user(self, login: str, password: str, active: bool) -> str:
+    async def create_user(self) -> str:
         """
         Create a new user.
 
         Returns token on success.
         """
-        if await self.UserImpl.find_one({"login": login}):
-            raise ValueError("user already exists")
         token = secrets.token_hex(32)
-        pass_token = self.fernet.encrypt(password.encode("utf-8"))
-        try:
-            user = self.UserImpl(token=token, login=login, password=pass_token, active=active)
-            await user.commit()
-        except ValidationError as e:
-            raise ValueError(f"validation error: {e}") from e
+        await self.UserImpl(token=token).commit()
         return token
+
+    async def modify_user(self, token: str, login: str = None, password: str = None, active: bool = None, **kwargs) -> None:
+        """
+        Modify user data.
+        """
+        user = await self.UserImpl.find_one({"token": token})
+        if user is None:
+            raise ValueError("Bad token")
+        if login is not None:
+            user.login = login
+        if password is not None:
+            user.password = self.fernet.encrypt(password.encode("utf-8"))
+        if active is not None:
+            user.active = active
+        await user.commit()

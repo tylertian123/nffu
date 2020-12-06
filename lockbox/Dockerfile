@@ -81,5 +81,7 @@ COPY --from=py-compile /opt/venv /opt/venv
 # activate venv
 ENV PATH "/opt/venv/bin:$PATH"
 
+# disable buffering to see logs immediately
+ENV PYTHONUNBUFFERED=1
 # set entrypoint
 CMD ["lockbox"]
