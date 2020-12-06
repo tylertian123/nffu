@@ -12,6 +12,3 @@ services:
 secrets:
   lockbox-credential-key:
     external: true
-
-volumes:
-  lockbox-data:
