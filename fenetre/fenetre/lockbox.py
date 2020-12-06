@@ -5,16 +5,49 @@ Handles talking to lockbox
 from .db import User
 import collections
 import typing
+import aiohttp
+from quart import Quart, current_app
+
+def init_app(app: Quart):
+    @app.before_serving
+    async def setup_context():
+        current_app.lockbox_sess = aiohttp.ClientSession(cookie_jar=aiohttp.DummyCookieJar())
+
+    @app.after_serving
+    async def teardown_context():
+        await _lockbox_sess().close()
 
 # stubs for rn
+def _lockbox_sess():
+    return current_app.lockbox_sess
 
 async def create_new_lockbox_identity(user: User):
     """
     Make a new lockbox identity and associated token and associate it to this user in the database
     """
 
-    # currently does nothing TODO
-    pass
+    # if there's already a lockbox identity in the user, return now
+    if user.lockbox_token is not None:
+        return
+
+    # ask lockbox for a new user
+    async with _lockbox_sess().post("http://lockbox/user") as resp:
+        if not resp.ok:
+            raise RuntimeError("failed to create lockbox identity")
+
+        data = await resp.json()
+        user.lockbox_token = data["token"]
+
+    # commit the user
+    await user.commit()
+
+    # yay
+
+def _headers_for_user(user: User):
+    if user.lockbox_token is None:
+        raise ValueError("missing lockbox token")
+
+    return {"Authorization": "Bearer " + user.lockbox_token}
 
 async def destroy_lockbox_identity(user: User):
     """
@@ -23,9 +56,15 @@ async def destroy_lockbox_identity(user: User):
     If this fails the entire delete fails.
     """
 
-    pass
+    if user.lockbox_token is None:
+        return
 
-# TODO: should lockbox_failures get moved from shared_db into lockbox and accessed through an api call here?
+    async with _lockbox_sess().delete("http://lockbox/user", headers=_headers_for_user(user)) as resp:
+        if not resp.ok:
+            raise RuntimeError("failed to delete: " + resp.reason)
+
+    user.lockbox_token = None
+    await user.commit()
 
 LockboxUserStatus = collections.namedtuple("LockboxUserStatus", "has_credentials has_errors active")
 
@@ -36,11 +75,20 @@ async def get_lockbox_status_for(user: User) -> LockboxUserStatus:
     Return None if the user doesn't have a lockbox identity
     """
 
-    return LockboxUserStatus(  # todo
-            False,
-            False,
-            False
-    )
+    if user.lockbox_token is None:
+        return None
+
+    async with _lockbox_sess().get("http://lockbox/user", headers=_headers_for_user(user)) as resp:
+        if not resp.ok:
+            raise RuntimeError("failed to get: " + resp.reason)
+
+        data = await resp.json()
+
+        return LockboxUserStatus(  # todo
+                data["credentials_set"],
+                len(data["errors"]) > 0,
+                data["active"]
+        )
 
 LockboxFailure = collections.namedtuple("LockboxFailure", "id kind message time_logged")
 

@@ -2,3 +2,4 @@ quart~=0.13.0
 flask-static-digest
 quart-auth
 umongo[motor]==3.0.0b13
+aiohttp
