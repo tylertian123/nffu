@@ -4,7 +4,7 @@ from fenetre.auth import admin_required, eula_required
 from fenetre import auth, lockbox
 from quart_auth import login_required, current_user, logout_user
 import quart_auth
-from fenetre.db import User, LockboxFailure, SignupProvider
+from fenetre.db import User, SignupProvider
 import bson
 import marshmallow as ma
 import marshmallow.fields as ma_fields
@@ -47,15 +47,17 @@ async def userinfo():
         "admin": userdata.admin,
         "has_discord_integration": userdata.discord_id is not None,
         "has_lockbox_integration": userdata.lockbox_token is not None,
-        "lockbox_error": await LockboxFailure.count_documents({"token": userdata.lockbox_token}) > 0,                              
+        "lockbox_error": lockbox_status.has_errors,                              
         "signed_eula": userdata.signed_eula,
         "lockbox_credentials_present": lockbox_status is not None and lockbox_status.has_credentials,
         "lockbox_form_active": lockbox_status is not None and lockbox_status.active
     }
 
-class LockboxFailureDump(LockboxFailure.schema.as_marshmallow_schema()):
-    class Meta:
-        fields = ("time_logged", "kind", "message", "id")
+class LockboxFailureDump(ma.Schema):
+    time_logged = ma_fields.DateTime(required=True)
+    id = ma_fields.String(required=True) # this comes from an external api and is therefore not an objectid
+    kind = ma_fields.String(missing="unknown")
+    message = ma_fields.String(required=False, default="")
 
 lockbox_failure_dump = LockboxFailureDump()
 
@@ -67,7 +69,7 @@ async def lockbox_errors():
     
     result = [] 
 
-    async for x in LockboxFailure.find({"token": userdata.lockbox_token}):
+    async for x in lockbox.get_errors_for(userdata):
         result.append(lockbox_failure_dump.dump(x))
 
     return {
@@ -78,22 +80,10 @@ async def lockbox_errors():
 @login_required
 @eula_required
 async def lockbox_error_del(idx):
-    result = await LockboxFailure.find({"id": bson.ObjectId(idx)})
     userdata = await current_user.user
 
-    if result is None:
-        return {
-            "error": "no such error alert"
-        }, 404
-    
-    if result.token != userdata.lockbox_token:
-        return {
-            "error": "not your error"
-        }, 403
-
-    else:
-        await result.remove()
-        return '', 204
+    await lockbox.clear_error(userdata, idx)
+    return '', 204
 
 class UpdateUserInfoSchema(ma.Schema):
     current_password = ma_fields.String(required=False)
@@ -176,7 +166,7 @@ async def do_signup():
     
     return '', 201
 
-class SignupProviderDump(LockboxFailure.schema.as_marshmallow_schema()):
+class SignupProviderDump(SignupProvider.schema.as_marshmallow_schema()):
     class Meta:
         fields = ("id", "name")
 

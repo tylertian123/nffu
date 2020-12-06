@@ -86,12 +86,3 @@ class SignupProvider(Document):
 
     hmac_secret = BinaryField(required=True, unique=True, validate=validate.Length(equal=32))  # sha-256 secret key
     identify_tokens = fields.ListField(fields.StringField(validate=validate.Length(equal=3)), validate=validate.Length(min=2), unique=True)
-
-
-@_shared_instance.register
-class LockboxFailure(Document):
-    token = fields.StrField(required=True)
-    time_logged = fields.DateTimeField(required=True)
-    
-    kind = fields.StrField(required=True, marshmallow_default="unknown")
-    message = fields.StrField(required=False, default="")
