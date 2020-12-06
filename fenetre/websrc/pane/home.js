@@ -1,7 +1,8 @@
 import React from 'react';
 
 import {UserInfoContext, AdminOnly} from '../common/userinfo';
-import {Alert, Button, Form, Row, Col, Spinner} from 'react-bootstrap';
+import {Alert, Button, Form, Row, Col, Spinner, Card} from 'react-bootstrap';
+import {confirmationDialog} from '../common/confirms';
 import {Formik} from 'formik';
 import * as yup from 'yup';
 
@@ -28,6 +29,115 @@ function ConstantAlerts(props) {
 		</>
 	}
 	else return null;
+}
+
+function UserDeleter() {
+	const [isDeleting, setIsDeleting] = React.useState(false);
+
+	const onDelete = async () => {
+		if (!await confirmationDialog(<p>Are you <i>really</i> sure you want to delete your account? We'll delete all data we have on you and stop filling in your forms.</p>))
+			return;
+
+		// :(
+		setIsDeleting(true);
+
+		const result = await fetch("/api/v1/me", {
+			credentials: "same-origin",
+			method: "DELETE"
+		});
+
+		if (!result.ok) {
+			// TODO: make me less awful
+			alert("Failed to delete account");
+			setSending(false);
+			return;
+		}
+
+		// Send the user back to the main page.
+		document.location.pathname = "/login";
+	};
+
+	return <Button disabled={isDeleting} variant="dark" onClick={onDelete}>Delete account</Button>
+}
+
+function UsernameChanger() {
+	const userInfo = React.useContext(UserInfoContext);
+
+	const schema = yup.object({
+		username: yup.string().required().min(6)
+	});
+
+	const [success, setSuccess] = React.useState(false);
+
+	const doChangeUsername = async (values, {setStatus, setFieldError}) => {
+		setSuccess(false);
+		try {
+			const response = await fetch('/api/v1/me', {
+				method: "PATCH",
+				credentials: "same-origin",
+				headers: {"Content-Type": "application/json"},
+				body: JSON.stringify({
+					username: values.username
+				})
+			});
+			if (!response.ok) {
+				const data = await response.json();
+
+				if (data.error == "invalid request" && "extra" in data) {
+					if ("username" in data.extra) setFieldError("username", data.extra["username"]);
+				}
+				else {
+					setStatus(data.error);
+				}
+			}
+			else {
+				setSuccess(true);
+				setStatus(null);
+
+				window.userinfo.name = values.username;
+				userInfo.invalidate();
+			}
+		}
+		catch (err) {
+			setStatus(err);
+		}
+	};
+
+	return <Formik validationSchema={schema}
+		onSubmit={doChangeUsername}
+		initialValues={{username: ''}}
+	>
+		{({
+			handleSubmit,
+			handleChange,
+			handleBlur,
+			values,
+			errors,
+			touched,
+			isSubmitting,
+			status
+		}) => (
+		<Form noValidate onSubmit={handleSubmit}>
+			{success && <p className="text-success">Changed username!</p>}
+			{status && (<p className="text-danger">{status}</p>)}
+			<Form.Group>
+				<Form.Label>New username</Form.Label>
+				<Form.Control 
+					name="username" 
+					type="text" 
+					onChange={handleChange}
+					onBlur={handleBlur}
+					isInvalid={!!errors.username && touched.username}
+					value={values.username}
+				/>
+				<Form.Control.Feedback type="invalid">
+					{errors.username}
+				</Form.Control.Feedback>
+			</Form.Group>
+
+			<Button type="submit" disabled={isSubmitting}>{isSubmitting ? (<Spinner className="mb-1" animation="border" size="sm" variant="light" />) : "Update username"}</Button>
+		</Form>)}
+	</Formik>;
 }
 
 function PasswordChanger() {
@@ -167,15 +277,21 @@ function Home() {
 		<h2>Account settings</h2>
 		<hr />
 		<Row>
-			<Col md>
+			<Col md className="mb-3">
 				<h3>Change password</h3>
 				<PasswordChanger />
 			</Col>
-			<Col md>
+			<Col md className="mb-3">
 				<h3>Change username</h3>
+				<UsernameChanger />
 			</Col>
 			<Col md>
-				<h3 className="text-danger">Delete account</h3>
+				<Card bg="danger">
+					<Card.Header><h3>Danger zone</h3></Card.Header>
+					<Card.Body>
+						<UserDeleter />
+					</Card.Body>
+				</Card>
 			</Col>
 		</Row>
 	</>);
