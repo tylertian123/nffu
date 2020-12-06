@@ -101,7 +101,7 @@ async def try_login_user(username: str, password: str, remember_me: bool):
     if check_user is None:
         raise AuthenticationError("Wrong username")
 
-    if not verify_password_for_user(check_user, password):
+    if not await asyncio.get_event_loop().run_in_executor(None, verify_password_for_user, check_user, password):
         raise AuthenticationError("Wrong password")
 
     login_user(UserProxy.from_db(check_user), remember_me)

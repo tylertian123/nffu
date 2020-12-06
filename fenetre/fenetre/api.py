@@ -13,6 +13,7 @@ import binascii
 import json
 import random
 import time
+import asyncio
 
 blueprint = Blueprint("api", __name__, url_prefix="/api/v1")
 
@@ -104,7 +105,7 @@ async def update_userinfo():
     payload = update_user_info_schema_user.load(msg)
 
     if "password" in payload:
-        if not auth.verify_password_for_user(await current_user.user, payload["current_password"]):
+        if not asyncio.get_event_loop().run_in_executor(None, auth.verify_password_for_user, await current_user.user, payload["current_password"]):
             return {"error": "incorrect current password"}, 401
         await auth.change_password(await current_user.user, payload["password"])
 
