@@ -13,7 +13,7 @@ import "regenerator-runtime/runtime";
 function AuthCfg() {
 	return <AdminOnly>
 		<Row>
-			<Col sm md="4" lg="2" className="mb-1">
+			<Col sm md="4" lg="2" className="mb-3">
 				<Nav variant="pills" className="flex-column">
 					<LinkContainer to="/authcfg/users">
 						<Nav.Link>Users</Nav.Link>
