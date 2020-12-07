@@ -108,3 +108,17 @@ async def clear_error(for_: User, error_id: str):
     """
 
     pass
+
+async def update_lockbox_identity(user: User, payload: dict):
+    """
+    Update the lockbox data for the user
+
+    (payload is passed directly)
+    """
+
+    if user.lockbox_token is None:
+        raise ValueError("missing token")
+
+    async with _lockbox_sess().patch("http://lockbox/user", headers=_headers_for_user(user), json=payload) as resp:
+        if not resp.ok:
+            raise RuntimeError("failed to patch: " + resp.reason)

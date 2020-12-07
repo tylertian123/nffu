@@ -63,7 +63,6 @@ class LockboxFailureDump(ma.Schema):
 lockbox_failure_dump = LockboxFailureDump()
 
 @blueprint.route("/me/lockbox_errors")
-@login_required
 @eula_required
 async def lockbox_errors():
     userdata = await current_user.user
@@ -78,7 +77,6 @@ async def lockbox_errors():
     }
 
 @blueprint.route("/me/lockbox_errors/<idx>", methods=["DELETE"])
-@login_required
 @eula_required
 async def lockbox_error_del(idx):
     userdata = await current_user.user
@@ -136,6 +134,24 @@ async def delete_self():
     logout_user()
 
     await flash("Your account was deleted")
+
+    return '', 204
+
+class LockboxUpdateSchema(ma.Schema):
+    login    = ma_fields.String(validate=ma_validate.Regexp("\d{5,9}"), data_key="username")
+    password = ma_fields.String()
+    active   = ma_fields.Bool()
+
+lockbox_update_schema = LockboxUpdateSchema()
+
+@blueprint.route("/me/lockbox", methods=["PATCH"])
+@eula_required
+async def update_self_lockbox():
+    user = await current_user.user
+    msg = await request.json
+
+    payload = lockbox_update_schema.load(msg)
+    await lockbox.update_lockbox_identity(user, payload)
 
     return '', 204
 

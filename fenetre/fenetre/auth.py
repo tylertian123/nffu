@@ -119,7 +119,7 @@ async def add_blank_user(username: str, password: str, *, discord_id: str=None) 
     salt = os.urandom(64)
 
     # generate the passhash
-    passhash = compute_passhash(password, salt)
+    passhash = await asyncio.get_event_loop().run_in_executor(None, compute_passhash, password, salt)
 
     # create the new user
     new_user = User(username=username, passhash=passhash, passsalt=salt, discord_id=discord_id)
