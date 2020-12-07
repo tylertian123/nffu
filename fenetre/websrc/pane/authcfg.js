@@ -8,8 +8,6 @@ import {AdminOnly} from '../common/userinfo';
 import SignupProviders from './authcfg/signup_provider';
 import Users from './authcfg/users';
 
-import "regenerator-runtime/runtime";
-
 function AuthCfg() {
 	return <AdminOnly>
 		<Row>
