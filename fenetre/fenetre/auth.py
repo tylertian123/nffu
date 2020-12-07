@@ -208,7 +208,7 @@ async def verify_signup_code(signup_code: str):
     current_time = int(time.time())
 
     async for potential_provider in potential_providers:
-        for offset in range(-2, 7):
+        for offset in range(-7, 3):
             if token == generate_signup_code(potential_provider.hmac_secret, current_time + offset*60):
                 return True
     return False
