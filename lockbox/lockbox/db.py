@@ -6,7 +6,7 @@ import typing
 from cryptography.fernet import Fernet
 from marshmallow import fields as ma_fields
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from umongo import Document, EmbeddedDocument, fields, validate, ValidationError
+from umongo import Document, EmbeddedDocument, fields, validate
 from umongo.frameworks import MotorAsyncIOInstance
 
 
@@ -113,7 +113,8 @@ class LockboxDB:
         await self.UserImpl(token=token).commit()
         return token
 
-    async def modify_user(self, token: str, login: str = None, password: str = None, active: bool = None, **kwargs) -> None:
+    async def modify_user(self, token: str, login: str = None, password: str = None, # pylint: disable=unused-argument
+                          active: bool = None, **kwargs) -> None:
         """
         Modify user data.
         """
@@ -137,11 +138,25 @@ class LockboxDB:
             raise ValueError("Bad token")
         return user.dump()
     
-    async def delete_user(self, token: str) -> typing.Dict[str, typing.Any]:
+    async def delete_user(self, token: str) -> None:
         """
         Delete a user by token.
         """
         user = await self.UserImpl.find_one({"token": token})
         if user is None:
             raise ValueError("Bad token")
-        await user.remove()  
+        await user.remove()
+    
+    async def delete_user_error(self, token: str, eid: str) -> None:
+        """
+        Delete an error by id for a user.
+        """
+        try:
+            result = await self.UserImpl.collection.update_one({"token": token},
+                {"$pull": {"errors": {"_id": bson.ObjectId(eid)}}})
+        except bson.errors.InvalidId as e:
+            raise ValueError("Bad error id") from e
+        if result.matched_count == 0:
+            raise ValueError("Bad token")
+        if result.modified_count == 0:
+            raise ValueError("Bad error id")

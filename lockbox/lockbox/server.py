@@ -31,7 +31,8 @@ class LockboxServer:
             web.post("/user", self._post_user),
             web.patch("/user", self._patch_user),
             web.get("/user", self._get_user),
-            web.delete("/user", self._delete_user)
+            web.delete("/user", self._delete_user),
+            web.delete(r"/user/error/{id:[a-f0-9]+}", self._delete_user_error)
         ])
 
         self.db = LockboxDB("db", 27017)
@@ -140,7 +141,7 @@ class LockboxServer:
         return web.json_response(data, status=200)
     
     @_extract_token
-    async def _delete_user(self, request: web.Request, token: str):
+    async def _delete_user(self, request: web.Request, token: str): # pylint: disable=unused-argument
         """
         Handle a DELETE to /user.
 
@@ -159,4 +160,29 @@ class LockboxServer:
         except ValueError:
             return web.json_response({"error": "Bad token"}, status=401)
         print("User deleted")
+        return web.Response(status=204)
+    
+    @_extract_token
+    async def _delete_user_error(self, request: web.Request, token: str):
+        """
+        Handle a DELETE to /user/error/<id>.
+
+        The request should use bearer auth with a token given on user creation.
+
+        204 on success.
+
+        Returns the following JSON on failure:
+        {
+            "error": "...", // Reason for error, e.g. "Bad token", etc.
+        }
+        """
+        print("Got request: DELETE to", request.rel_url)
+        try:
+            await self.db.delete_user_error(token, request.match_info["id"])
+        except ValueError as e:
+            if str(e) == "Bad token":
+                return web.json_response({"error": "Bad token"}, status=401)
+            else:
+                return web.json_response({"error": str(e)}, status=400)
+        print("Error deleted")
         return web.Response(status=204)
