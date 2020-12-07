@@ -66,7 +66,7 @@ function SignupBase(props) {
 	{isDone ? (<Redirect to="/eula" />) : null}
 	<Row className="justify-content-center">
 		<Col lg="6" xs="12">
-			<h1>Sign Up</h1>
+			<h1>Sign up</h1>
 		</Col>
 	</Row>
 	<Row className="justify-content-center">

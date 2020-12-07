@@ -53,7 +53,7 @@ function EulaSigningCeremony() {
 	};
 
 	return <>
-			<h1>Disclaimers &amp; Warnings</h1>
+			<h1>Disclaimers &amp; warnings</h1>
 				<p>Yes, I'm aware you probably weren't expecting to see this from <i>us</i> of all people, but there are important security implications you should be aware of if 
 					you want to use the <code>nffu</code> form-filling service.</p>
 			<hr />
