@@ -1,15 +1,18 @@
 import React from 'react';
 
-import {UserInfoContext, AdminOnly} from '../common/userinfo';
+import {UserInfoContext, AdminOnly, ExtraUserInfoContext, ExtraUserInfoProvider} from '../common/userinfo';
 import {Alert, Button, Form, Row, Col, Spinner, Card} from 'react-bootstrap';
 import {confirmationDialog} from '../common/confirms';
 import {Formik} from 'formik';
 import * as yup from 'yup';
+import {Link} from 'react-router-dom';
 
 import "regenerator-runtime/runtime";
 
-function ConstantAlerts(props) {
-	const extraUserInfo = props.extraUserInfo;
+function ConstantAlerts() {
+	const extraUserInfo = React.useContext(ExtraUserInfoContext);
+
+	if (extraUserInfo === null) return null;
 
 	const alerts = [
 		[extraUserInfo.lockbox_error, 
@@ -17,7 +20,7 @@ function ConstantAlerts(props) {
 		[!extraUserInfo.has_lockbox_integration,
 				<Alert variant="danger">Something went wrong while agreeing to the warnings and disclaimers and we don't have a place to store your credentials; please <a href="/signup/eula">click here</a> to try again.</Alert>],
 		[extraUserInfo.has_lockbox_integration && !extraUserInfo.lockbox_credentials_present,
-				<Alert variant="info">You haven't setup your TDSB credentials yet, so we aren't filling in your attendance forms. Go <a>here</a> to set it up!</Alert>],
+			<Alert variant="info">You haven't setup your TDSB credentials yet, so we aren't filling in your attendance forms. Go <Link to="/lockbox/cfg">here</Link> to set it up!</Alert>],
 		[extraUserInfo.has_lockbox_integration && !extraUserInfo.lockbox_form_active,
 				<Alert variant="info">You've disabled automatic attendance form filling. You can always turn it back on <a>here</a>!</Alert>]
 	];
@@ -259,21 +262,14 @@ function PasswordChanger() {
 function Home() {
 	const userinfo = React.useContext(UserInfoContext);
 
-	const [extraUserInfo, setEUI] = React.useState(null);
-
-	React.useEffect(() => {
-		(async ()=>{
-			const response = await fetch("/api/v1/me");
-			setEUI(await response.json());
-		})();
-	}, []);
-
 	return (<>
 		<h1>Hello, <b>{userinfo.name}</b></h1>
 		<AdminOnly>
 			<p>You are logged in with <i>administrative</i> privileges.</p>
 		</AdminOnly>
-		{extraUserInfo !== null && <ConstantAlerts extraUserInfo={extraUserInfo}/>}
+		<ExtraUserInfoProvider>
+			<ConstantAlerts />
+		</ExtraUserInfoProvider>
 		<h2>Account settings</h2>
 		<hr />
 		<Row>
