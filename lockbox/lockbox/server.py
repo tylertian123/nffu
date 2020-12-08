@@ -1,7 +1,6 @@
 import functools
 from aiohttp import web
-from umongo import ValidationError
-from .db import LockboxDB
+from .db import LockboxDB, LockboxDBError
 
 
 def _extract_token(handler):
@@ -17,6 +16,25 @@ def _extract_token(handler):
             return web.json_response({"error": "Bearer auth not used"}, status=401)
         token = auth_parts[1]
         return await handler(self, request, token)
+    return _handler
+
+
+def _handle_db_errors(handler):
+    """
+    Use this decorator to handle LockboxDBErrors and return an http response.
+    """
+    @functools.wraps(handler)
+    async def _handler(*args, **kwargs):
+        try:
+            return await handler(*args, **kwargs)
+        except LockboxDBError as e:
+            code = {
+                LockboxDBError.BAD_TOKEN: 401,
+                LockboxDBError.INVALID_FIELD: 400,
+                LockboxDBError.OTHER: 400,
+            }[e.code]
+            print(f"Error {code}: {str(e)}")
+            return web.json_response({"error": str(e)}, status=code)
     return _handler
 
 
@@ -52,6 +70,7 @@ class LockboxServer:
         """
         web.run_app(self.make_app(), host="0.0.0.0", port=80)
     
+    @_handle_db_errors
     async def _post_user(self, request: web.Request): # pylint: disable=unused-argument
         """
         Handle a POST to /user.
@@ -64,13 +83,11 @@ class LockboxServer:
         }
         """
         print("Got request: POST to /user")
-        try:
-            token = await self.db.create_user()
-        except ValueError as e:
-            return web.json_response({"error": str(e)}, status=400)
+        token = await self.db.create_user()
         print("Created new user")
         return web.json_response({"token": token}, status=200)
     
+    @_handle_db_errors
     @_extract_token
     async def _patch_user(self, request: web.Request, token: str):
         """
@@ -98,15 +115,11 @@ class LockboxServer:
         if not request.content_type in ("application/json", "text/json"):
             return web.json_response({"error": "Bad content type"}, status=400)
         data = await request.json()
-        try:
-            await self.db.modify_user(token, **data)
-        except ValueError:
-            return web.json_response({"error": "Bad token"}, status=401)
-        except ValidationError as e:
-            return web.json_response({"error": f"ValidationError: {e}"}, status=400)
+        await self.db.modify_user(token, **data)
         print("User modified")
         return web.Response(status=204)
     
+    @_handle_db_errors
     @_extract_token
     async def _get_user(self, request: web.Request, token): # pylint: disable=unused-argument
         """
@@ -128,10 +141,7 @@ class LockboxServer:
         }
         """
         print("Got request: GET to /user")
-        try:
-            data = await self.db.get_user(token)
-        except ValueError:
-            return web.json_response({"error": "Bad token"}, status=401)
+        data = await self.db.get_user(token)
         # Modify data
         data["credentials_set"] = "password" in data and "login" in data
         data.pop("id", None)
@@ -140,6 +150,7 @@ class LockboxServer:
         print("User data returned")
         return web.json_response(data, status=200)
     
+    @_handle_db_errors
     @_extract_token
     async def _delete_user(self, request: web.Request, token: str): # pylint: disable=unused-argument
         """
@@ -155,13 +166,11 @@ class LockboxServer:
         }
         """
         print("Got request: DELETE to /user")
-        try:
-            await self.db.delete_user(token)
-        except ValueError:
-            return web.json_response({"error": "Bad token"}, status=401)
+        await self.db.delete_user(token)
         print("User deleted")
         return web.Response(status=204)
     
+    @_handle_db_errors
     @_extract_token
     async def _delete_user_error(self, request: web.Request, token: str):
         """
@@ -177,12 +186,6 @@ class LockboxServer:
         }
         """
         print("Got request: DELETE to", request.rel_url)
-        try:
-            await self.db.delete_user_error(token, request.match_info["id"])
-        except ValueError as e:
-            if str(e) == "Bad token":
-                return web.json_response({"error": "Bad token"}, status=401)
-            else:
-                return web.json_response({"error": str(e)}, status=400)
+        await self.db.delete_user_error(token, request.match_info["id"])
         print("Error deleted")
         return web.Response(status=204)
