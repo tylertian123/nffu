@@ -163,7 +163,23 @@ class UserCourseEnrollmentDump(Course.schema.as_marshmallow_schema()):
         return data
 
     class Meta:
-        exclude = ("form_config")
+        exclude = ("form_config",)
+
+user_course_enrollment_dump = UserCourseEnrollmentDump()
+
+@blueprint.route("/me/lockbox/courses")
+@eula_required
+async def get_lockbox_courses():
+    user = await current_user.user
+
+    current_courses = await lockbox.query_lockbox_enrolled_courses(user)
+    if current_courses is None:
+        return {"status": "pending", "courses": []}, 200
+    else:
+        return {
+            "status": "ok",
+            "courses": [user_course_enrollment_dump.dump(x) for x in current_courses]
+        }, 200
 
 class SignupSchema(ma.Schema):
     token = ma_fields.String(required=True, validate=ma_validate.Regexp("[0-9a-f]{9}"))

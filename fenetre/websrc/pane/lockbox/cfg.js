@@ -5,6 +5,7 @@ import {ExtraUserInfoContext} from '../../common/userinfo';
 import {useFormik} from 'formik';
 import * as yup from 'yup';
 import {Link} from 'react-router-dom';
+import useBackoffEffect from '../../common/pendprovider';
 
 import "regenerator-runtime/runtime";
 
@@ -130,22 +131,58 @@ function Enabler() {
 	</>;
 };
 
+function CourseDetector() {
+	const [courses, setCourses] = React.useState(null);
+	const [pending, setPending] = React.useState(null);
+
+	useBackoffEffect(async () => {
+		const response = await fetch("/api/v1/me/lockbox/courses");
+		const data = await response.json();
+		const pending = data.status == "pending";
+
+		setPending(pending);
+
+		if (pending) return true;
+		setCourses(data.courses);
+		return false;
+	}, []);
+
+	if (courses === null) {
+		if (pending !== null && pending) {
+			return <Alert className="d-flex align-items-center" variant="info"><Spinner className="mr-2" animation="border" /> We're still grabbing your courses from TDSB Connects; please wait a bit.</Alert>;
+		}
+		else {
+			return <Alert className="d-flex align-items-center" variant="secondary"><Spinner className="mr-2" animation="border" /> loading...</Alert>;
+		}
+	}
+
+	return null;
+}
+
 function Cfg() {
 	const eui = React.useContext(ExtraUserInfoContext);
 
 	if (eui !== null && !eui.has_lockbox_integration) return null;
 
-	return (<Row>
-		<Col sm className="mb-3">
-			<h2>Change credentials</h2>
-			<CredentialChanger />
-		</Col>
-		<Col sm>
-			<h2>Form-filling configuration</h2>
-			{eui !== null &&
-				<Enabler />}
-		</Col>
-	</Row>);
+	return (<div>
+		<Row>
+			<Col sm className="mb-3">
+				<h2>Change credentials</h2>
+				<CredentialChanger />
+			</Col>
+			<Col sm>
+				<h2>Form-filling configuration</h2>
+				{eui !== null &&
+					<Enabler />}
+			</Col>
+		</Row>
+		{eui !== null && eui.lockbox_credentials_present && (<Row>
+			<Col>
+				<h2>Detected courses</h2>
+				<CourseDetector />
+			</Col>
+		</Row>)}
+	</div>);
 };
 
 export default Cfg;
