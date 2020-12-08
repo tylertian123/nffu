@@ -2,8 +2,9 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from quart import Quart, current_app
 from umongo.frameworks import MotorAsyncIOInstance
 from marshmallow import fields as ma_fields, missing as missing_
-from umongo import Document, fields, validate
+from umongo import Document, fields, validate, EmbeddedDocument
 import asyncio
+import enum
 import bson
 
 def private_db() -> AsyncIOMotorDatabase:
@@ -86,3 +87,57 @@ class SignupProvider(Document):
 
     hmac_secret = BinaryField(required=True, unique=True, validate=validate.Length(equal=32))  # sha-256 secret key
     identify_tokens = fields.ListField(fields.StringField(validate=validate.Length(equal=3)), validate=validate.Length(min=2), unique=True)
+
+
+class FormFieldType(enum.Enum):
+    TEXT = "text"
+    DATE = "date"
+    MULTIPLE_CHOICE = "multiple-choice"
+    CHECKBOX = "checkbox"
+    DROPDOWN = "dropdown"
+
+
+@_shared_instance.register
+class FormField(EmbeddedDocument):
+    # This should be a substring of the nearest label text to the control we're filling in.
+    # Optional _not automatically set_
+    expected_label_segment = fields.StrField(required=False, default=None)
+
+    # Index on page (includes headings)
+    index_on_page = fields.IntField(required=True, validate=validate.Range(min=0))
+
+    # Value to fill in.
+    # The grammar for this field is in fieldexpr.py in lockbox.
+    target_value = fields.StrField(required=True)
+
+@_shared_instance.register
+class Form(Document):
+    fields = fields.ListField(fields.EmbeddedField(FormField))
+
+    # TODO: add a thumbnail field here; should it be a raw binary blob (which could be slow to access every time)
+    #       should it be a GridFS file (which would be really simple to implement but might have overhead)
+    #       or should it just be in a separate collection?
+
+    # representative_thumbnail = ?
+
+@_shared_instance.register
+class Course(Document):
+    # Course code including cohort str
+    course_code = fields.StrField(required=True, unique=True)
+
+    # Is this course's form setup locked by an admin?
+    configuration_locked = fields.BoolField(default=False)
+
+    # FORM config:
+
+    # does this course use an attendance form (to deal with people who have COOP courses or something)
+    has_attendance_form = fields.BoolField(default=True)
+
+    # form URL
+    form_url = fields.URLField(default=None)
+    
+    # form configuration
+    form_config = fields.ReferenceField(Form, default=None)
+
+    # Slots we know this course occurs on (f"{day}-{period}" so for example "2-1a" is day 2 in the morning asynchronous
+    known_slots = fields.ListField(fields.StrField(), default=[])

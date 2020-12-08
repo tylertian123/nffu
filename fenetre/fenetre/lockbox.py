@@ -122,3 +122,17 @@ async def update_lockbox_identity(user: User, payload: dict):
     async with _lockbox_sess().patch("http://lockbox/user", headers=_headers_for_user(user), json=payload) as resp:
         if not resp.ok:
             raise RuntimeError("failed to patch: " + resp.reason)
+
+async def query_lockbox_enrolled_courses(user: User):
+    """
+    Get the current set of courses we've detected for the user.
+
+    Raises an error if the user does not have a lockbox identity, returns None if processing is still occuring and
+    a list of Course objects if succesfull
+    """
+
+    if user.lockbox_token is None:
+        raise ValueError("missing token")
+
+    # TODO
+    return None

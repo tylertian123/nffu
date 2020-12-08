@@ -4,7 +4,7 @@ from fenetre.auth import admin_required, eula_required
 from fenetre import auth, lockbox
 from quart_auth import login_required, current_user, logout_user
 import quart_auth
-from fenetre.db import User, SignupProvider
+from fenetre.db import User, SignupProvider, Course
 import bson
 import marshmallow as ma
 import marshmallow.fields as ma_fields
@@ -154,6 +154,16 @@ async def update_self_lockbox():
     await lockbox.update_lockbox_identity(user, payload)
 
     return '', 204
+
+class UserCourseEnrollmentDump(Course.schema.as_marshmallow_schema()):
+    @ma.post_dump(pass_original=True)
+    def cleanup_uce(self, data, orig, **kwargs):
+        cfg_present = orig.form_config is not None
+        data["form_config"] = cfg_present
+        return data
+
+    class Meta:
+        exclude = ("form_config")
 
 class SignupSchema(ma.Schema):
     token = ma_fields.String(required=True, validate=ma_validate.Regexp("[0-9a-f]{9}"))
