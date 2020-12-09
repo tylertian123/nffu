@@ -127,6 +127,9 @@ class FormField(EmbeddedDocument):
     # The grammar for this field is in fieldexpr.py in lockbox.
     target_value = fields.StrField(required=True)
 
+    # Type of field
+    kind = fields.StrField(required=True, validate=validate.OneOf([x.value for x in FormFieldType]))
+
 @_shared_instance.register
 class Form(Document):
     sub_fields = fields.ListField(fields.EmbeddedField(FormField))
