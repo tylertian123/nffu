@@ -2,10 +2,11 @@
 Handles talking to lockbox
 """
 
-from .db import User
+from .db import User, Course
 import collections
 import typing
 import aiohttp
+import bson
 from quart import Quart, current_app
 
 def init_app(app: Quart):
@@ -134,5 +135,5 @@ async def query_lockbox_enrolled_courses(user: User):
     if user.lockbox_token is None:
         raise ValueError("missing token")
 
-    # TODO
-    return None
+    # TEMP
+    return [await Course.find_one({"id": bson.ObjectId("5fd0049dc72b047851b22e8e")})]
