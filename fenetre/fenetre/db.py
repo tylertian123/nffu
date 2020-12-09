@@ -169,3 +169,6 @@ class Course(Document):
 
     # Slots we know this course occurs on (f"{day}-{period}" so for example "2-1a" is day 2 in the morning asynchronous
     known_slots = fields.ListField(fields.StrField(), default=[])
+
+    # Teacher name
+    teacher_name = fields.StrField(default="")
