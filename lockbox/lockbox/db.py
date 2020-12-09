@@ -6,7 +6,7 @@ import typing
 from cryptography.fernet import Fernet
 from marshmallow import fields as ma_fields
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from umongo import Document, EmbeddedDocument, fields, validate
+from umongo import Document, EmbeddedDocument, fields, validate, ValidationError
 from umongo.frameworks import MotorAsyncIOInstance
 
 
@@ -58,6 +58,20 @@ class User(Document): # pylint: disable=abstract-method
 
     active = fields.BoolField(default=True)
     errors = fields.ListField(fields.EmbeddedField(LockboxFailure), default=[])
+
+
+class LockboxDBError(Exception):
+    """
+    Raised to indicate an error when performing a lockbox db operation.
+    """
+
+    OTHER = 0
+    BAD_TOKEN = 1
+    INVALID_FIELD = 2
+
+    def __init__(self, message: str, code: int = 0):
+        super().__init__(message)
+        self.code = code
 
 
 class LockboxDB:
@@ -120,14 +134,17 @@ class LockboxDB:
         """
         user = await self.UserImpl.find_one({"token": token})
         if user is None:
-            raise ValueError("Bad token")
-        if login is not None:
-            user.login = login
-        if password is not None:
-            user.password = self.fernet.encrypt(password.encode("utf-8"))
-        if active is not None:
-            user.active = active
-        await user.commit()
+            raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
+        try:
+            if login is not None:
+                user.login = login
+            if password is not None:
+                user.password = self.fernet.encrypt(password.encode("utf-8"))
+            if active is not None:
+                user.active = active
+            await user.commit()
+        except ValidationError as e:
+            raise LockboxDBError(f"Invalid field: {e}", LockboxDBError.INVALID_FIELD) from e
     
     async def get_user(self, token: str) -> typing.Dict[str, typing.Any]:
         """
@@ -135,7 +152,7 @@ class LockboxDB:
         """
         user = await self.UserImpl.find_one({"token": token})
         if user is None:
-            raise ValueError("Bad token")
+            raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
         return user.dump()
     
     async def delete_user(self, token: str) -> None:
@@ -144,7 +161,7 @@ class LockboxDB:
         """
         user = await self.UserImpl.find_one({"token": token})
         if user is None:
-            raise ValueError("Bad token")
+            raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
         await user.remove()
     
     async def delete_user_error(self, token: str, eid: str) -> None:
@@ -155,8 +172,8 @@ class LockboxDB:
             result = await self.UserImpl.collection.update_one({"token": token},
                 {"$pull": {"errors": {"_id": bson.ObjectId(eid)}}})
         except bson.errors.InvalidId as e:
-            raise ValueError("Bad error id") from e
+            raise LockboxDBError("Bad error id") from e
         if result.matched_count == 0:
-            raise ValueError("Bad token")
+            raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
         if result.modified_count == 0:
-            raise ValueError("Bad error id")
+            raise LockboxDBError("Bad error id")

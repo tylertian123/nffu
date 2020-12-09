@@ -14,6 +14,7 @@ services:
       - lockbox-credential-key
     environment:
       - LOCKBOX_CREDENTIAL_KEY_FILE=/run/secrets/lockbox-credential-key
+      - LOCKBOX_DEBUG=1
   fenetre:
     build: ./fenetre
     image: docker-registry.i.mm12.xyz/nffu-fenetre:0.0.0
