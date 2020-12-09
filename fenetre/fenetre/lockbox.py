@@ -9,6 +9,9 @@ import aiohttp
 import bson
 from quart import Quart, current_app
 
+class LockboxError(Exception):
+    pass
+
 def init_app(app: Quart):
     @app.before_serving
     async def setup_context():
@@ -34,7 +37,7 @@ async def create_new_lockbox_identity(user: User):
     # ask lockbox for a new user
     async with _lockbox_sess().post("http://lockbox/user") as resp:
         if not resp.ok:
-            raise RuntimeError("failed to create lockbox identity")
+            raise LockboxError("failed to create lockbox identity", resp.status)
 
         data = await resp.json()
         user.lockbox_token = data["token"]
@@ -62,7 +65,7 @@ async def destroy_lockbox_identity(user: User):
 
     async with _lockbox_sess().delete("http://lockbox/user", headers=_headers_for_user(user)) as resp:
         if not resp.ok:
-            raise RuntimeError("failed to delete: " + resp.reason)
+            raise LockboxError("failed to delete: " + resp.reason, resp.status)
 
     user.lockbox_token = None
     await user.commit()
@@ -81,7 +84,7 @@ async def get_lockbox_status_for(user: User) -> LockboxUserStatus:
 
     async with _lockbox_sess().get("http://lockbox/user", headers=_headers_for_user(user)) as resp:
         if not resp.ok:
-            raise RuntimeError("failed to get: " + resp.reason)
+            raise LockboxError("failed to get: " + resp.reason, resp.status)
 
         data = await resp.json()
 
@@ -121,8 +124,10 @@ async def update_lockbox_identity(user: User, payload: dict):
         raise ValueError("missing token")
 
     async with _lockbox_sess().patch("http://lockbox/user", headers=_headers_for_user(user), json=payload) as resp:
+        error_data = await resp.json()
+
         if not resp.ok:
-            raise RuntimeError("failed to patch: " + resp.reason)
+            raise LockboxError(error_data["error"], resp.status)
 
 async def query_lockbox_enrolled_courses(user: User):
     """
@@ -135,5 +140,15 @@ async def query_lockbox_enrolled_courses(user: User):
     if user.lockbox_token is None:
         raise ValueError("missing token")
 
-    # TEMP
-    return [await Course.find_one({"id": bson.ObjectId("5fd0049dc72b047851b22e8e")})]
+    async with _lockbox_sess().get("http://lockbox/user/courses", headers=_headers_for_user(user)) as resp:
+        if not resp.ok:
+            raise LockboxError("failed to get courses", resp.status)
+
+        data = await resp.json()
+
+        if data["pending"]:
+            return None
+        elif data["courses"] is None:
+            raise ValueError("missing auth")
+        else:
+            return [await Course.find_one({"id": bson.ObjectId(x)}) for x in data["courses"]]

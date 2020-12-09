@@ -30,6 +30,12 @@ async def handle_exception(e: HTTPException):
     response.content_type = "application/json"
     return response
 
+@blueprint.errorhandler(lockbox.LockboxError)
+async def handle_le(e):
+    return {
+        "error": e.args[0]
+    }, e.args[1]
+
 @blueprint.errorhandler(ma.ValidationError)
 async def invalid_data(e: ma.ValidationError):
     return {
