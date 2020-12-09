@@ -40,7 +40,9 @@ def init_db_in_cli_context():
     # connect to the database
     client = AsyncIOMotorClient("db", 27017)
     priv_db = client['fenetre']
+    shared_db = client['shared']
     _private_instance.set_db(priv_db)
+    _shared_instance.set_db(shared_db)
 
 def init_app(app: Quart):
     @app.before_serving
@@ -60,9 +62,24 @@ def init_app(app: Quart):
             await User.ensure_indexes()
             await SignupProvider.ensure_indexes()
 
+            await Course.ensure_indexes()
+            await Form.ensure_indexes()
+
         asyncio.get_event_loop().run_until_complete(inner())
 
         print("ok")
+
+    @app.cli.command()
+    def add_test_data():
+        init_db_in_cli_context()
+
+        async def inner():
+            new_course = Course(course_code="SCH4UP-1C")
+            await new_course.commit()
+
+            print("added course: " + str(new_course.pk))
+
+        asyncio.get_event_loop().run_until_complete(inner())
 
 @_private_instance.register
 class User(Document):
@@ -112,13 +129,13 @@ class FormField(EmbeddedDocument):
 
 @_shared_instance.register
 class Form(Document):
-    fields = fields.ListField(fields.EmbeddedField(FormField))
+    sub_fields = fields.ListField(fields.EmbeddedField(FormField))
 
-    # TODO: add a thumbnail field here; should it be a raw binary blob (which could be slow to access every time)
-    #       should it be a GridFS file (which would be really simple to implement but might have overhead)
-    #       or should it just be in a separate collection?
+    # id of file in gridfs, should be a png
+    representative_thumbnail = fields.ObjectIdField(default=None)
 
-    # representative_thumbnail = ?
+    # Friendly title for this form configuration
+    name = fields.StrField()
 
 @_shared_instance.register
 class Course(Document):
