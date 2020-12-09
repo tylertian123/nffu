@@ -118,7 +118,7 @@ class LockboxDB:
                     # Invalid credentials, clean up and raise
                     await session.close()
                     if e.code == 401:
-                        raise LockboxDBError("Invalid TDSB credentials", LockboxDBError.INVALID_FIELD) from e
+                        raise LockboxDBError("Incorrect TDSB credentials", LockboxDBError.INVALID_FIELD) from e
                     raise LockboxDBError(f"HTTP error while logging into TDSB Connects: {str(e)}") from e
                 # Now we know credentials are valid
                 # Set user courses to None to mark as pending
