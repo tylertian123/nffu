@@ -9,6 +9,7 @@ $primary: lighten($orange, 2);
 $enable-gradients: false;
 $enable-shadows: true;
 $danger: #ee3545;
+$success: #2ab148;
 
 @import "~bootstrap/scss/bootstrap";
 @import "~bootswatch/dist/solar/bootswatch";
