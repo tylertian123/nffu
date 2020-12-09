@@ -5,7 +5,7 @@ from fenetre import auth, lockbox
 from quart_auth import login_required, current_user, logout_user
 import quart_auth
 from fenetre.db import User, SignupProvider, Course, Form, gridfs
-from motor.errors import NoFile
+from gridfs.errors import NoFile
 import bson
 import marshmallow as ma
 import marshmallow.fields as ma_fields
@@ -368,9 +368,12 @@ async def course_info(idx):
 
     dump = user_course_enrollment_dump.dump(obj)
 
-    is_admin = await current_user.user
-    if is_admin and obj.form_config is not None:
-        dump["form_config_id"] = str(obj.form_config.pk)
+    usr = await current_user.user
+    if usr.admin:
+        if obj.form_config is not None:
+            dump["form_config_id"] = str(obj.form_config.pk)
+        else:
+            dump["form_config_id"] = None
 
     return {"course": dump}, 200
 
@@ -394,6 +397,9 @@ async def course_form_info(idx):
     if obj is None:
         return {"error": "no such course"}, 404
 
+    if obj.form_config is None:
+        return {"error": "form config not present"}, 404
+
     form_obj = await obj.form_config.fetch()
 
     if form_obj is None:
@@ -408,6 +414,9 @@ async def course_form_thumbnail_img(idx):
 
     if obj is None:
         return {"error": "no such course"}, 404
+
+    if obj.form_config is None:
+        return {"error": "form config not present"}, 404
 
     form_obj = await obj.form_config.fetch()
 
