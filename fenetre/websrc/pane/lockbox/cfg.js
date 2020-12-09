@@ -1,11 +1,13 @@
 import React from 'react';
 
-import {Row, Col, FormCheck, Form, Button, Alert, Spinner} from 'react-bootstrap';
+import {Row, Col, FormCheck, Form, Button, Alert, Spinner, ListGroup} from 'react-bootstrap';
 import {ExtraUserInfoContext} from '../../common/userinfo';
 import {useFormik} from 'formik';
 import * as yup from 'yup';
 import {Link} from 'react-router-dom';
 import useBackoffEffect from '../../common/pendprovider';
+
+import {BsCheckAll, BsCheck, BsExclamationCircle, BsArrowRight} from 'react-icons/bs';
 
 import "regenerator-runtime/runtime";
 
@@ -155,8 +157,61 @@ function CourseDetector() {
 			return <Alert className="d-flex align-items-center" variant="secondary"><Spinner className="mr-2" animation="border" /> loading...</Alert>;
 		}
 	}
+	else {
+		let alertstr = null;
 
-	return null;
+		if (courses !== null) {
+			if (courses.some((x) => !x.configuration_locked && (x.form_config || !x.has_attendance_form))) {
+				alertstr = <Alert variant="warning">All of your courses have valid configurations, however some of them have not been verified yet. You might want to check them (and possibly amend them) yourself.</Alert>;
+			}
+			else if (courses.some((x) => !x.configuration_locked)) {
+				alertstr = <Alert variant="danger">Oh no! Some of your courses haven't been configured yet! Please try configuring them yourself <i>before</i> asking an administrator to.</Alert>;
+			}
+			else {
+				alertstr = <Alert variant="info">Good news! We have configurations for all of your courses!</Alert>;
+			}
+		}
+		
+		return <>
+			{alertstr}
+			<ListGroup className="bg-light">
+				{courses.map((x) => <CourseListEntry course={x} />)}
+			</ListGroup>
+		</>;
+	}
+}
+
+function CourseListEntry(props) {
+	const course = props.course;
+	let confstr = null;
+	let editstr = null;
+
+	if (course.configuration_locked) {
+		confstr = <p className="text-success">Configuration verified <BsCheckAll /></p>;
+		editstr = "View configuration";
+	}
+	else if (course.form_config || !course.has_attendance_form) {
+		confstr = <p className="text-warning">Configured by other user <BsCheck /></p>;
+		editstr = "Edit configuration";
+	}
+	else {
+		confstr = <p className="text-danger">Not configured <BsExclamationCircle /></p>;
+		editstr = "Configure";
+	}
+
+	return <ListGroup.Item>
+		<div className="text-dark d-flex w-100 justify-content-between">
+			<h3 className="mb-1">{course.course_code}</h3>
+			{confstr}
+		</div>
+		<div className="d-flex w-100 justify-content-between">
+			<ul>
+				{course.known_slots.length > 0 && <li>In slots <span className="text-info">{course.known_slots.join(", ")}</span></li>}
+				{!course.has_attendance_form && <li>No form required</li>}
+			</ul>
+			<Button variant={course.configuration_locked ? "secondary" : "primary"}>{editstr} <BsArrowRight /></Button>
+		</div>
+	</ListGroup.Item>
 }
 
 function Cfg() {
