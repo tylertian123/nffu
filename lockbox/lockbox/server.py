@@ -1,3 +1,7 @@
+"""
+Main server implementation.
+"""
+
 import functools
 from aiohttp import web
 from .db import LockboxDB, LockboxDBError

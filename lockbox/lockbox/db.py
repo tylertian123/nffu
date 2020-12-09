@@ -1,63 +1,21 @@
+"""
+Classes for storing and performing db operations.
+"""
+
+import aiohttp
+import asyncio
 import base64
 import bson
 import os
 import secrets
 import typing
 from cryptography.fernet import Fernet
-from marshmallow import fields as ma_fields
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from umongo import Document, EmbeddedDocument, fields, validate, ValidationError
+from tdsbconnects import TDSBConnects
+from umongo import ValidationError
 from umongo.frameworks import MotorAsyncIOInstance
-
-
-class BinaryField(fields.BaseField, ma_fields.Field):
-    """
-    A field storing binary data in a document.
-
-    Shamelessly ripped from fenetre/db.py.
-    """
-
-    default_error_messages = {
-        'invalid': 'Not a valid byte sequence.'
-    }
-
-    def _serialize(self, value, attr, obj, **kwargs):
-        return bytes(value)
-
-    def _deserialize(self, value, attr, data, **kwargs):
-        if not isinstance(value, bytes):
-            self.fail('invalid')
-        return value
-
-    def _serialize_to_mongo(self, obj):
-        return bson.binary.Binary(obj)
-
-    def _deserialize_from_mongo(self, value):
-        return bytes(value)
-
-
-class LockboxFailure(EmbeddedDocument): # pylint: disable=abstract-method
-    """
-    A document used to report lockbox failures to fenetre.
-    """
-    _id = fields.ObjectIdField(required=True)
-    time_logged = fields.DateTimeField(required=True)
-    kind = fields.StrField(required=True, marshmallow_default="unknown")
-    message = fields.StrField(required=False, default="")
-
-
-class User(Document): # pylint: disable=abstract-method
-    """
-    A user in the private database.
-    """
-    token = fields.StrField(required=True, unique=True, validate=validate.Length(equal=64))
-
-    # Could be unconfigured
-    login = fields.StrField(required=False, unique=True, validate=validate.Regexp(r"\d+"))
-    password = BinaryField(required=False)
-
-    active = fields.BoolField(default=True)
-    errors = fields.ListField(fields.EmbeddedField(LockboxFailure), default=[])
+from .documents import User, LockboxFailure, FormField, Form, Course
+from . import tdsb
 
 
 class LockboxDBError(Exception):
@@ -104,12 +62,17 @@ class LockboxDB:
 
         self.LockboxFailureImpl = self._private_instance.register(LockboxFailure)
         self.UserImpl = self._private_instance.register(User)
+
+        self.FormFieldImpl = self._shared_instance.register(FormField)
+        self.FormImpl = self._shared_instance.register(Form)
+        self.CourseImpl = self._shared_instance.register(Course)
         
     async def init(self):
         """
         Initialize the databases.
         """
         await self.UserImpl.ensure_indexes()
+        await self.CourseImpl.ensure_indexes()
     
     def private_db(self) -> AsyncIOMotorDatabase:
         return self._private_db
@@ -131,6 +94,8 @@ class LockboxDB:
                           active: bool = None, **kwargs) -> None:
         """
         Modify user data.
+
+        Also verifies credentials if modifying login or password.
         """
         user = await self.UserImpl.find_one({"token": token})
         if user is None:
@@ -142,7 +107,46 @@ class LockboxDB:
                 user.password = self.fernet.encrypt(password.encode("utf-8"))
             if active is not None:
                 user.active = active
-            await user.commit()
+            # Verify user credentials if username and password are both present
+            # and at least one is being modified
+            if user["login"] is not None and user["password"] is not None and (login is not None or password is not None):
+                print("Verifying credentials")
+                session = TDSBConnects()
+                try:
+                    await session.login(login, password)
+                except aiohttp.ClientResponseError as e:
+                    # Invalid credentials, clean up and raise
+                    await session.close()
+                    if e.code == 401:
+                        raise LockboxDBError("Invalid TDSB credentials", LockboxDBError.INVALID_FIELD) from e
+                    raise LockboxDBError(f"HTTP error while logging into TDSB Connects: {str(e)}") from e
+                # Now we know credentials are valid
+                # Set user courses to None to mark as pending
+                user.courses = None
+                # Commit before creating the async task to avoid problems
+                await user.commit()
+                async def get_courses():
+                    async with session:
+                        courses = await tdsb.get_async_courses(session, logged_in=True)
+                    user.courses = []
+                    # Populate courses collection
+                    for course in courses:
+                        db_course = await self.CourseImpl.find_one({"course_code": course.course_code})
+                        if db_course is None:
+                            db_course = self.CourseImpl(course_code=course.course_code)
+                        # Without this, known_slots for different courses will all point to the same instance of list
+                        db_course.known_slots = db_course.known_slots or []
+                        # Fill in known slots
+                        slot_str = f"{course.course_cycle_day}-{course.course_period}"
+                        if slot_str not in db_course.known_slots:
+                            db_course.known_slots.append(slot_str)
+                        await db_course.commit()
+                        if db_course.pk not in user.courses:
+                            user.courses.append(db_course.pk)
+                    await user.commit()
+                asyncio.create_task(get_courses())
+            else:
+                await user.commit()
         except ValidationError as e:
             raise LockboxDBError(f"Invalid field: {e}", LockboxDBError.INVALID_FIELD) from e
     
