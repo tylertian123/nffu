@@ -5,10 +5,11 @@ $font-family-sans-serif:      "IBM Plex Sans Condensed", "Roboto", "Liberation S
 $font-family-monospace:       "IBM Plex Mono", "Roboto Mono", Consolas, "Liberation Mono", monospace !important;
 $web-font-path: 			  "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans+Condensed:ital,wght@0,400;0,700;1,400;1,700&display=swap";
 
-$primary: lighten($orange, 2);
+$primary: lighten($orange, 2.5);
 $enable-gradients: false;
 $enable-shadows: true;
 $danger: #ee3545;
+$success: #2ab148;
 
 @import "~bootstrap/scss/bootstrap";
 @import "~bootswatch/dist/solar/bootswatch";
