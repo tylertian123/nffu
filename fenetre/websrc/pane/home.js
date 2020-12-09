@@ -16,13 +16,13 @@ function ConstantAlerts() {
 
 	const alerts = [
 		[extraUserInfo.lockbox_error, 
-				<Alert variant="warning">There were problems when we last tried to fill in your attendance. You should probably see what they are <a>hereTODO</a></Alert>],
+				<Alert variant="warning">There were problems when we last tried to fill in your attendance. You should probably see what they are <Link className="alert-link" to="/lockbox/status">here</Link></Alert>],
 		[!extraUserInfo.has_lockbox_integration,
-				<Alert variant="danger">Something went wrong while agreeing to the warnings and disclaimers and we don't have a place to store your credentials; please <a href="/signup/eula">click here</a> to try again.</Alert>],
+				<Alert variant="danger">Something went wrong while agreeing to the warnings and disclaimers and we don't have a place to store your credentials; please <a className="alert-link" href="/signup/eula">click here</a> to try again.</Alert>],
 		[extraUserInfo.has_lockbox_integration && !extraUserInfo.lockbox_credentials_present,
-			<Alert variant="info">You haven't setup your TDSB credentials yet, so we aren't filling in your attendance forms. Go <Link to="/lockbox/cfg">here</Link> to set it up!</Alert>],
+			<Alert variant="info">You haven't setup your TDSB credentials yet, so we aren't filling in your attendance forms. Go <Link className="alert-link" to="/lockbox/cfg">here</Link> to set it up!</Alert>],
 		[extraUserInfo.has_lockbox_integration && !extraUserInfo.lockbox_form_active,
-				<Alert variant="info">You've disabled automatic attendance form filling. You can always turn it back on <a>here</a>!</Alert>]
+				<Alert variant="info">You've disabled automatic attendance form filling. You can always turn it back on <Link className="alert-link" to="/lockbox/cfg">here</Link>!</Alert>]
 	];
 
 	if (alerts.reduce((a, [b, _]) => a || b, false)) {
