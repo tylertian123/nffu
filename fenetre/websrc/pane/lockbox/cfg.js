@@ -14,7 +14,7 @@ function CredentialChangerAlerts() {
 	if (eui === null) return null;
 
 	return eui.lockbox_credentials_present ? 
-		<Alert variant="info">You've already filled in your TDSB credentials; you only need to use this area if you changed your password.</Alert> :
+		<Alert variant="success">You've already filled in your TDSB credentials; you only need to use this area if you changed your password.</Alert> :
 		<Alert variant="warning">You haven't filled out your TDSB credentials yet; to start filling in forms you need to set them here.</Alert>;
 }
 

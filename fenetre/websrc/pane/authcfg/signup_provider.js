@@ -108,7 +108,7 @@ function SignupProviders() {
 			))}
 		</ListGroup>
 		<Form.Control value={newName} onChange={(e) => {setNewName(e.target.value);}} placeholder="Name for new provider" className="mt-2" type="text"/>
-		<Button className="w-100 mt-1" variant="primary" disabled={newName === ''} onClick={addNew}><BsPlus /></Button>
+		<Button className="w-100 mt-1" variant="success" disabled={newName === ''} onClick={addNew}><BsPlus /></Button>
 	</>
 }
 
