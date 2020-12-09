@@ -54,7 +54,8 @@ class LockboxServer:
             web.patch("/user", self._patch_user),
             web.get("/user", self._get_user),
             web.delete("/user", self._delete_user),
-            web.delete(r"/user/error/{id:[a-f0-9]+}", self._delete_user_error)
+            web.delete(r"/user/error/{id:[a-f0-9]+}", self._delete_user_error),
+            web.get("/user/courses", self._get_user_courses)
         ])
 
         self.db = LockboxDB("db", 27017)
@@ -193,3 +194,39 @@ class LockboxServer:
         await self.db.delete_user_error(token, request.match_info["id"])
         print("Error deleted")
         return web.Response(status=204)
+    
+    @_handle_db_errors
+    @_extract_token
+    async def _get_user_courses(self, request: web.Request, token: str): # pylint: disable=unused-argument
+        """
+        Handle a GET to /user/courses.
+
+        The request should use bearer auth with a token given on user creation.
+
+        Returns the following JSON on success:
+        {
+            "courses": [], // A list of course IDs as strings
+                           // Corresponds to documents in the course collection of the shared db
+                           // null if credentials have not been configured, or pending is true
+            "pending": false, // Whether the courses are pending (still being processed)
+                              // Only true when credentials are present, but courses are still being processed
+        }
+
+        Returns the following JSON on failure:
+        {
+            "error": "...", // Reason for error, e.g. "Bad token", etc.
+        }
+        """
+        print("Got request: GET to /user/courses")
+        data = await self.db.get_user(token)
+        # No credentials
+        if not ("password" in data and "login" in data):
+            print("User courses returned")
+            return web.json_response({"courses": None, "pending": False})
+        # Credentials present, but courses are not
+        if data.get("courses") is None:
+            print("User courses returned")
+            return web.json_response({"courses": None, "pending": True})
+        # Both present
+        print("User courses returned")
+        return web.json_response({"courses": data["courses"], "pending": False})
