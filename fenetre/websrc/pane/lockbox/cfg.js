@@ -209,7 +209,7 @@ function CourseListEntry(props) {
 				{course.known_slots.length > 0 && <li>In slots <span className="text-info">{course.known_slots.join(", ")}</span></li>}
 				{!course.has_attendance_form && <li>No form required</li>}
 			</ul>
-			<Button variant={course.configuration_locked ? "secondary" : "primary"}>{editstr} <BsArrowRight /></Button>
+			<Button className="align-self-end" variant={course.configuration_locked ? "secondary" : "primary"}>{editstr} <BsArrowRight /></Button>
 		</div>
 	</ListGroup.Item>
 }
