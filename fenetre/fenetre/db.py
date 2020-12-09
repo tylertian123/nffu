@@ -1,4 +1,4 @@
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase, AsyncIOMotorGridFSBucket
 from quart import Quart, current_app
 from umongo.frameworks import MotorAsyncIOInstance
 from marshmallow import fields as ma_fields, missing as missing_
@@ -12,6 +12,9 @@ def private_db() -> AsyncIOMotorDatabase:
 
 def shared_db() -> AsyncIOMotorDatabase:
     return current_app.shared_db
+
+def gridfs() -> AsyncIOMotorGridFSBucket:
+    return current_app.gridfs_shared
 
 _shared_instance = MotorAsyncIOInstance()
 _private_instance = MotorAsyncIOInstance()
@@ -50,6 +53,7 @@ def init_app(app: Quart):
         current_app.client = AsyncIOMotorClient("db", 27017)
         current_app.priv_db = current_app.client['fenetre']
         current_app.shared_db = current_app.client['shared']
+        current_app.gridfs_shared = AsyncIOMotorGridFSBucket(current_app.shared_db)
 
         _shared_instance.set_db(shared_db())
         _private_instance.set_db(private_db())
@@ -139,6 +143,10 @@ class Form(Document):
 
     # Friendly title for this form configuration
     name = fields.StrField()
+
+    # is this form the default? if there are multiple of these, uh panic
+    # TODO: use io_validate to check that
+    is_default = fields.BoolField(default=False)
 
 @_shared_instance.register
 class Course(Document):

@@ -4,7 +4,8 @@ from fenetre.auth import admin_required, eula_required
 from fenetre import auth, lockbox
 from quart_auth import login_required, current_user, logout_user
 import quart_auth
-from fenetre.db import User, SignupProvider, Course
+from fenetre.db import User, SignupProvider, Course, Form, gridfs
+from motor.errors import NoFile
 import bson
 import marshmallow as ma
 import marshmallow.fields as ma_fields
@@ -68,7 +69,7 @@ class LockboxFailureDump(ma.Schema):
 
 lockbox_failure_dump = LockboxFailureDump()
 
-@blueprint.route("/me/lockbox_errors")
+@blueprint.route("/me/lockbox/errors")
 @eula_required
 async def lockbox_errors():
     userdata = await current_user.user
@@ -82,7 +83,7 @@ async def lockbox_errors():
         "lockbox_errors": result
     }
 
-@blueprint.route("/me/lockbox_errors/<idx>", methods=["DELETE"])
+@blueprint.route("/me/lockbox/errors/<idx>", methods=["DELETE"])
 @eula_required
 async def lockbox_error_del(idx):
     userdata = await current_user.user
@@ -351,3 +352,75 @@ async def delete_user(idx):
     await auth.delete_user(u)
 
     return '', 204
+
+@blueprint.route("/course")
+@admin_required
+async def list_all_courses():
+    return '', 204
+
+@blueprint.route("/course/<idx>")
+@eula_required  # specifically not admin so that users can _view_ courses if they have the id
+async def course_info(idx):
+    obj = await Course.find_one({"id": bson.ObjectId(idx)})
+
+    if obj is None:
+        return {"error": "no such course"}, 404
+
+    dump = user_course_enrollment_dump.dump(obj)
+
+    is_admin = await current_user.user
+    if is_admin and obj.form_config is not None:
+        dump["form_config_id"] = str(obj.form_config.pk)
+
+    return {"course": dump}, 200
+
+class UserFormDump(Form.schema.as_marshmallow_schema()):
+    @ma.post_dump(pass_original=True)
+    def add_thumb_present(self, data, orig, **kwargs):
+        data["has_thumbnail"] = orig.representative_thumbnail is not None
+        return data
+
+    class Meta:
+        fields = ('name', 'is_default')
+
+user_form_dump = UserFormDump()
+
+# specifically for users on user pages (admins get the form ID in course_info and use /form)
+@blueprint.route("/course/<idx>/form")
+@eula_required
+async def course_form_info(idx):
+    obj = await Course.find_one({"id": bson.ObjectId(idx)})
+
+    if obj is None:
+        return {"error": "no such course"}, 404
+
+    form_obj = await obj.form_config.fetch()
+
+    if form_obj is None:
+        return {"error": "course has no form setup"}, 404
+
+    return {"form": user_form_dump.dump(form_obj)}
+
+@blueprint.route("/course/<idx>/form/thumb.png")
+@eula_required
+async def course_form_thumbnail_img(idx):
+    obj = await Course.find_one({"id": bson.ObjectId(idx)})
+
+    if obj is None:
+        return {"error": "no such course"}, 404
+
+    form_obj = await obj.form_config.fetch()
+
+    if form_obj is None:
+        return {"error": "course has no form setup"}, 404
+
+    if form_obj.representative_thumbnail is None:
+        return {"error": "form has no thumbnail yet"}, 404
+
+    try:
+        stream = await gridfs().open_download_stream(form_obj.representative_thumbnail)
+    except NoFile:
+        return {"error": "form not in db"}, 404
+
+    return (await stream.read()), 200, {"Content-Type": "image/png"}
+

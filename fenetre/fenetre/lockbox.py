@@ -124,7 +124,12 @@ async def update_lockbox_identity(user: User, payload: dict):
         raise ValueError("missing token")
 
     async with _lockbox_sess().patch("http://lockbox/user", headers=_headers_for_user(user), json=payload) as resp:
-        error_data = await resp.json()
+        try:
+            error_data = await resp.json()
+        except:
+            if resp.ok:
+                return
+            raise
 
         if not resp.ok:
             raise LockboxError(error_data["error"], resp.status)
