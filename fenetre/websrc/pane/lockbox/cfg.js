@@ -73,6 +73,7 @@ function CredentialChanger() {
 		<CredentialChangerAlerts />
 		<Form noValidate onSubmit={formik.handleSubmit}>
 			{done && <p className="text-success">Saved!</p>}
+			{formik.status && <p className="text-danger">{formik.status}</p>}
 			<Form.Group>
 				<Form.Label>TDSB Username</Form.Label>
 				<Form.Control type="text" name="username" isInvalid={!!formik.errors.username && formik.touched.username} {...formik.getFieldProps('username')} />
