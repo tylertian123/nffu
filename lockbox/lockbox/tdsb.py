@@ -8,7 +8,7 @@ import typing
 
 
 async def get_async_courses(session: tdsbconnects.TDSBConnects = None, logged_in: bool = False,
-                            username: str = None, password: str = None) -> typing.List[tdsbconnects.TimetableItem]:
+                            username: str = None, password: str = None, include_all_slots = False) -> typing.List[tdsbconnects.TimetableItem]:
     """
     Get a list of asynchronous courses for this user, as pytdsbconnects TimetableItems.
 
@@ -56,7 +56,7 @@ async def get_async_courses(session: tdsbconnects.TDSBConnects = None, logged_in
                 for item in timetable:
                     # Get only async periods
                     # Async periods have period strs ending in "a"
-                    if item.course_period.endswith("a"):
+                    if item.course_period.endswith("a") or include_all_slots:
                         found.append(item)
     finally:
         if not provided:

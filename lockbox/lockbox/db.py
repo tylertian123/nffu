@@ -127,7 +127,7 @@ class LockboxDB:
                 await user.commit()
                 async def get_courses():
                     async with session:
-                        courses = await tdsb.get_async_courses(session, logged_in=True)
+                        courses = await tdsb.get_async_courses(session, logged_in=True, include_all_slots=True)
                     user.courses = []
                     # Populate courses collection
                     for course in courses:
