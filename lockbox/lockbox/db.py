@@ -9,9 +9,9 @@ import bson
 import os
 import secrets
 import typing
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from tdsbconnects import TDSBConnects
+from tdsbconnects import TDSBConnects, TimetableItem
 from umongo import ValidationError
 from umongo.frameworks import MotorAsyncIOInstance
 from .documents import User, LockboxFailure, FormField, Form, Course
@@ -26,6 +26,8 @@ class LockboxDBError(Exception):
     OTHER = 0
     BAD_TOKEN = 1
     INVALID_FIELD = 2
+    INTERNAL_ERROR = 3
+    STATE_CONFLICT = 4
 
     def __init__(self, message: str, code: int = 0):
         super().__init__(message)
@@ -80,6 +82,27 @@ class LockboxDB:
     def shared_db(self) -> AsyncIOMotorDatabase:
         return self._shared_db
     
+    async def _populate_user_courses(self, user, courses: typing.List[TimetableItem]) -> None:
+        """
+        Populate a user's courses, creating new Course documents if new courses are encountered.
+        """
+        user.courses = []
+        # Populate courses collection
+        for course in courses:
+            db_course = await self.CourseImpl.find_one({"course_code": course.course_code})
+            if db_course is None:
+                db_course = self.CourseImpl(course_code=course.course_code, teacher_name=course.course_teacher_name)
+                # Without this, known_slots for different courses will all point to the same instance of list
+                db_course.known_slots = []
+            # Fill in known slots
+            slot_str = f"{course.course_cycle_day}-{course.course_period}"
+            if slot_str not in db_course.known_slots:
+                db_course.known_slots.append(slot_str)
+            await db_course.commit()
+            if db_course.pk not in user.courses:
+                user.courses.append(db_course.pk)
+        await user.commit()
+    
     async def create_user(self) -> str:
         """
         Create a new user.
@@ -127,23 +150,8 @@ class LockboxDB:
                 await user.commit()
                 async def get_courses():
                     async with session:
-                        courses = await tdsb.get_async_courses(session, logged_in=True, include_all_slots=True)
-                    user.courses = []
-                    # Populate courses collection
-                    for course in courses:
-                        db_course = await self.CourseImpl.find_one({"course_code": course.course_code})
-                        if db_course is None:
-                            db_course = self.CourseImpl(course_code=course.course_code)
-                        # Without this, known_slots for different courses will all point to the same instance of list
-                        db_course.known_slots = db_course.known_slots or []
-                        # Fill in known slots
-                        slot_str = f"{course.course_cycle_day}-{course.course_period}"
-                        if slot_str not in db_course.known_slots:
-                            db_course.known_slots.append(slot_str)
-                        await db_course.commit()
-                        if db_course.pk not in user.courses:
-                            user.courses.append(db_course.pk)
-                    await user.commit()
+                        courses = await tdsb.get_async_periods(session, logged_in=True, include_all_slots=True)
+                    await self._populate_user_courses(user, courses)
                 asyncio.create_task(get_courses())
             else:
                 await user.commit()
@@ -181,3 +189,24 @@ class LockboxDB:
             raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
         if result.modified_count == 0:
             raise LockboxDBError("Bad error id")
+    
+    async def update_user_courses(self, token: str) -> None:
+        """
+        Refresh the detected courses for a user.
+        """
+        user = await self.UserImpl.find_one({"token": token})
+        if user is None:
+            raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
+        if user["login"] is None or user["password"] is None:
+            raise LockboxDBError("Cannot update courses: Missing credentials", LockboxDBError.STATE_CONFLICT)
+        # Attempt to decrypt the password here
+        try:
+            password = self.fernet.decrypt(user.password).decode("utf-8")
+        except InvalidToken as e:
+            raise LockboxDBError("Internal server error: Cannot decrypt password", LockboxDBError.INTERNAL_ERROR) from e
+        # Force courses into pending
+        user.courses = None
+        await user.commit()
+        async def update_courses():
+            await self._populate_user_courses(user, await tdsb.get_async_periods(username=user.login, password=password, include_all_slots=True))
+        asyncio.create_task(update_courses())
