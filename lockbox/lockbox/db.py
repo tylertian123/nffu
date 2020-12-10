@@ -9,7 +9,7 @@ import bson
 import os
 import secrets
 import typing
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from tdsbconnects import TDSBConnects, TimetableItem
 from umongo import ValidationError
@@ -26,6 +26,8 @@ class LockboxDBError(Exception):
     OTHER = 0
     BAD_TOKEN = 1
     INVALID_FIELD = 2
+    INTERNAL_ERROR = 3
+    STATE_CONFLICT = 4
 
     def __init__(self, message: str, code: int = 0):
         super().__init__(message)
@@ -187,3 +189,24 @@ class LockboxDB:
             raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
         if result.modified_count == 0:
             raise LockboxDBError("Bad error id")
+    
+    async def update_user_courses(self, token: str) -> None:
+        """
+        Refresh the detected courses for a user.
+        """
+        user = await self.UserImpl.find_one({"token": token})
+        if user is None:
+            raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
+        if user["login"] is None or user["password"] is None:
+            raise LockboxDBError("Cannot update courses: Missing credentials", LockboxDBError.STATE_CONFLICT)
+        # Attempt to decrypt the password here
+        try:
+            password = self.fernet.decrypt(user.password).decode("utf-8")
+        except InvalidToken as e:
+            raise LockboxDBError("Internal server error: Cannot decrypt password", LockboxDBError.INTERNAL_ERROR) from e
+        # Force courses into pending
+        user.courses = None
+        await user.commit()
+        async def update_courses():
+            await self._populate_user_courses(user, await tdsb.get_async_periods(username=user.login, password=password, include_all_slots=True))
+        asyncio.create_task(update_courses())

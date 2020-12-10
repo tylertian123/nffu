@@ -35,6 +35,8 @@ def _handle_db_errors(handler):
             code = {
                 LockboxDBError.BAD_TOKEN: 401,
                 LockboxDBError.INVALID_FIELD: 400,
+                LockboxDBError.INTERNAL_ERROR: 500,
+                LockboxDBError.STATE_CONFLICT: 409,
                 LockboxDBError.OTHER: 400,
             }[e.code]
             print(f"Error {code}: {str(e)}")
@@ -55,7 +57,8 @@ class LockboxServer:
             web.get("/user", self._get_user),
             web.delete("/user", self._delete_user),
             web.delete(r"/user/error/{id:[a-f0-9]+}", self._delete_user_error),
-            web.get("/user/courses", self._get_user_courses)
+            web.get("/user/courses", self._get_user_courses),
+            web.post("/user/courses/update", self._post_user_courses_update),
         ])
 
         self.db = LockboxDB("db", 27017)
@@ -113,6 +116,9 @@ class LockboxServer:
         {
             "error": "...", // Reason for error, e.g. "Missing body", "Bad token", etc.
         }
+
+        Possible error response codes:
+        - 400: Invalid format, token, or field value (including TDSB credentials)
         """
         print("Got request: PATCH to /user")
         if not request.can_read_body:
@@ -144,6 +150,9 @@ class LockboxServer:
         {
             "error": "...", // Reason for error, e.g. "Bad token", etc.
         }
+
+        Possible error response codes:
+        - 400: Invalid token
         """
         print("Got request: GET to /user")
         data = await self.db.get_user(token)
@@ -169,6 +178,9 @@ class LockboxServer:
         {
             "error": "...", // Reason for error, e.g. "Bad token", etc.
         }
+
+        Possible error response codes:
+        - 400: Invalid token
         """
         print("Got request: DELETE to /user")
         await self.db.delete_user(token)
@@ -189,6 +201,9 @@ class LockboxServer:
         {
             "error": "...", // Reason for error, e.g. "Bad token", etc.
         }
+
+        Possible error response codes:
+        - 400: Invalid token or error id
         """
         print("Got request: DELETE to", request.rel_url)
         await self.db.delete_user_error(token, request.match_info["id"])
@@ -216,6 +231,9 @@ class LockboxServer:
         {
             "error": "...", // Reason for error, e.g. "Bad token", etc.
         }
+
+        Possible error response codes:
+        - 400: Invalid token
         """
         print("Got request: GET to /user/courses")
         data = await self.db.get_user(token)
@@ -230,3 +248,28 @@ class LockboxServer:
         # Both present
         print("User courses returned")
         return web.json_response({"courses": data["courses"], "pending": False})
+    
+    @_handle_db_errors
+    @_extract_token
+    async def _post_user_courses_update(self, request: web.Request, token: str): # pylint: disable=unused-argument
+        """
+        Handle a POST to /user/courses/update.
+
+        The request should use bearer auth with a token given on user creation.
+
+        204 on success.
+
+        Returns the following JSON on failure:
+        {
+            "error": "...", // Reason for error, e.g. "Bad token", etc.
+        }
+
+        Possible error response codes:
+        - 400: Invalid token
+        - 409: Cannot update courses due to missing credentials
+        - 500: Failed to decrypt user password
+        """
+        print("Got request: POST to /user/courses/update")
+        await self.db.update_user_courses(token)
+        print("User courses updated")
+        return web.Response(status=204)
