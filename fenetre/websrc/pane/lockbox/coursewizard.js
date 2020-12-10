@@ -28,12 +28,10 @@ function FormPresentQuestion(props) {
 	</>;
 }
 
-function ConfirmNoAttendance(props) {
-	const course = React.useContext(InnerCourseContext);
-
+function ConfirmGeneric(props) {
 	return <>
 		<QuestionHeader completed={false}>Confirm configuration:</QuestionHeader>
-		<p>The course <code>{course.course_code}</code> will be configured to not require asynchronous attendance form filling. Is this correct?</p>
+		<p>{props.children}</p>
 		<hr />
 		<div className="w-100 d-flex justify-content-between">
 			<Button disabled={props.completed} onClick={props.onBack} variant="secondary"><BsArrowLeft /> Back</Button>
@@ -157,6 +155,7 @@ function CourseWizard() {
 	const [questionState, setQuestionState] = React.useState('ask-attendance');
 	const [formUrl, setFormUrl] = React.useState('');
 	const [chosenConfigStr, setChosenConfigStr] = React.useState(null);
+	const [redirecting, setRedirecting] = React.useState(false);
 
 	if (course === null) {
 		if (error) {
@@ -166,16 +165,6 @@ function CourseWizard() {
 			return <Alert className="d-flex align-items-center" variant="secondary"><Spinner className="mr-2" animation="border" /> loading...</Alert>;
 		}
 	}
-
-	/*const ALL_STATES = [
-		'ask-attendance',
-		'confirm-no-attendance',
-		'ask-form-url',
-		'ask-config-profile',
-		'confirm-form',
-		'confirm-nooption-form'
-	]
-	*/
 
 	const PREV_STATES = {
 		'confirm-no-attendance': 'ask-attendance',
@@ -191,10 +180,27 @@ function CourseWizard() {
 
 	const STATE_COMPONENT_MAP = {
 		'ask-attendance': FormPresentQuestion,
-		'confirm-no-attendance': ConfirmNoAttendance,
+		'confirm-no-attendance': ConfirmGeneric,
 		'ask-form-url': FormUrlQuestion,
-		'ask-config-profile': ChooseFormConfigQuestion
+		'ask-config-profile': ChooseFormConfigQuestion,
+		'confirm-form': ConfirmGeneric,
+		'confirm-nooption-form': ConfirmGeneric
 	}
+
+	const sendConfiguration = async (payload) => {
+		const resp = await fetch("/api/v1/course/" + idx + "/config", {
+			method: "PUT",
+			headers: {"Content-Type": "application/json"},
+			body: JSON.stringify(payload)
+		});
+
+		if (resp.ok) {
+			setRedirecting(true);
+		}
+		else {
+			setError((await resp.json()).error);
+		}
+	};
 
 	const STATE_PROPS = {
 		'ask-attendance': {
@@ -209,8 +215,11 @@ function CourseWizard() {
 		},
 		'confirm-no-attendance': {
 			onComplete: () => {
-				alert("todo");
-			}
+				sendConfiguration({
+					has_form_url: false
+				});
+			},
+			children: <p>The course <code>{course.course_code}</code> will be configured to not require asynchronous attendance form filling. Is this correct?</p>
 		},
 		'ask-form-url': {
 			value: formUrl,
@@ -222,7 +231,33 @@ function CourseWizard() {
 		'ask-config-profile': {
 			value: chosenConfigStr,
 			onChange: setChosenConfigStr,
-			formUrl: formUrl
+			formUrl: formUrl,
+			onFill: () => {
+				setQuestionState('confirm-form')
+			},
+			onNoOptions: () => {
+				setQuestionState('confirm-nooption-form')
+			}
+		},
+		'confirm-form': {
+			onComplete: () => {
+				sendConfiguration({
+					has_form_url: true,
+					form_url: formUrl,
+					config_token: chosenConfigStr == '' ? undefined : chosenConfigStr
+				})
+			},
+			children: chosenConfigStr == '' ? <p>The course <code>{course.course_code}</code> will be configured with the above URL and an administrator will have to create a new style for it. Is this correct?</p> :
+											  <p>The course <code>{course.course_code}</code> will be configured with the above URL and form style. Is this correct?</p>
+		},
+		'confirm-nooption-form': {
+			onComplete: () => {
+				sendConfiguration({
+					has_form_url: true,
+					form_url: formUrl
+				})
+			},
+			children: <p>We couldn't find any styles that worked with that form, so the course <code>{course.course_code}</code> will be configured with the above URL and an administrator will have to create a new style for it. Is this correct?</p>
 		}
 	}
 
@@ -242,6 +277,7 @@ function CourseWizard() {
 		<InnerCourseContext.Provider value={course}>
 			{questions.map((x) => <><hr />{x}</>)}
 		</InnerCourseContext.Provider>
+		{redirecting && <Redirect to={"/lockbox/cfg/"+idx} />}
 	</div>;
 }
 

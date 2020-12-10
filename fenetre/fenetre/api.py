@@ -490,10 +490,12 @@ async def generate_valid_configs(idx):
     payload = request_course_config_options.load(msg)
 
     valid_options = []
+    had_default = False
 
     # try to add the default one
     default_option = await Form.find_one({"is_default": True})
     if default_option is not None:
+        had_default = True
         valid_options.append(
             course_config_option_dump.dump({
                 "reason": "default-form",
@@ -509,7 +511,7 @@ async def generate_valid_configs(idx):
         if potential.form_config is not None and potential.form_config.pk not in already_processed:
             already_processed.add(potential.form_config.pk)
             option = await potential.form_config.fetch()
-            if option is None:
+            if option is None or option.is_default and had_default:
                 continue
             valid_options.append(
                 course_config_option_dump.dump({
@@ -559,3 +561,55 @@ async def potential_course_form_thumbnail_img(idx, signed_option):
 
     return (await stream.read()), 200, {"Content-Type": "image/png"}
 
+class UserConfigureCourseSchema(ma.Schema):
+    has_form_url = ma_fields.Bool(required=True)
+    form_url = ma_fields.URL()
+    config_token = ma_fields.Str()
+
+    @ma.post_load
+    def enforce(self, data, **kwargs):
+        if data["has_form_url"] and "form_url" not in data:
+            raise ma.ValidationError("has_form_url==true and form_url are mutually inclusive")
+        if ("form_url" in data or "config_token" in data) and not data["has_form_url"]:
+            raise ma.ValidationError("has_form_url==false is mutually exclusive with oter options")
+        return data
+
+user_configure_course_schema = UserConfigureCourseSchema()
+
+@blueprint.route("/course/<idx>/config", methods=["PUT"])
+@eula_required
+async def configure_course_user(idx):
+    obj = await Course.find_one({"id": bson.ObjectId(idx)})
+
+    if obj is None:
+        return {"error": "no such course"}, 404
+
+    if obj.configuration_locked and not (await current_user.user).admin:
+        return {"error": "config locked"}, 403
+
+    msg = await request.json
+    payload = user_configure_course_schema.load(msg)
+
+    if "config_token" in payload:
+        try:
+            config_option = course_config_option_dump_inner.load(current_app.course_cfg_option_signer.loads(payload["config_token"], max_age=60*60*24))
+        except itsdangerous.exc.BadData:
+            return {"error": "invalid option str"}, 400
+
+        # verify this is the right one
+        if config_option["for_course"] != obj.pk:
+            return {"error": "option str for wrong course"}, 403
+
+        # try to load the form
+        if not await Form.count_documents({"id": bson.ObjectId(config_option["form_config_id"])}):
+            return {"error": "missing form data"}, 404
+        
+        obj.form_config = config_option["form_config_id"]
+
+    if "form_url" in payload:
+        obj.form_url = payload["form_url"]
+
+    obj.has_attendance_form = payload["has_form_url"]
+    await obj.commit()
+
+    return '', 204

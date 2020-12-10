@@ -163,7 +163,7 @@ function CourseDetector() {
 		let alertstr = null;
 
 		if (courses !== null) {
-			if (courses.some((x) => !x.configuration_locked && (x.form_config || !x.has_attendance_form))) {
+			if (courses.every((x) => !x.configuration_locked && (x.form_config || !x.has_attendance_form))) {
 				alertstr = <Alert variant="warning">All of your courses have valid configurations, however some of them have not been verified yet. You might want to check them (and possibly amend them) yourself.</Alert>;
 			}
 			else if (courses.some((x) => !x.configuration_locked)) {
@@ -217,7 +217,7 @@ function CourseListEntry(props) {
 				{course.teacher_name && <li>Taught by <span className="text-info">{course.teacher_name}</span></li>}
 				{course.known_slots.length > 0 && <li>In slots <span className="text-info">{course.known_slots.join(", ")}</span></li>}
 				{!course.has_attendance_form && <li>No form required</li>}
-				{!course.form_config_data && course.form_url && (<li>
+				{!course.form_config && course.form_url && (<li>
 					<i>awaiting form style setup from administrator</i>
 				</li>)}
 			</ul>
@@ -259,6 +259,8 @@ function CourseViewer() {
 	const [ course, setCourse ] = React.useState(null);
 	const [ error, setError ] = React.useState('');
 
+	const [redirecting, setRedirecting] = React.useState(false);
+
 	React.useEffect(() => {
 		(async () => {
 			const resp = await fetch("/api/v1/course/" + idx);
@@ -278,7 +280,7 @@ function CourseViewer() {
 					return;
 				}
 				setCourse({
-					...data,
+					...data.course,
 					form_config_data: data2.form
 				});
 			}
@@ -327,8 +329,8 @@ function CourseViewer() {
 		reconfig = <p class="text-muted"><BsCheckAll /> This course was verified by an admin, so you can't edit its configuration. If you think it's wrong, tell an admin directly.</p>;
 	}
 	else {
-		reconfig = current_config === null ? <Button variant="success">Start configuring <BsArrowRight /></Button> :
-			<Button>Reconfigure <BsArrowClockwise /></Button>;
+		reconfig = current_config === null ? <Button onClick={() => setRedirecting(true)} variant="success">Start configuring <BsArrowRight /></Button> :
+			<Button onClick={() => setRedirecting(true)}>Reconfigure <BsArrowClockwise /></Button>;
 	}
 
 	return <div>
@@ -349,6 +351,8 @@ function CourseViewer() {
 		</>)}
 		
 		<div className="w-100 d-flex justify-content-end">{reconfig}</div>
+
+		{redirecting && <Redirect to={"/lockbox/cfg/" + course.id + "/setup"} />}
 	</div>
 }
 

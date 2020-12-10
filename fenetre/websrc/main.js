@@ -50,7 +50,7 @@ function App() {
 						</Nav>
 				  </Navbar.Collapse>
 				</Navbar>
-				<Container className="mt-2">
+				<Container className="my-2">
 					<Switch>
 						<Route path="/" exact>
 							<Home />
