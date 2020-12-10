@@ -217,7 +217,7 @@ function CourseListEntry(props) {
 				{course.teacher_name && <li>Taught by <span className="text-info">{course.teacher_name}</span></li>}
 				{course.known_slots.length > 0 && <li>In slots <span className="text-info">{course.known_slots.join(", ")}</span></li>}
 				{!course.has_attendance_form && <li>No form required</li>}
-				{!course.form_config_data && (<li>
+				{!course.form_config_data && course.form_url && (<li>
 					<i>awaiting form style setup from administrator</i>
 				</li>)}
 			</ul>
