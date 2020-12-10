@@ -12,7 +12,7 @@ from fenetre.lockbox import init_app as lockbox_init_app
 import secrets
 
 # blueprints
-from fenetre.api import blueprint as api_blueprint
+from fenetre.api import blueprint as api_blueprint, init_app as api_init_app
 
 # plugins
 static_digest = FlaskStaticDigest()
@@ -29,6 +29,7 @@ def create_app():
     db_init_app(app)
     auth_init_app(app)
     lockbox_init_app(app)
+    api_init_app(app)
     app.register_blueprint(api_blueprint)
 
     # static page routes (frontend)

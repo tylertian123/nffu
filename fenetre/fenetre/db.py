@@ -78,10 +78,13 @@ def init_app(app: Quart):
         init_db_in_cli_context()
 
         async def inner():
-            new_course = Course(course_code="SCH4UP-1C")
-            await new_course.commit()
+            boring_form = Form(
+                    is_default=True,
+                    name="TDSB default"
+            )
+            await boring_form.commit()
 
-            print("added course: " + str(new_course.pk))
+            print("added form: " + str(boring_form.pk))
 
         asyncio.get_event_loop().run_until_complete(inner())
 

@@ -1,10 +1,11 @@
-from quart import Blueprint, request, flash
+from quart import Blueprint, request, flash, current_app
 from quart.exceptions import HTTPException
 from fenetre.auth import admin_required, eula_required
 from fenetre import auth, lockbox
 from quart_auth import login_required, current_user, logout_user
 import quart_auth
 from fenetre.db import User, SignupProvider, Course, Form, gridfs
+from umongo.marshmallow_bonus import ObjectId as ObjectIdField
 from gridfs.errors import NoFile
 import bson
 import marshmallow as ma
@@ -15,8 +16,14 @@ import json
 import random
 import time
 import asyncio
+import itsdangerous
 
 blueprint = Blueprint("api", __name__, url_prefix="/api/v1")
+
+def init_app(app):
+    @app.before_serving
+    async def create_signers():
+        current_app.course_cfg_option_signer = itsdangerous.URLSafeTimedSerializer(app.secret_key, salt=b'cfg-options')
 
 # todo: use global error handler to make this work for 404/405
 @blueprint.errorhandler(HTTPException)
@@ -428,6 +435,125 @@ async def course_form_thumbnail_img(idx):
 
     try:
         stream = await gridfs().open_download_stream(form_obj.representative_thumbnail)
+    except NoFile:
+        return {"error": "form not in db"}, 404
+
+    return (await stream.read()), 200, {"Content-Type": "image/png"}
+
+
+class CourseConfigOptionDumpInner(ma.Schema):
+    # why is this a valid option
+    reason = ma_fields.String(required=True, validate=ma_validate.OneOf(["default-form", "matches-url"]))
+    # the course this option is for
+    for_course = ObjectIdField(required=True)
+    # the form ID this is referring to
+    form_config_id = ObjectIdField(required=True)
+    # the name of the form this is referring to
+    form_title = ma_fields.String(required=True)
+
+course_config_option_dump_inner = CourseConfigOptionDumpInner()
+
+class CourseConfigOptionDump(ma.Schema):
+    # why is this a valid option
+    reason = ma_fields.String(required=True, validate=ma_validate.OneOf(["default-form", "matches-url"]))
+    # the name of the form this is referring to
+    form_title = ma_fields.String(required=True)
+    
+    @ma.post_dump(pass_original=True)
+    def add_token(self, data, orig, **kwargs):
+        data["token"] = current_app.course_cfg_option_signer.dumps(course_config_option_dump_inner.dump(orig))
+        return data
+
+course_config_option_dump = CourseConfigOptionDump()
+
+class RequestCourseConfigOptions(ma.Schema):
+    form_url = ma_fields.URL(required=True)
+
+request_course_config_options = RequestCourseConfigOptions()
+
+@blueprint.route("/course/<idx>/config_options", methods=["POST"])
+@eula_required
+async def generate_valid_configs(idx):
+    # there is still some TODO here: this should really _not_ be blindly giving the suggestions it does and instead verify that they at least make some sense
+    # with lockbox first.
+    
+    # make sure the course exists first
+    obj = await Course.find_one({"id": bson.ObjectId(idx)})
+
+    if obj is None:
+        return {"error": "no such course"}, 404
+
+    if obj.configuration_locked and not (await current_user.user).admin:
+        return {"error": "config locked"}, 403
+
+    msg = await request.json
+    payload = request_course_config_options.load(msg)
+
+    valid_options = []
+
+    # try to add the default one
+    default_option = await Form.find_one({"is_default": True})
+    if default_option is not None:
+        valid_options.append(
+            course_config_option_dump.dump({
+                "reason": "default-form",
+                "form_title": default_option.name,
+                "for_course": obj.pk,
+                "form_config_id": default_option.pk
+            })
+        )
+
+    # find any courses with the same url
+    already_processed = set()
+    async for potential in Course.find({"form_url": payload["form_url"]}):
+        if potential.form_config is not None and potential.form_config.pk not in already_processed:
+            already_processed.add(potential.form_config.pk)
+            option = await potential.form_config.fetch()
+            if option is None:
+                continue
+            valid_options.append(
+                course_config_option_dump.dump({
+                    "reason": "matches-url",
+                    "form_title": option.name,
+                    "for_course": obj.pk,
+                    "form_config_id": option.pk
+                })
+            )
+
+    return {"options": valid_options}
+
+
+@blueprint.route("/course/<idx>/config_options/<signed_option>/thumb.png")
+@eula_required
+async def potential_course_form_thumbnail_img(idx, signed_option):
+    obj = await Course.find_one({"id": bson.ObjectId(idx)})
+
+    if obj is None:
+        return {"error": "no such course"}, 404
+
+    if obj.configuration_locked and not (await current_user.user).admin:
+        return {"error": "config locked"}, 403
+
+    try:
+        config_option = course_config_option_dump_inner.load(current_app.course_cfg_option_signer.loads(signed_option, max_age=60*60*24))
+    except itsdangerous.exc.BadData:
+        return {"error": "invalid option str"}, 400
+
+    # verify this is the right one
+    if config_option["for_course"] != obj.pk:
+        return {"error": "option str for wrong course"}, 403
+
+    # try to load the form
+    referred_form = await Form.find_one({"id": bson.ObjectId(config_option["form_config_id"])})
+
+    if referred_form is None:
+        return {"error": "form not found"}, 404
+
+    if referred_form.representative_thumbnail is None:
+        return {"error": "form has no thumbnail yet"}, 404
+
+    try:
+        stream = await gridfs().open_download_stream(referred_form.representative_thumbnail)
     except NoFile:
         return {"error": "form not in db"}, 404
 

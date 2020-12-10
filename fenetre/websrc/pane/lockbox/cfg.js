@@ -4,10 +4,11 @@ import {Row, Col, FormCheck, Form, Button, Alert, Spinner, ListGroup} from 'reac
 import {ExtraUserInfoContext} from '../../common/userinfo';
 import {useFormik} from 'formik';
 import * as yup from 'yup';
-import {Link} from 'react-router-dom';
+import {Link, Redirect, Switch, Route, useParams} from 'react-router-dom';
 import useBackoffEffect from '../../common/pendprovider';
+import CourseWizard from './coursewizard';
 
-import {BsCheckAll, BsCheck, BsExclamationCircle, BsArrowRight} from 'react-icons/bs';
+import {BsCheckAll, BsCheck, BsExclamationCircle, BsArrowRight, BsArrowLeft, BsArrowClockwise} from 'react-icons/bs';
 
 import "regenerator-runtime/runtime";
 
@@ -187,13 +188,19 @@ function CourseListEntry(props) {
 	let confstr = null;
 	let editstr = null;
 
+	const [redirecting, setRedirecting] = React.useState(false);
+
 	if (course.configuration_locked) {
 		confstr = <p className="text-success">Configuration verified <BsCheckAll /></p>;
 		editstr = "View configuration";
 	}
 	else if (course.form_config || !course.has_attendance_form) {
 		confstr = <p className="text-warning">Configured by other user <BsCheck /></p>;
-		editstr = "Edit configuration";
+		editstr = "Review configuration";
+	}
+	else if (course.form_url) {
+		confstr = <p className="text-warning">Waiting for administrator to configure <BsExclamationCircle /></p>;
+		editstr = "Review submitted information";
 	}
 	else {
 		confstr = <p className="text-danger">Not configured <BsExclamationCircle /></p>;
@@ -207,15 +214,20 @@ function CourseListEntry(props) {
 		</div>
 		<div className="d-flex w-100 justify-content-between">
 			<ul>
+				{course.teacher_name && <li>Taught by <span className="text-info">{course.teacher_name}</span></li>}
 				{course.known_slots.length > 0 && <li>In slots <span className="text-info">{course.known_slots.join(", ")}</span></li>}
 				{!course.has_attendance_form && <li>No form required</li>}
+				{!course.form_config_data && (<li>
+					<i>awaiting form style setup from administrator</i>
+				</li>)}
 			</ul>
-			<Button className="align-self-end" variant={course.configuration_locked ? "secondary" : "primary"}>{editstr} <BsArrowRight /></Button>
+			<Button className="align-self-end" onClick={() => setRedirecting(true)} variant={course.configuration_locked ? "secondary" : "primary"}>{editstr} <BsArrowRight /></Button>
+			{redirecting && <Redirect to={"/lockbox/cfg/" + course.id} />}
 		</div>
 	</ListGroup.Item>
 }
 
-function Cfg() {
+function CfgMain() {
 	const eui = React.useContext(ExtraUserInfoContext);
 
 	if (eui !== null && !eui.has_lockbox_integration) return null;
@@ -240,5 +252,118 @@ function Cfg() {
 		</Row>)}
 	</div>);
 };
+
+function CourseViewer() {
+	const { idx } = useParams();
+
+	const [ course, setCourse ] = React.useState(null);
+	const [ error, setError ] = React.useState('');
+
+	React.useEffect(() => {
+		(async () => {
+			const resp = await fetch("/api/v1/course/" + idx);
+			const data = await resp.json();
+
+			if (!resp.ok) {
+				setError(data.error);
+				return;
+			}
+			
+			if (data.course.form_config) {
+				const resp2 = await fetch("/api/v1/course/" + idx + "/form");
+				const data2 = await resp2.json();
+
+				if (!resp2.ok) {
+					setError(data2.error);
+					return;
+				}
+				setCourse({
+					...data,
+					form_config_data: data2.form
+				});
+			}
+			else {
+				setCourse(data.course);
+			}
+		})();
+	}, [idx]);
+
+	if (course === null) {
+		if (error) {
+			return <Alert variant="danger">failed: {error}</Alert>;
+		}
+		else {
+			return <Alert className="d-flex align-items-center" variant="secondary"><Spinner className="mr-2" animation="border" /> loading...</Alert>;
+		}
+	}
+
+	let current_config = null;
+
+	if (!course.has_attendance_form) {
+		current_config = <Alert variant="secondary">Course set as not having an attendance form to fill in.</Alert>;
+	}
+	else if (course.form_url) {
+		current_config = <Row>
+			<Col md>
+				<ul>
+					{course.form_config_data && (<>
+						<li>Form Style: <code>{course.form_config_data.name}</code></li>
+					</>)}
+					<li>Form URL: <a href={course.form_url}><code>{course.form_url}</code></a></li>
+					{!course.form_config_data && (<li>
+						<i>awaiting form style setup from administrator</i>
+					</li>)}
+				</ul>
+			</Col>
+			{course.form_config_data && (<Col md>
+				<h3>Thumbnail</h3>
+			</Col>)}
+		</Row>
+	}
+
+	let reconfig = null;
+
+	if (course.configuration_locked) {
+		reconfig = <p class="text-muted"><BsCheckAll /> This course was verified by an admin, so you can't edit its configuration. If you think it's wrong, tell an admin directly.</p>;
+	}
+	else {
+		reconfig = current_config === null ? <Button variant="success">Start configuring <BsArrowRight /></Button> :
+			<Button>Reconfigure <BsArrowClockwise /></Button>;
+	}
+
+	return <div>
+		<Link to="/lockbox/cfg"><span className="text-secondary"><BsArrowLeft /> Back</span></Link>
+
+		<h1>{course.course_code}</h1>
+
+		<ul>
+			{course.teacher_name && <li>Taught by <span className="text-info">{course.teacher_name}</span></li>}
+			{course.known_slots.length > 0 && <li>In slots <span className="text-info">{course.known_slots.join(", ")}</span></li>}
+		</ul>
+
+		<hr />
+
+		{current_config && (<>
+			<h2>Current configuration</h2>
+			{current_config}
+		</>)}
+		
+		<div className="w-100 d-flex justify-content-end">{reconfig}</div>
+	</div>
+}
+
+function Cfg() {
+	return <Switch>
+		<Route path="/lockbox/cfg" exact>
+			<CfgMain />
+		</Route>
+		<Route path="/lockbox/cfg/:idx/setup">
+			<CourseWizard />
+		</Route>
+		<Route path="/lockbox/cfg/:idx">
+			<CourseViewer />
+		</Route>
+	</Switch>;
+}
 
 export default Cfg;
