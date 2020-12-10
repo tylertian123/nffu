@@ -108,14 +108,18 @@ class Form(Document): # pylint: disable=abstract-method
 
     Taken from fenetre/db.py.
     """
+    
+    sub_fields = fields.ListField(fields.EmbeddedField(FormField))
 
-    fields = fields.ListField(fields.EmbeddedField(FormField))
+    # id of file in gridfs, should be a png
+    representative_thumbnail = fields.ObjectIdField(default=None)
 
-    # TODO: add a thumbnail field here; should it be a raw binary blob (which could be slow to access every time)
-    #       should it be a GridFS file (which would be really simple to implement but might have overhead)
-    #       or should it just be in a separate collection?
+    # Friendly title for this form configuration
+    name = fields.StrField()
 
-    # representative_thumbnail = ?
+    # is this form the default? if there are multiple of these, uh panic
+    # TODO: use io_validate to check that
+    is_default = fields.BoolField(default=False)
 
 
 class Course(Document): # pylint: disable=abstract-method
@@ -146,3 +150,6 @@ class Course(Document): # pylint: disable=abstract-method
 
     # Slots we know this course occurs on (f"{day}-{period}" so for example "2-1a" is day 2 in the morning asynchronous
     known_slots = fields.ListField(fields.StrField(), default=[])
+
+    # Teacher name
+    teacher_name = fields.StrField(default="")

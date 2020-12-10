@@ -7,10 +7,10 @@ import tdsbconnects
 import typing
 
 
-async def get_async_courses(session: tdsbconnects.TDSBConnects = None, logged_in: bool = False,
+async def get_async_periods(session: tdsbconnects.TDSBConnects = None, logged_in: bool = False,
                             username: str = None, password: str = None, include_all_slots = False) -> typing.List[tdsbconnects.TimetableItem]:
     """
-    Get a list of asynchronous courses for this user, as pytdsbconnects TimetableItems.
+    Get a list of asynchronous periods for this user, as pytdsbconnects TimetableItems.
 
     If session is provided, it will be used for this operation.
     Otherwise, a new session will be created.
@@ -19,6 +19,8 @@ async def get_async_courses(session: tdsbconnects.TDSBConnects = None, logged_in
     Otherwise, username and password must be provided, as they're required for login.
 
     Note that if a session is provided, it will not be closed at the end of the operation.
+
+    By default only grabs async periods; if include_all_slots is True, all periods will be retrieved.
     """
     provided = session is not None
     if not provided:
@@ -53,11 +55,14 @@ async def get_async_courses(session: tdsbconnects.TDSBConnects = None, logged_in
                     break
             for offset in day_offsets.values():
                 timetable = await school.timetable(today + datetime.timedelta(days=offset))
-                for item in timetable:
-                    # Get only async periods
-                    # Async periods have period strs ending in "a"
-                    if item.course_period.endswith("a") or include_all_slots:
-                        found.append(item)
+                if include_all_slots:
+                    found.extend(timetable)
+                else:
+                    for item in timetable:
+                        # Get only async periods
+                        # Async periods have period strs ending in "a"
+                        if item.course_period.endswith("a"):
+                            found.append(item)
     finally:
         if not provided:
             await session.close()
