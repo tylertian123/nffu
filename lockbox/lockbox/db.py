@@ -94,6 +94,10 @@ class LockboxDB:
                 db_course = self.CourseImpl(course_code=course.course_code, teacher_name=course.course_teacher_name)
                 # Without this, known_slots for different courses will all point to the same instance of list
                 db_course.known_slots = []
+            else:
+                # Make sure the teacher name is set
+                if not db_course.teacher_name:
+                    db_course.teacher_name = course.course_teacher_name
             # Fill in known slots
             slot_str = f"{course.course_cycle_day}-{course.course_period}"
             if slot_str not in db_course.known_slots:
