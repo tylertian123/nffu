@@ -121,7 +121,18 @@ function ChooseFormConfigQuestion(props) {
 		<p>If none of them are correct, choose "none of the above" and an administrator will be able to create a new one from the URL you've provided.</p>
 		{options.map((option) => <Form.Check key={option.token} type="radio" custom id={"upd-option-" + option.token}>
 			<Form.Check.Input type="radio" type="radio" disabled={props.completed} onChange={(e) => {if (e.target.checked) props.onChange(option.token)}} checked={props.value == option.token} />
-			<Form.Check.Label>{option.form_title}</Form.Check.Label>
+			<Form.Check.Label className="w-100">
+				<Row>
+					<Col sm md={option.has_thumbnail ? "8" : null}>
+						<p><b>{option.form_title}</b> <br />
+						<small>option provided due to: <code>{option.reason}</code></small></p>
+					</Col>
+					{option.has_thumbnail &&
+					<Col>
+						<img className="d-block img-fluid img-thumbnail" src={`/api/v1/course/${course.id}/config_options/${option.token}/thumb.png`} />
+					</Col>}
+				</Row>
+			</Form.Check.Label>
 		</Form.Check>)}
 		<FormCheck label="None of the above" type="radio" disabled={props.completed} onChange={(e)=>{if (e.target.checked) props.onChange('')}} custom id={"upd-option-def"} checked={props.value == ''} />
 		<hr />

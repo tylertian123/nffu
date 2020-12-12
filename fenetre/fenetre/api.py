@@ -458,6 +458,8 @@ class CourseConfigOptionDump(ma.Schema):
     reason = ma_fields.String(required=True, validate=ma_validate.OneOf(["default-form", "matches-url"]))
     # the name of the form this is referring to
     form_title = ma_fields.String(required=True)
+    # has thumbnail (not signed for reasons)
+    has_thumbnail = ma_fields.Bool(missing=False)
     
     @ma.post_dump(pass_original=True)
     def add_token(self, data, orig, **kwargs):
@@ -501,7 +503,8 @@ async def generate_valid_configs(idx):
                 "reason": "default-form",
                 "form_title": default_option.name,
                 "for_course": obj.pk,
-                "form_config_id": default_option.pk
+                "form_config_id": default_option.pk,
+                "has_thumbnail": default_option.representative_thumbnail is not None
             })
         )
 
@@ -518,7 +521,8 @@ async def generate_valid_configs(idx):
                     "reason": "matches-url",
                     "form_title": option.name,
                     "for_course": obj.pk,
-                    "form_config_id": option.pk
+                    "form_config_id": option.pk,
+                    "has_thumbnail": option.representative_thumbnail is not None
                 })
             )
 

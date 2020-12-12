@@ -306,19 +306,21 @@ function CourseViewer() {
 	}
 	else if (course.form_url) {
 		current_config = <Row>
-			<Col md>
+			<Col lg="8">
 				<ul>
 					{course.form_config_data && (<>
-						<li>Form Style: <code>{course.form_config_data.name}</code></li>
+						<li>Form style: <code>{course.form_config_data.name}</code></li>
 					</>)}
-					<li>Form URL: <a href={course.form_url}><code>{course.form_url}</code></a></li>
+					<li>URL: <a href={course.form_url}><code>{course.form_url}</code></a></li>
 					{!course.form_config_data && (<li>
 						<i>awaiting form style setup from administrator</i>
 					</li>)}
 				</ul>
 			</Col>
-			{course.form_config_data && (<Col md>
-				<h3>Thumbnail</h3>
+			{course.form_config_data && (<Col lg>
+				{course.form_config_data.has_thumbnail ? 
+					<img className="d-block img-fluid img-thumbnail" src={`/api/v1/course/${course.id}/form/thumb.png`} />
+				:   <p>no thumbnail available</p>}
 			</Col>)}
 		</Row>
 	}
