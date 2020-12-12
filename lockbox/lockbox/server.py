@@ -3,6 +3,7 @@ Main server implementation.
 """
 
 import functools
+import json
 from aiohttp import web
 from .db import LockboxDB, LockboxDBError
 
@@ -12,14 +13,14 @@ def _extract_token(handler):
     Use this decorator on web handlers to require token auth and extract the token.
     """
     @functools.wraps(handler)
-    async def _handler(self, request: web.Request):
+    async def _handler(self, request: web.Request, *args, **kwargs):
         if "authorization" not in request.headers:
             return web.json_response({"error": "Missing token"}, status=401)
         auth_parts = request.headers["authorization"].split(" ")
         if len(auth_parts) != 2 or auth_parts[0].lower() != "bearer":
             return web.json_response({"error": "Bearer auth not used"}, status=401)
         token = auth_parts[1]
-        return await handler(self, request, token)
+        return await handler(self, request, token=token, *args, **kwargs)
     return _handler
 
 
@@ -33,14 +34,33 @@ def _handle_db_errors(handler):
             return await handler(*args, **kwargs)
         except LockboxDBError as e:
             code = {
-                LockboxDBError.BAD_TOKEN: 401,
-                LockboxDBError.INVALID_FIELD: 400,
-                LockboxDBError.INTERNAL_ERROR: 500,
-                LockboxDBError.STATE_CONFLICT: 409,
-                LockboxDBError.OTHER: 400,
+                LockboxDBError.BAD_TOKEN: 401,              # Unauthorized
+                LockboxDBError.INVALID_FIELD: 400,          # Bad Request
+                LockboxDBError.INTERNAL_ERROR: 500,         # Internal Server Error
+                LockboxDBError.STATE_CONFLICT: 409,         # Conflict
+                LockboxDBError.RATE_LIMIT_EXCEEDED: 429,    # Too Many Requests
+                LockboxDBError.OTHER: 400,                  # Bad Request
             }[e.code]
             print(f"Error {code}: {str(e)}")
             return web.json_response({"error": str(e)}, status=code)
+    return _handler
+
+
+def _json_payload(handler):
+    """
+    Use this decorator to verify that the payload is JSON and download it.
+    """
+    @functools.wraps(handler)
+    async def _handler(self, request: web.Request, *args, **kwargs):
+        if not request.can_read_body:
+            return web.json_response({"error": "Missing body"}, status=400)
+        if not request.content_type in ("application/json", "text/json"):
+            return web.json_response({"error": "Bad content type"}, status=400)
+        try:
+            data = await request.json()
+        except json.JSONDecodeError as e:
+            return web.json_response({"error": f"Invalid json: {e}"}, status=400)
+        return await handler(self, request, payload=data, *args, **kwargs)
     return _handler
 
 
@@ -59,6 +79,7 @@ class LockboxServer:
             web.delete(r"/user/error/{id:[a-f0-9]+}", self._delete_user_error),
             web.get("/user/courses", self._get_user_courses),
             web.post("/user/courses/update", self._post_user_courses_update),
+            web.post("/form_geometry", self._post_form_geometry),
         ])
 
         self.db = LockboxDB("db", 27017)
@@ -96,8 +117,9 @@ class LockboxServer:
         return web.json_response({"token": token}, status=200)
     
     @_handle_db_errors
+    @_json_payload
     @_extract_token
-    async def _patch_user(self, request: web.Request, token: str):
+    async def _patch_user(self, request: web.Request, token: str, payload: dict):
         """
         Handle a PATCH to /user.
 
@@ -121,12 +143,7 @@ class LockboxServer:
         - 400: Invalid format, token, or field value (including TDSB credentials)
         """
         print("Got request: PATCH to /user")
-        if not request.can_read_body:
-            return web.json_response({"error": "Missing body"}, status=400)
-        if not request.content_type in ("application/json", "text/json"):
-            return web.json_response({"error": "Bad content type"}, status=400)
-        data = await request.json()
-        await self.db.modify_user(token, **data)
+        await self.db.modify_user(token, **payload)
         print("User modified")
         return web.Response(status=204)
     
@@ -273,3 +290,52 @@ class LockboxServer:
         await self.db.update_user_courses(token)
         print("User courses updated")
         return web.Response(status=204)
+    
+    @_handle_db_errors
+    @_json_payload
+    @_extract_token
+    async def _post_form_geometry(self, request: web.Request, token: str, payload: dict): # pylint: disable=unused-argument
+        """
+        Handle a POST to /form_geometry.
+
+        The request should use bearer auth with a token given on user creation.
+
+        JSON payload should have the following format:
+        {
+            "url": "...",            // The URL of the form to process
+            "override_limit": false, // Optional, whether to ignore the one request per user at a time limit, default false
+        }
+
+        Returns the following JSON on success:
+        {
+            "geometry": [   // A list of form geometry entries
+                            // null if pending is true
+                {
+                    "index": 0,     // The index of this entry in the form
+                    "title": "...", // The title of this entry
+                },
+            ],
+            "pending": false, // Whether the geometry is pending (still being processed)
+            "error": "...", // Optional, the error message (if one exists)
+        }
+
+        Returns the following JSON on failure:
+        {
+            "error": "...", // Reason for error, e.g. "Bad token", etc.
+        }
+
+        Possible error response codes:
+        - 400: Invalid token, too many requests
+        """
+        print("Got request: POST to /form_geometry")
+        if "url" not in payload:
+            return web.json_response({"error": "Missing field: 'url'"}, status=400)
+        result = await self.db.get_form_geometry(token, payload["url"], payload.get("override_limit", False))
+        result["pending"] = result["geometry"] is None
+        if "status" in result:
+            status = result.pop("status")
+            print(f"Form geometry error {status}: {result['error']}")
+            return web.json_response(result, status=status)
+        else:
+            print("Form geometry info returned")
+            return web.json_response(result, status=200)

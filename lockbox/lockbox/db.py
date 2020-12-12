@@ -14,7 +14,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from tdsbconnects import TDSBConnects, TimetableItem
 from umongo import ValidationError
 from umongo.frameworks import MotorAsyncIOInstance
-from .documents import User, LockboxFailure, FormField, Form, Course
+from . import documents
 from . import tdsb
 
 
@@ -28,6 +28,7 @@ class LockboxDBError(Exception):
     INVALID_FIELD = 2
     INTERNAL_ERROR = 3
     STATE_CONFLICT = 4
+    RATE_LIMIT_EXCEEDED = 5
 
     def __init__(self, message: str, code: int = 0):
         super().__init__(message)
@@ -62,12 +63,14 @@ class LockboxDB:
         self._private_instance = MotorAsyncIOInstance(self._private_db)
         self._shared_instance = MotorAsyncIOInstance(self._shared_db)
 
-        self.LockboxFailureImpl = self._private_instance.register(LockboxFailure)
-        self.UserImpl = self._private_instance.register(User)
+        self.LockboxFailureImpl = self._private_instance.register(documents.LockboxFailure)
+        self.UserImpl = self._private_instance.register(documents.User)
+        self.FormGeometryEntryImpl = self._private_instance.register(documents.FormGeometryEntry)
+        self.CachedFormGeometryImpl = self._private_instance.register(documents.CachedFormGeometry)
 
-        self.FormFieldImpl = self._shared_instance.register(FormField)
-        self.FormImpl = self._shared_instance.register(Form)
-        self.CourseImpl = self._shared_instance.register(Course)
+        self.FormFieldImpl = self._shared_instance.register(documents.FormField)
+        self.FormImpl = self._shared_instance.register(documents.Form)
+        self.CourseImpl = self._shared_instance.register(documents.Course)
         
     async def init(self):
         """
@@ -75,6 +78,8 @@ class LockboxDB:
         """
         await self.UserImpl.ensure_indexes()
         await self.CourseImpl.ensure_indexes()
+        await self.CachedFormGeometryImpl.ensure_indexes()
+        await self.CachedFormGeometryImpl.collection.drop()
     
     def private_db(self) -> AsyncIOMotorDatabase:
         return self._private_db
@@ -214,3 +219,33 @@ class LockboxDB:
         async def update_courses():
             await self._populate_user_courses(user, await tdsb.get_async_periods(username=user.login, password=password, include_all_slots=True))
         asyncio.create_task(update_courses())
+    
+    async def get_form_geometry(self, token: str, url: str, override_limit: bool) -> dict:
+        """
+        Get the form geometry for a given form URL.
+        """
+        geom = await self.CachedFormGeometryImpl.find_one({"url": url})
+        # Does not exist
+        if geom is None:
+            existing = await self.CachedFormGeometryImpl.count_documents({"requested_by": token})
+            # Admin limit: 5
+            if (override_limit and existing >= 5) or existing:
+                raise LockboxDBError("Max number of requests at a time exceeded", LockboxDBError.RATE_LIMIT_EXCEEDED)
+            try:
+                geom = self.CachedFormGeometryImpl(url=url, requested_by=token, geometry=None)
+            except ValidationError as e:
+                raise LockboxDBError(f"Invalid field: {e}", LockboxDBError.INVALID_FIELD) from e
+            await geom.commit()
+            # TODO: Start async task to grab and delete geometry
+            return {"geometry": None}
+        # Result pending
+        if geom["geometry"] is None:
+            return {"geometry": None}
+        # Result exists
+        if geom["response_status"] is None:
+            return {"geometry": geom.geometry}
+        return {
+            "geometry": geom.geometry,
+            "error": geom.error,
+            "status": geom.response_status
+        }

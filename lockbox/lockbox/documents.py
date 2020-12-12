@@ -154,3 +154,27 @@ class Course(Document): # pylint: disable=abstract-method
 
     # Teacher name
     teacher_name = fields.StrField(default="")
+
+
+class FormGeometryEntry(EmbeddedDocument): # pylint: disable=abstract-method
+    """
+    An entry in a form geometry description list.
+    """
+
+    index = fields.IntField(required=True)
+    title = fields.StrField(required=True)
+
+
+class CachedFormGeometry(Document): # pylint: disable=abstract-method
+    """
+    A document used for caching results to requests for form geometry.
+    """
+
+    url = fields.URLField(required=True, unique=True)
+    # Token of the user that requested this form geometry
+    # used to limit requests per user
+    requested_by = fields.StrField(required=False, allow_none=True)
+    geometry = fields.ListField(fields.EmbeddedField(FormGeometryEntry), required=False, allow_none=True)
+    
+    response_status = fields.IntField(required=False)
+    error = fields.StrField(required=False)
