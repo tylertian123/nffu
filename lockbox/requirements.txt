@@ -3,3 +3,4 @@ cryptography
 pytdsbconnects
 umongo[motor]>=3.0.0b13
 lark-parser
+selenium
