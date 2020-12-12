@@ -186,7 +186,7 @@ function CourseDetector() {
 			<ListGroup className="bg-light">
 				{courses.map((x) => <CourseListEntry key={x.id} course={x} />)}
 			</ListGroup>
-			<Button className="mt-3" onClick={refreshCourses}>Refresh from TDSB Connects<BsArrowClockwise /></Button>
+			<Button className="mt-3" onClick={refreshCourses}><BsArrowClockwise /> Refresh from TDSB Connects</Button>
 		</>;
 	}
 }
