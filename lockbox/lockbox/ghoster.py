@@ -7,13 +7,14 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
+
 
 from lockbox.documents import FormFieldType
 import collections
 
 # Helper strucuts
 GhosterCredentials = collections.namedtuple("GhosterCredentials", "email tdsb_user tdsb_pass")
-
 
 # Various helper functions for doing common tasks
 def _create_browser():
@@ -32,21 +33,21 @@ def _do_google_auth_flow(browser: webdriver.Firefox, credentials: GhosterCredent
 
     # wait for the google page to load
     WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.ID, "identifierNext")))
-    print("google login loaded")
+    #print("google login loaded")
 
     # put the email into the google form
     browser.find_element_by_id("identifierId").send_keys(credentials.email)
 
     # click "next" in google
     browser.find_element_by_id("identifierNext").click()
-    print("going to aw page")
+    #print("going to aw page")
 
     # wait for the form to go to the aw site
     WebDriverWait(browser, 15).until(EC.url_contains("aw.tdsb.on.ca"))
 
     # wait for it to load
     WebDriverWait(browser, 5).until(EC.presence_of_element_located((By.ID, "TdsbLoginControl_Login")))
-    print("aw page loaded")
+    #print("aw page loaded")
 
     # fill in AW
     browser.find_element_by_id("UserName").send_keys(credentials.tdsb_user)
@@ -54,7 +55,7 @@ def _do_google_auth_flow(browser: webdriver.Firefox, credentials: GhosterCredent
 
     # click login
     browser.find_element_by_id("TdsbLoginControl_Login").click()
-    print("clicking login in aw")
+    #print("clicking login in aw")
 
 
 def _guess_input_type(browser: webdriver.Firefox, element: webdriver.firefox.webelement.FirefoxWebElement):
@@ -112,6 +113,12 @@ def _get_input_header(browser: webdriver.Firefox, element: webdriver.firefox.web
     return header_element.text
 
 
+class GhosterAuthFailed(Exception):
+    pass
+
+class GhosterInvalidForm(Exception):
+    pass
+
 def get_form_geometry(form_url: str, credentials: GhosterCredentials):
     """
     Retrieve information about the form
@@ -141,10 +148,23 @@ def get_form_geometry(form_url: str, credentials: GhosterCredentials):
         # check if the form needed signing in
         if "accounts.google.com" in browser.current_url:
             needs_signin = True
-            _do_google_auth_flow(browser, credentials) # if this times out the auth failed
+            try:
+                _do_google_auth_flow(browser, credentials) # if this times out the auth failed
+            except NoSuchElementException:
+                raise GhosterAuthFailed("Invalid authentication challenge page")
+            except TimeoutException:
+                raise GhosterAuthFailed("Invalid authentication")
 
-        # ensure page is completely loaded
-        WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "freebirdFormviewerViewNavigationSubmitButton"))) # if this times out the page is too complex
+        try:
+            # ensure page is completely loaded
+            WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "freebirdFormviewerViewNavigationSubmitButton"))) # if this times out the page is too complex
+        except TimeoutException:
+            if "alreadyresponded" in browser.current_url:
+                raise GhosterInvalidForm("Form not setup for multiple responses")
+            elif "formrestricted" in browser.current_url:
+                raise GhosterAuthFailed("Account not able to access form")
+            else:
+                raise GhosterInvalidForm("Form doesn't have a submit button; may be multi-page?")
 
         # get all components on the page
         sub_elems = browser.find_elements_by_css_selector(".freebirdFormviewerViewItemList .freebirdFormviewerViewNumberedItemContainer")
@@ -154,6 +174,9 @@ def get_form_geometry(form_url: str, credentials: GhosterCredentials):
         for j, elem in enumerate(sub_elems):
             f_type = _guess_input_type(browser, elem)
             if f_type is not None:
-                fields.append((j, _get_input_header(browser, elem), f_type))
+                try:
+                    fields.append((j, _get_input_header(browser, elem), f_type))
+                except NoSuchElementException:
+                    raise GhosterInvalidForm(f"Form field {j} missing header")
 
         return needs_signin, fields
