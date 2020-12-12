@@ -157,3 +157,15 @@ async def query_lockbox_enrolled_courses(user: User):
             raise ValueError("missing auth")
         else:
             return [await Course.find_one({"id": bson.ObjectId(x)}) for x in data["courses"]]
+
+async def update_lockbox_enrolled_courses(user: User):
+    """
+    Force a refresh of the enrolled course list
+    """
+
+    if user.lockbox_token is None:
+        raise ValueError("missing token")
+
+    async with _lockbox_sess().post("http://lockbox/user/courses/update", headers=_headers_for_user(user)) as resp:
+        if not resp.ok:
+            raise LockboxError("failed to update courses", resp.status)

@@ -12,16 +12,29 @@ function useBackoffEffect(callback, deps) {
 	React.useEffect(() => {
 		let isGone = false;
 
+		if (backoffLevel == -1) {
+			return;
+		}
+
 		(async ()=>{
 			if (await callback() && !isGone) {
 				setTimeout(()=>{if (!isGone) setBackoffLevel(backoffLevel+1)}, currentBackoffDelay);
 			}
+			else {
+				setBackoffLevel(-1);
+			}
 		})();
-		
+
 		return () => {
 			isGone = true;
 		}
-	}, [backoffLevel, ...deps]);
+	}, [backoffLevel]);
+
+	React.useEffect(() => {
+		if (backoffLevel) setBackoffLevel(0);
+	}, deps);
+
+	return () => setBackoffLevel(0);
 }
 
 export default useBackoffEffect;

@@ -195,6 +195,15 @@ async def get_lockbox_courses():
             "courses": [user_course_enrollment_dump.dump(x) for x in current_courses]
         }, 200
 
+@blueprint.route("/me/lockbox/courses/update", methods=["POST"])
+@eula_required
+async def refresh_lockbox_courses():
+    user = await current_user.user
+
+    await lockbox.update_lockbox_enrolled_courses(user)
+
+    return '', 204
+
 class SignupSchema(ma.Schema):
     token = ma_fields.String(required=True, validate=ma_validate.Regexp("[0-9a-f]{9}"))
 

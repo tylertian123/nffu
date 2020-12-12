@@ -99,7 +99,6 @@ function Enabler() {
 	const [status, setStatus] = React.useState('');
 
 	const update = async (e) => {
-		console.log("heloo");
 		const oldValue = privateEnabled;
 		const nv = e.target.checked;
 
@@ -130,7 +129,8 @@ function Enabler() {
 	};
 
 	return <>
-		<FormCheck onClick={update} checked={privateEnabled} disabled={working || eui === null} custom id="form-enable" type="switch" label="Enable form-filling" />
+		{status && <p className="text-danger">{status}</p>}
+		<FormCheck onChange={update} checked={privateEnabled} disabled={working || eui === null} custom id="form-enable" type="switch" label="Enable form-filling" />
 		{working && <Spinner size="sm" animation="border" />}
 	</>;
 };
@@ -139,7 +139,7 @@ function CourseDetector() {
 	const [courses, setCourses] = React.useState(null);
 	const [pending, setPending] = React.useState(null);
 
-	useBackoffEffect(async () => {
+	const reloadCourses = useBackoffEffect(async () => {
 		const response = await fetch("/api/v1/me/lockbox/courses");
 		const data = await response.json();
 		const pending = data.status == "pending";
@@ -150,6 +150,13 @@ function CourseDetector() {
 		setCourses(data.courses);
 		return false;
 	}, []);
+
+	const refreshCourses = async () => {
+		const resp = await fetch('/api/v1/me/lockbox/courses/update', {method: "POST"});
+		if (!resp.ok) return;
+		setCourses(null);
+		reloadCourses();
+	};
 
 	if (courses === null) {
 		if (pending !== null && pending) {
@@ -177,8 +184,9 @@ function CourseDetector() {
 		return <>
 			{alertstr}
 			<ListGroup className="bg-light">
-				{courses.map((x) => <CourseListEntry course={x} />)}
+				{courses.map((x) => <CourseListEntry key={x.id} course={x} />)}
 			</ListGroup>
+			<Button className="mt-3" onClick={refreshCourses}>Refresh from TDSB Connects<BsArrowClockwise /></Button>
 		</>;
 	}
 }
