@@ -84,27 +84,27 @@ function ChooseFormConfigQuestion(props) {
 
 	const formUrl = props.formUrl;
 
-	React.useEffect(() => {
-		(async ()=>{
-			const resp = await fetch("/api/v1/course/" + course.id + "/config_options", {
-				method: "POST",
-				headers: {"Content-Type": "application/json"},
-				body: JSON.stringify({"form_url": formUrl})
-			});
-			const data = await resp.json();
-			if (!resp.ok) {
-				alert("failed to grab");
+	useBackoffEffect(async () => {
+		const resp = await fetch("/api/v1/course/" + course.id + "/config_options", {
+			method: "POST",
+			headers: {"Content-Type": "application/json"},
+			body: JSON.stringify({"form_url": formUrl})
+		});
+		const data = await resp.json();
+		if (!resp.ok) {
+			alert("failed to grab");
+		}
+		else {
+			if (data.status == "pending") return true;
+			const options = data.options;
+			if (!options) {
+				props.onNoOptions();
 			}
 			else {
-				const options = data.options;
-				if (!options) {
-					props.onNoOptions();
-				}
-				else {
-					setOptions(options);
-				}
+				setOptions(options);
 			}
-		})();
+		}
+		return false;
 	}, [formUrl, course.id]);
 
 	const verifyAndSend = () => {
