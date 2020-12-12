@@ -535,7 +535,7 @@ async def generate_valid_configs(idx):
                 })
             )
 
-    return {"options": valid_options}
+    return {"options": valid_options, "status": "ok"}
 
 
 @blueprint.route("/course/<idx>/config_options/<signed_option>/thumb.png")
