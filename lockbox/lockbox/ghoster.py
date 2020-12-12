@@ -132,29 +132,28 @@ def get_form_geometry(form_url: str, credentials: GhosterCredentials):
     """
 
     # spin up a browser
-    browser = _create_browser()
+    with _create_browser() as browser:
+        # go to the form url
+        browser.get(form_url)
 
-    # go to the form url
-    browser.get(form_url)
+        needs_signin = False
 
-    needs_signin = False
+        # check if the form needed signing in
+        if "accounts.google.com" in browser.current_url:
+            needs_signin = True
+            _do_google_auth_flow(browser, credentials) # if this times out the auth failed
 
-    # check if the form needed signing in
-    if "accounts.google.com" in browser.current_url:
-        needs_signin = True
-        _do_google_auth_flow(browser, credentials) # if this times out the auth failed
+        # ensure page is completely loaded
+        WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "freebirdFormviewerViewNavigationSubmitButton"))) # if this times out the page is too complex
 
-    # ensure page is completely loaded
-    WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "freebirdFormviewerViewNavigationSubmitButton"))) # if this times out the page is too complex
+        # get all components on the page
+        sub_elems = browser.find_elements_by_css_selector(".freebirdFormviewerViewItemList .freebirdFormviewerViewNumberedItemContainer")
 
-    # get all components on the page
-    sub_elems = browser.find_elements_by_css_selector(".freebirdFormviewerViewItemList .freebirdFormviewerViewNumberedItemContainer")
+        fields = []
 
-    fields = []
+        for j, elem in enumerate(sub_elems):
+            f_type = _guess_input_type(browser, elem)
+            if f_type is not None:
+                fields.append((j, _get_input_header(browser, elem), f_type))
 
-    for j, elem in enumerate(sub_elems):
-        f_type = _guess_input_type(browser, elem)
-        if f_type is not None:
-            fields.append((j, _get_input_header(browser, elem), f_type))
-
-    return needs_signin, fields
+        return needs_signin, fields
