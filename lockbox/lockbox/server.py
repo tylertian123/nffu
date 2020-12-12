@@ -315,6 +315,8 @@ class LockboxServer:
                     "title": "...", // The title of this entry
                 },
             ],
+            "authentication_required": false // True if the form prompted for authentication 
+                                             // null if pending is true
             "pending": false, // Whether the geometry is pending (still being processed)
             "error": "...", // Optional, the error message (if one exists)
         }

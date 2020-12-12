@@ -163,6 +163,7 @@ class FormGeometryEntry(EmbeddedDocument): # pylint: disable=abstract-method
 
     index = fields.IntField(required=True)
     title = fields.StrField(required=True)
+    kind = fields.StrField(required=True, validate=validate.OneOf([x.value for x in FormFieldType]))
 
 
 class CachedFormGeometry(Document): # pylint: disable=abstract-method
@@ -175,6 +176,7 @@ class CachedFormGeometry(Document): # pylint: disable=abstract-method
     # used to limit requests per user
     requested_by = fields.StrField(required=False, allow_none=True)
     geometry = fields.ListField(fields.EmbeddedField(FormGeometryEntry), required=False, allow_none=True)
+    authentication_required = fields.BoolField(required=False, allow_none=True)
     
     response_status = fields.IntField(required=False)
     error = fields.StrField(required=False)
