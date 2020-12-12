@@ -61,6 +61,7 @@ class User(Document): # pylint: disable=abstract-method
     # or the courses are in the process of being populated
     # An empty array indicates no courses found
     courses = fields.ListField(fields.ObjectIdField(), required=False, allow_none=True)
+    email = fields.EmailField(required=False, allow_none=True)
 
     active = fields.BoolField(default=True)
     errors = fields.ListField(fields.EmbeddedField(LockboxFailure), default=[])
@@ -176,7 +177,7 @@ class CachedFormGeometry(Document): # pylint: disable=abstract-method
     # used to limit requests per user
     requested_by = fields.StrField(required=False, allow_none=True)
     geometry = fields.ListField(fields.EmbeddedField(FormGeometryEntry), required=False, allow_none=True)
-    authentication_required = fields.BoolField(required=False, allow_none=True)
+    auth_required = fields.BoolField(required=False, allow_none=True)
     
     response_status = fields.IntField(required=False)
     error = fields.StrField(required=False)

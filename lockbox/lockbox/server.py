@@ -119,7 +119,7 @@ class LockboxServer:
     @_handle_db_errors
     @_json_payload
     @_extract_token
-    async def _patch_user(self, request: web.Request, token: str, payload: dict):
+    async def _patch_user(self, request: web.Request, token: str, payload: dict): # pylint: disable=unused-argument
         """
         Handle a PATCH to /user.
 
@@ -169,7 +169,7 @@ class LockboxServer:
         }
 
         Possible error response codes:
-        - 400: Invalid token
+        - 401: Invalid token
         """
         print("Got request: GET to /user")
         data = await self.db.get_user(token)
@@ -197,7 +197,7 @@ class LockboxServer:
         }
 
         Possible error response codes:
-        - 400: Invalid token
+        - 401: Invalid token
         """
         print("Got request: DELETE to /user")
         await self.db.delete_user(token)
@@ -220,7 +220,8 @@ class LockboxServer:
         }
 
         Possible error response codes:
-        - 400: Invalid token or error id
+        - 400: Invalid error id
+        - 401: Invalid token
         """
         print("Got request: DELETE to", request.rel_url)
         await self.db.delete_user_error(token, request.match_info["id"])
@@ -250,7 +251,7 @@ class LockboxServer:
         }
 
         Possible error response codes:
-        - 400: Invalid token
+        - 401: Invalid token
         """
         print("Got request: GET to /user/courses")
         data = await self.db.get_user(token)
@@ -282,7 +283,7 @@ class LockboxServer:
         }
 
         Possible error response codes:
-        - 400: Invalid token
+        - 401: Invalid token
         - 409: Cannot update courses due to missing credentials
         - 500: Failed to decrypt user password
         """
@@ -316,8 +317,8 @@ class LockboxServer:
                     "kind": "text"  // The type of this entry
                 },
             ],
-            "authentication_required": false // True if the form prompted for authentication 
-                                             // null if pending is true
+            "auth_required": false, // True if the form prompted for authentication 
+                                    // null if pending is true
             "pending": false, // Whether the geometry is pending (still being processed)
             "error": "...", // Optional, the error message (if one exists)
         }
@@ -328,7 +329,11 @@ class LockboxServer:
         }
 
         Possible error response codes:
-        - 400: Invalid token, too many requests
+        - 400: Invalid field, invalid form
+        - 401: Invalid token
+        - 403: Form auth error
+        - 429: Concurrent request limit exceeded
+        - 409: Cannot sign into form due to missing credentials
         """
         print("Got request: POST to /form_geometry")
         if "url" not in payload:

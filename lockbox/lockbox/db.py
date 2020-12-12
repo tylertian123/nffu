@@ -16,6 +16,7 @@ from umongo import ValidationError
 from umongo.frameworks import MotorAsyncIOInstance
 from . import documents
 from . import tdsb
+from . import ghoster
 
 
 class LockboxDBError(Exception):
@@ -112,6 +113,33 @@ class LockboxDB:
                 user.courses.append(db_course.pk)
         await user.commit()
     
+    async def _get_geometry(self, url: str, geom, user, password: str):
+        """
+        Fill in form geometry. Also starts a task for deletion.
+        """
+        def _inner():
+            try:
+                auth_required, form_geom = ghoster.get_form_geometry(url, ghoster.GhosterCredentials(user.email, user.login, password))
+                geom.auth_required = auth_required
+                geom.geometry = [{"index": entry[0], "title": entry[1], "kind": str(entry[2].value)} for entry in form_geom]
+            except ghoster.GhosterAuthFailed as e:
+                geom.error = str(e)
+                geom.response_status = 403
+            except ghoster.GhosterInvalidForm as e:
+                geom.error = str(e)
+                geom.response_status = 400
+        await asyncio.get_event_loop().run_in_executor(None, _inner)
+        await geom.commit()
+        print("Done getting form geometry for ", url)
+        async def _delete_geom():
+            try:
+                await asyncio.sleep(15 * 60) # 15 mins
+                await geom.remove()
+                print("Form geometry deleted for ", url)
+            except asyncio.TimeoutError:
+                pass
+        asyncio.create_task(_delete_geom())
+    
     async def create_user(self) -> str:
         """
         Create a new user.
@@ -141,12 +169,15 @@ class LockboxDB:
                 user.active = active
             # Verify user credentials if username and password are both present
             # and at least one is being modified
-            if user["login"] is not None and user["password"] is not None and (login is not None or password is not None):
+            if user.login is not None and user.password is not None and (login is not None or password is not None):
                 print("Verifying credentials")
                 session = TDSBConnects()
                 try:
                     await session.login(login, password)
+                    info = await session.get_user_info()
+                    user.email = info.email
                 except aiohttp.ClientResponseError as e:
+                    user.email = None
                     # Invalid credentials, clean up and raise
                     await session.close()
                     if e.code == 401:
@@ -206,7 +237,7 @@ class LockboxDB:
         user = await self.UserImpl.find_one({"token": token})
         if user is None:
             raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
-        if user["login"] is None or user["password"] is None:
+        if user.login is None or user.password is None:
             raise LockboxDBError("Cannot update courses: Missing credentials", LockboxDBError.STATE_CONFLICT)
         # Attempt to decrypt the password here
         try:
@@ -224,6 +255,16 @@ class LockboxDB:
         """
         Get the form geometry for a given form URL.
         """
+        user = await self.UserImpl.find_one({"token": token})
+        if user is None:
+            raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
+        if user.login is None or user.password is None:
+            raise LockboxDBError("Cannot sign into form: Missing credentials", LockboxDBError.STATE_CONFLICT)
+        # Attempt to decrypt the password here
+        try:
+            password = self.fernet.decrypt(user.password).decode("utf-8")
+        except InvalidToken as e:
+            raise LockboxDBError("Internal server error: Cannot decrypt password", LockboxDBError.INTERNAL_ERROR) from e
         geom = await self.CachedFormGeometryImpl.find_one({"url": url})
         # Does not exist
         if geom is None:
@@ -236,16 +277,17 @@ class LockboxDB:
             except ValidationError as e:
                 raise LockboxDBError(f"Invalid field: {e}", LockboxDBError.INVALID_FIELD) from e
             await geom.commit()
-            # TODO: Start async task to grab and delete geometry
-            return {"geometry": None}
+            asyncio.create_task(self._get_geometry(url, geom, user, password))
+            return {"geometry": None, "auth_required": None}
         # Result pending
-        if geom["geometry"] is None:
-            return {"geometry": None}
+        if geom.geometry is None and geom.response_status is None:
+            return {"geometry": None, "auth_required": None}
         # Result exists
-        if geom["response_status"] is None:
-            return {"geometry": geom.geometry}
+        if geom.response_status is None:
+            return {"geometry": [e.dump() for e in geom.geometry], "auth_required": geom.auth_required}
         return {
-            "geometry": geom.geometry,
+            "geometry": [e.dump() for e in geom.geometry],
+            "auth_required": geom.auth_required,
             "error": geom.error,
             "status": geom.response_status
         }
