@@ -313,6 +313,7 @@ class LockboxServer:
                 {
                     "index": 0,     // The index of this entry in the form
                     "title": "...", // The title of this entry
+                    "kind": "text"  // The type of this entry
                 },
             ],
             "authentication_required": false // True if the form prompted for authentication 
