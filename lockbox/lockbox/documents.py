@@ -74,6 +74,7 @@ class FormFieldType(enum.Enum):
     """
 
     TEXT = "text"
+    LONG_TEXT = "long-text"
     DATE = "date"
     MULTIPLE_CHOICE = "multiple-choice"
     CHECKBOX = "checkbox"
