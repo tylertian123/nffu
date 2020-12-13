@@ -27,13 +27,13 @@ services:
     environment:
       - "QUART_DEBUG=1"
   db:
-    image: mongo
+    image: mongo:4.4
     volumes:
       - db-data:/data/db
     deploy:
       resources:
         limits:
-          cpus: "0.1"
+          cpus: "0.75"
           memory: 64M
     command: --quiet --wiredTigerCacheSizeGB 0.05
 
