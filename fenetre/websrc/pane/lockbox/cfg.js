@@ -314,7 +314,7 @@ function CourseViewer() {
 	}
 	else if (course.form_url) {
 		current_config = <Row>
-			<Col lg="8">
+			<Col lg="6">
 				<ul>
 					{course.form_config_data && (<>
 						<li>Form style: <code>{course.form_config_data.name}</code></li>
@@ -360,7 +360,7 @@ function CourseViewer() {
 			{current_config}
 		</>)}
 		
-		<div className="w-100 d-flex justify-content-end">{reconfig}</div>
+		<div className="w-100 d-flex justify-content-end mt-2">{reconfig}</div>
 
 		{redirecting && <Redirect to={"/lockbox/cfg/" + course.id + "/setup"} />}
 	</div>

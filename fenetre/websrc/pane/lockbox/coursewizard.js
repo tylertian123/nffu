@@ -123,12 +123,12 @@ function ChooseFormConfigQuestion(props) {
 			<Form.Check.Input type="radio" type="radio" disabled={props.completed} onChange={(e) => {if (e.target.checked) props.onChange(option.token)}} checked={props.value == option.token} />
 			<Form.Check.Label className="w-100">
 				<Row>
-					<Col sm md={option.has_thumbnail ? "8" : null}>
+					<Col md={option.has_thumbnail ? "7" : null}>
 						<p><b>{option.form_title}</b> <br />
 						<small>option provided due to: <code>{option.reason}</code></small></p>
 					</Col>
 					{option.has_thumbnail &&
-					<Col>
+					<Col md>
 						<img className="d-block img-fluid img-thumbnail" src={`/api/v1/course/${course.id}/config_options/${option.token}/thumb.png`} />
 					</Col>}
 				</Row>
