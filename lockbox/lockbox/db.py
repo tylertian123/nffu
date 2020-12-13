@@ -270,12 +270,17 @@ class LockboxDB:
         except InvalidToken as e:
             raise LockboxDBError("Internal server error: Cannot decrypt password", LockboxDBError.INTERNAL_ERROR) from e
         geom = await self.CachedFormGeometryImpl.find_one({"url": url})
-        # Does not exist
-        if geom is None:
+        # Does not exist or doesn't have screenshot
+        if geom is None or (grab_screenshot and geom.screenshot_file_id is None):
             existing = await self.CachedFormGeometryImpl.count_documents({"requested_by": token})
             # Admin limit: 5
             if (override_limit and existing >= 5) or existing:
                 raise LockboxDBError("Max number of requests at a time exceeded", LockboxDBError.RATE_LIMIT_EXCEEDED)
+
+            # If this is a re-run, clear the old result
+            if geom is not None:
+                await geom.remove()
+
             try:
                 geom = self.CachedFormGeometryImpl(url=url, requested_by=token, geometry=None)
             except ValidationError as e:
