@@ -134,7 +134,8 @@ def get_form_geometry(form_url: str, credentials: GhosterCredentials):
         is_authenticated,
         [
             (field.idx, field.title, field.kind) for field in fields
-        ]
+        ],
+        screnshot_of_page
     )
     """
 
@@ -179,4 +180,6 @@ def get_form_geometry(form_url: str, credentials: GhosterCredentials):
                 except NoSuchElementException:
                     raise GhosterInvalidForm(f"Form field {j} missing header")
 
-        return needs_signin, fields
+        shot = browser.find_element_by_tag_name("html").screenshot_as_png
+
+        return needs_signin, fields, shot

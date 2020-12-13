@@ -10,7 +10,7 @@ import os
 import secrets
 import typing
 from cryptography.fernet import Fernet, InvalidToken
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase, AsyncIOMotorGridFSBucket
 from tdsbconnects import TDSBConnects, TimetableItem
 from umongo import ValidationError
 from umongo.frameworks import MotorAsyncIOInstance
@@ -63,6 +63,7 @@ class LockboxDB:
         self._shared_db = self.client["shared"]
         self._private_instance = MotorAsyncIOInstance(self._private_db)
         self._shared_instance = MotorAsyncIOInstance(self._shared_db)
+        self._shared_gridfs = AsyncIOMotorGridFSBucket(self._shared_db)
 
         self.LockboxFailureImpl = self._private_instance.register(documents.LockboxFailure)
         self.UserImpl = self._private_instance.register(documents.User)
@@ -113,22 +114,25 @@ class LockboxDB:
                 user.courses.append(db_course.pk)
         await user.commit()
     
-    async def _get_geometry(self, url: str, geom, user, password: str):
+    async def _get_geometry(self, url: str, geom, user, password: str, grab_screenshot: bool):
         """
         Fill in form geometry. Also starts a task for deletion.
         """
         def _inner():
             try:
-                auth_required, form_geom = ghoster.get_form_geometry(url, ghoster.GhosterCredentials(user.email, user.login, password))
+                auth_required, form_geom, screenshot_data = ghoster.get_form_geometry(url, ghoster.GhosterCredentials(user.email, user.login, password))
                 geom.auth_required = auth_required
                 geom.geometry = [{"index": entry[0], "title": entry[1], "kind": str(entry[2].value)} for entry in form_geom]
+                return screenshot_data
             except ghoster.GhosterAuthFailed as e:
                 geom.error = str(e)
                 geom.response_status = 403
             except ghoster.GhosterInvalidForm as e:
                 geom.error = str(e)
                 geom.response_status = 400
-        await asyncio.get_event_loop().run_in_executor(None, _inner)
+        screenshot_data = await asyncio.get_event_loop().run_in_executor(None, _inner)
+        if grab_screenshot:
+            geom.screenshot_file_id = await self._shared_gridfs.upload_from_stream("form-thumb.png", screenshot_data)
         await geom.commit()
         print("Done getting form geometry for ", url)
         async def _delete_geom():
@@ -251,7 +255,7 @@ class LockboxDB:
             await self._populate_user_courses(user, await tdsb.get_async_periods(username=user.login, password=password, include_all_slots=True))
         asyncio.create_task(update_courses())
     
-    async def get_form_geometry(self, token: str, url: str, override_limit: bool) -> dict:
+    async def get_form_geometry(self, token: str, url: str, override_limit: bool, grab_screenshot: bool) -> dict:
         """
         Get the form geometry for a given form URL.
         """
@@ -277,16 +281,17 @@ class LockboxDB:
             except ValidationError as e:
                 raise LockboxDBError(f"Invalid field: {e}", LockboxDBError.INVALID_FIELD) from e
             await geom.commit()
-            asyncio.create_task(self._get_geometry(url, geom, user, password))
-            return {"geometry": None, "auth_required": None}
+            asyncio.create_task(self._get_geometry(url, geom, user, password, grab_screenshot))
+            return {"geometry": None, "auth_required": None, "screenshot_id": None}
         # Result pending
         if geom.geometry is None and geom.response_status is None:
-            return {"geometry": None, "auth_required": None}
+            return {"geometry": None, "auth_required": None, "screenshot_id": None}
         # Result exists
         if geom.response_status is None:
-            return {"geometry": [e.dump() for e in geom.geometry], "auth_required": geom.auth_required}
+            return {"geometry": [e.dump() for e in geom.geometry], "auth_required": geom.auth_required, "screenshot_id": str(geom.screenshot_file_id)}
         return {
             "geometry": [e.dump() for e in geom.geometry],
+            "screenshot_id": str(geom.screenshot_file_id),
             "auth_required": geom.auth_required,
             "error": geom.error,
             "status": geom.response_status

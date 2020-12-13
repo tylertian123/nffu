@@ -178,6 +178,7 @@ class CachedFormGeometry(Document): # pylint: disable=abstract-method
     requested_by = fields.StrField(required=False, allow_none=True)
     geometry = fields.ListField(fields.EmbeddedField(FormGeometryEntry), required=False, allow_none=True)
     auth_required = fields.BoolField(required=False, allow_none=True)
+    screenshot_file_id = fields.ObjectIdField(required=False, allow_none=True)
     
     response_status = fields.IntField(required=False)
     error = fields.StrField(required=False)

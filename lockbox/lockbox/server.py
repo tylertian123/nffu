@@ -303,8 +303,9 @@ class LockboxServer:
 
         JSON payload should have the following format:
         {
-            "url": "...",            // The URL of the form to process
-            "override_limit": false, // Optional, whether to ignore the one request per user at a time limit, default false
+            "url": "...",             // The URL of the form to process
+            "override_limit": false,  // Optional, whether to ignore the one request per user at a time limit, default false
+            "grab_screenshot": false, // Optional, whether or not to take a screenshot and put it in the database
         }
 
         Returns the following JSON on success:
@@ -319,6 +320,7 @@ class LockboxServer:
             ],
             "auth_required": false, // True if the form prompted for authentication 
                                     // null if pending is true
+            "screenshot_id": "...", // File ID of taken screenshot in GridFS.
             "pending": false, // Whether the geometry is pending (still being processed)
             "error": "...", // Optional, the error message (if one exists)
         }
@@ -338,7 +340,7 @@ class LockboxServer:
         print("Got request: POST to /form_geometry")
         if "url" not in payload:
             return web.json_response({"error": "Missing field: 'url'"}, status=400)
-        result = await self.db.get_form_geometry(token, payload["url"], payload.get("override_limit", False))
+        result = await self.db.get_form_geometry(token, payload["url"], payload.get("override_limit", False), payload.get("grab_screenshot", False))
         result["pending"] = result["geometry"] is None
         if "status" in result:
             status = result.pop("status")
