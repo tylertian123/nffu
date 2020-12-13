@@ -79,8 +79,8 @@ class LockboxDB:
         """
         await self.UserImpl.ensure_indexes()
         await self.CourseImpl.ensure_indexes()
-        await self.CachedFormGeometryImpl.ensure_indexes()
         await self.CachedFormGeometryImpl.collection.drop()
+        await self.CachedFormGeometryImpl.ensure_indexes()
     
     def private_db(self) -> AsyncIOMotorDatabase:
         return self._private_db
