@@ -618,11 +618,19 @@ async def configure_course_user(idx):
             return {"error": "missing form data"}, 404
         
         obj.form_config = config_option["form_config_id"]
+    else:
+        pass
+        # should be
+        # obj.form_config = None
 
     if "form_url" in payload:
         obj.form_url = payload["form_url"]
 
     obj.has_attendance_form = payload["has_form_url"]
     await obj.commit()
+
+    # major hack due to umongo issue #326
+    if "config_token" not in payload:
+        await Course.collection.update_one({"_id": obj.pk}, {"$unset": {"form_config": None}})
 
     return '', 204
