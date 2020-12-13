@@ -7,6 +7,7 @@ import quart_auth
 from fenetre.db import User, SignupProvider, Course, Form, gridfs
 from umongo.marshmallow_bonus import ObjectId as ObjectIdField
 from gridfs.errors import NoFile
+from fenetre.formutil import form_geometry_compatible
 import bson
 import marshmallow as ma
 import marshmallow.fields as ma_fields
@@ -478,7 +479,7 @@ class CourseConfigOptionDump(ma.Schema):
 course_config_option_dump = CourseConfigOptionDump()
 
 class RequestCourseConfigOptions(ma.Schema):
-    form_url = ma_fields.URL(required=True)
+    form_url = ma_fields.URL(required=True) # TODO verify against google forms regex
 
 request_course_config_options = RequestCourseConfigOptions()
 
@@ -487,6 +488,7 @@ request_course_config_options = RequestCourseConfigOptions()
 async def generate_valid_configs(idx):
     # there is still some TODO here: this should really _not_ be blindly giving the suggestions it does and instead verify that they at least make some sense
     # with lockbox first.
+    user = await current_user.user
     
     # make sure the course exists first
     obj = await Course.find_one({"id": bson.ObjectId(idx)})
@@ -503,9 +505,21 @@ async def generate_valid_configs(idx):
     valid_options = []
     had_default = False
 
+    # get the geometry from lockbox
+    try:
+        requested_geom = await lockbox.get_form_geometry(user, payload["form_url"])
+    except lockbox.LockboxError as e:
+        if e.args[1] == 429:
+            return {"status": "pending", "options": []}, 200
+        else:
+            return {"error": e.args[0]}, e.args[1]
+
+    if requested_geom is None:
+        return {"status": "pending", "options": []}, 200
+
     # try to add the default one
     default_option = await Form.find_one({"is_default": True})
-    if default_option is not None:
+    if default_option is not None and form_geometry_compatible(requested_geom, default_option):
         had_default = True
         valid_options.append(
             course_config_option_dump.dump({
@@ -523,7 +537,7 @@ async def generate_valid_configs(idx):
         if potential.form_config is not None and potential.form_config.pk not in already_processed:
             already_processed.add(potential.form_config.pk)
             option = await potential.form_config.fetch()
-            if option is None or option.is_default and had_default:
+            if option is None or option.is_default and had_default or not form_geometry_compatible(requested_geom, option):
                 continue
             valid_options.append(
                 course_config_option_dump.dump({

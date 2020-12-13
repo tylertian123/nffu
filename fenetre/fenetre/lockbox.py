@@ -2,7 +2,7 @@
 Handles talking to lockbox
 """
 
-from .db import User, Course
+from .db import User, Course, FormFieldType
 import collections
 import typing
 import aiohttp
@@ -169,3 +169,41 @@ async def update_lockbox_enrolled_courses(user: User):
     async with _lockbox_sess().post("http://lockbox/user/courses/update", headers=_headers_for_user(user)) as resp:
         if not resp.ok:
             raise LockboxError("failed to update courses", resp.status)
+
+FormGeometry = collections.namedtuple("FormGeometry", "needs_auth fields screenshot_id")
+FormGeometryEntry = collections.namedtuple("FormGeometryEntry", "index title kind")
+
+async def get_form_geometry(user: User, form_url: str, needs_screenshot: bool=False) -> FormGeometry:
+    """
+    Grab the form geometry.
+
+    Returns None for pending
+    """
+
+    if user.lockbox_token is None:
+        raise ValueError("missing token")
+
+    async with _lockbox_sess().post("http://lockbox/form_geometry", headers=_headers_for_user(user), json={
+        "url": form_url,
+        "override_limit": user.admin,
+        "grab_screenshot": needs_screenshot
+    }) as resp:
+        payload = await resp.json()
+
+        if not resp.ok:
+            raise LockboxError(payload.get("error", ""), resp.status)
+        
+        if payload["pending"]:
+            return None
+
+        # otherwise, deserialize
+        entries = [
+            FormGeometryEntry(x["index"], x["title"], FormFieldType(x["kind"]))
+            for x in payload["geometry"]
+        ]
+
+        sid = None
+        if needs_screenshot:
+            sid = bson.ObjectId(payload["screenshot_id"])
+        
+        return FormGeometry(payload["auth_required"], entries, sid)

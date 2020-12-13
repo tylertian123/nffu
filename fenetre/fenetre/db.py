@@ -139,7 +139,7 @@ class FormField(EmbeddedDocument):
 
 @_shared_instance.register
 class Form(Document):
-    sub_fields = fields.ListField(fields.EmbeddedField(FormField))
+    sub_fields = fields.ListField(fields.EmbeddedField(FormField), default=list)
 
     # id of file in gridfs, should be a png
     representative_thumbnail = fields.ObjectIdField(default=None)
