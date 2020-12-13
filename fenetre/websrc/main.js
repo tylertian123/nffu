@@ -17,6 +17,7 @@ import {UserInfoProvider, UserInfoContext, AdminOnly} from './common/userinfo';
 import Home from './pane/home.js';
 import AuthCfg from './pane/authcfg.js';
 import Lockbox from './pane/lockbox.js';
+import Forms from './pane/forms.js';
 
 function App() {
 	const userinfo = React.useContext(UserInfoContext);
@@ -60,6 +61,9 @@ function App() {
 						</Route>
 						<Route path="/lockbox">
 							<Lockbox />
+						</Route>
+						<Route path="/forms">
+							<Forms />
 						</Route>
 					</Switch>
 				</Container>
