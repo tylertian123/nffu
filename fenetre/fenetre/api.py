@@ -648,3 +648,53 @@ async def configure_course_user(idx):
         await Course.collection.update_one({"_id": obj.pk}, {"$unset": {"form_config": None}})
 
     return '', 204
+
+class CondensedFormDump(Form.schema.as_marshmallow_schema()):
+    class Meta:
+        exclude = ['sub_fields']
+
+condensed_form_dump = CondensedFormDump()
+
+@blueprint.route("/form")
+@admin_required 
+async def list_all_forms():
+    forms = Form.find({})
+
+    use_counts = {}
+
+    # use some pure mongo to count form uses
+    async for result in Course.collection.aggregate([
+        {
+            "$match": { "has_attendance_form": True, "form_config": { "$ne": None } }
+        },
+        {
+            "$group": {
+                "_id": "$form_config",
+                "use_count": { "$sum": 1 }
+            }
+        }
+    ]):
+        use_counts[result["_id"]] = result["use_count"]
+
+    results = []
+    
+    async for i in forms:
+        obj = condensed_form_dump.dump(i)
+        obj['used_by'] = use_counts[i.pk]
+        results.append(obj)
+    
+    return {"forms": results}
+
+class NewFormArgs(ma.Schema):
+    name = ma_fields.Str(required=True)
+
+new_form_args = NewFormArgs()
+
+@blueprint.route("/form", methods=["POST"])
+@admin_required 
+async def create_blank_form():
+    msg = await request.json
+    payload = new_form_args.load(msg)
+
+    new_form = Form(name=payload["name"])
+    return condensed_form_dump.dump(new_form)

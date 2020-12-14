@@ -18,12 +18,13 @@ function FormListEntry(props) {
 		<div className="text-dark d-flex w-100 justify-content-between">
 			<h3 className="mb-0">{form.name}</h3>
 			<Form inline className="align-self-middle">
-				<FormCheck id={"def-switch-" + form.id} checked={form.is_default} type="switch" custom label="Default" />
+				<FormCheck id={"def-switch-" + form.id} onChange={(e) => props.onSetDefault(form.id, e.target.value)} checked={form.is_default} type="switch" custom label="Default" />
 			</Form>
 		</div>
 		<div className="d-flex mt-2 w-100 justify-content-between align-items-end">
-			<ul>
+			<ul className="mb-0">
 				<li>Used by <span className="text-info">{form.used_by}</span> courses</li>
+				{form.representative_thumbnail || <li><i>no thumbnail set</i></li>}
 			</ul>
 			<Button>Edit <BsArrowRight /></Button>
 		</div>
@@ -31,19 +32,25 @@ function FormListEntry(props) {
 }
 
 function FormList() {
+	const [forms, setForms] = React.useState(null);
+
+	React.useEffect(() => {
+		(async () => {
+			const resp = await fetch("/api/v1/form");
+			if (resp.ok) {
+				const dat = await resp.json();
+
+				setForms(dat.forms);
+			}
+		})();
+	}, []);
+
+	if (forms === null) {
+		return <Alert className="d-flex align-items-center" variant="secondary"><Spinner className="mr-2" animation="border" /> loading...</Alert>;
+	}
+
 	return <ListGroup className="bg-light">
-		<FormListEntry form={{
-			name: "test form",
-			id: "aaaaaaa",
-			is_default: true,
-			used_by: 4
-		}} />
-		<FormListEntry form={{
-			name: "test form 2",
-			id: "aaaaaaa",
-			is_default: false,
-			used_by: 3
-		}} />
+		{forms.map((x) => <FormListEntry key={x.id} form={x} />)}
 	</ListGroup>
 }
 
