@@ -20,9 +20,11 @@ function ConstantAlerts() {
 		[!extraUserInfo.has_lockbox_integration,
 				<Alert variant="danger">Something went wrong while agreeing to the warnings and disclaimers and we don't have a place to store your credentials; please <a className="alert-link" href="/signup/eula">click here</a> to try again.</Alert>],
 		[extraUserInfo.has_lockbox_integration && !extraUserInfo.lockbox_credentials_present,
-			<Alert variant="info">You haven't setup your TDSB credentials yet, so we aren't filling in your attendance forms. Go <Link className="alert-link" to="/lockbox/cfg">here</Link> to set it up!</Alert>],
+				<Alert variant="info">You haven't setup your TDSB credentials yet, so we aren't filling in your attendance forms. Go <Link className="alert-link" to="/lockbox/cfg">here</Link> to set it up!</Alert>],
 		[extraUserInfo.has_lockbox_integration && !extraUserInfo.lockbox_form_active,
-				<Alert variant="info">You've disabled automatic attendance form filling. You can always turn it back on <Link className="alert-link" to="/lockbox/cfg">here</Link>!</Alert>]
+				<Alert variant="info">You've disabled automatic attendance form filling. You can always turn it back on <Link className="alert-link" to="/lockbox/cfg">here</Link>!</Alert>],
+		[extraUserInfo.unconfigured_courses_present && extraUserInfo.admin,
+				<Alert variant="warning">There are courses with configuration pending approval and/or setup required. Go <Link className="alert-link" to="/forms/course">here</Link> to fix them!</Alert>]
 	];
 
 	if (alerts.reduce((a, [b, _]) => a || b, false)) {

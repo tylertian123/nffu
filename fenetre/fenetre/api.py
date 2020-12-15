@@ -58,6 +58,11 @@ async def userinfo():
     userdata = await current_user.user
     lockbox_status = await lockbox.get_lockbox_status_for(userdata)
 
+    if userdata.signed_eula and userdata.admin:
+        unconfigured_courses_present = await Course.count_documents({"configuration_locked": False}) > 0
+    else:
+        unconfigured_courses_present = None
+
     return {
         "username": userdata.username,
         "admin": userdata.admin,
@@ -66,7 +71,8 @@ async def userinfo():
         "lockbox_error": lockbox_status is not None and lockbox_status.has_errors,                              
         "signed_eula": userdata.signed_eula,
         "lockbox_credentials_present": lockbox_status is not None and lockbox_status.has_credentials,
-        "lockbox_form_active": lockbox_status is not None and lockbox_status.active
+        "lockbox_form_active": lockbox_status is not None and lockbox_status.active,
+        "unconfigured_courses_present": unconfigured_courses_present
     }
 
 class LockboxFailureDump(ma.Schema):
