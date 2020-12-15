@@ -7,7 +7,7 @@ import quart_auth
 from fenetre.db import User, SignupProvider, Course, Form, gridfs
 from umongo.marshmallow_bonus import ObjectId as ObjectIdField
 from gridfs.errors import NoFile
-from fenetre.formutil import form_geometry_compatible
+from fenetre.formutil import form_geometry_compatible, create_default_fields_from_geometry
 import bson
 import marshmallow as ma
 import marshmallow.fields as ma_fields
@@ -484,8 +484,10 @@ class CourseConfigOptionDump(ma.Schema):
 
 course_config_option_dump = CourseConfigOptionDump()
 
+GOOGLE_FORM_URL_REGEX = r"^https://docs.google.com/forms/d/e/([A-Za-z0-9-_]+)/viewform$"
+
 class RequestCourseConfigOptions(ma.Schema):
-    form_url = ma_fields.URL(required=True) # TODO verify against google forms regex
+    form_url = ma_fields.URL(required=True, validate=ma_validate.Regexp(GOOGLE_FORM_URL_REGEX))
 
 request_course_config_options = RequestCourseConfigOptions()
 
@@ -516,12 +518,12 @@ async def generate_valid_configs(idx):
         requested_geom = await lockbox.get_form_geometry(user, payload["form_url"])
     except lockbox.LockboxError as e:
         if e.args[1] == 429:
-            return {"status": "pending", "options": []}, 200
+            return {"status": "pending", "options": []}, 202
         else:
             return {"error": e.args[0]}, e.args[1]
 
     if requested_geom is None:
-        return {"status": "pending", "options": []}, 200
+        return {"status": "pending", "options": []}, 202
 
     # try to add the default one
     default_option = await Form.find_one({"is_default": True})
@@ -686,13 +688,16 @@ async def list_all_forms():
     
     async for i in forms:
         obj = condensed_form_dump.dump(i)
-        obj['used_by'] = use_counts[i.pk]
+        obj['used_by'] = use_counts.get(i.pk, 0)
         results.append(obj)
     
     return {"forms": results}
 
 class NewFormArgs(ma.Schema):
     name = ma_fields.Str(required=True)
+
+    initialize_from = ma_fields.URL(validate=ma_validate.Regexp(GOOGLE_FORM_URL_REGEX), missing=None)
+    use_fields_from_url = ma_fields.Bool(missing=True)
 
 new_form_args = NewFormArgs()
 
@@ -703,4 +708,68 @@ async def create_blank_form():
     payload = new_form_args.load(msg)
 
     new_form = Form(name=payload["name"])
-    return condensed_form_dump.dump(new_form)
+
+    # try to load geometry
+    if payload["initialize_from"]:
+        geometry = await lockbox.get_form_geometry(await current_user.user, payload["initialize_from"], needs_screenshot=True)
+        if geometry is None:
+            return {
+                "form": None,
+                "status": "pending"
+            }, 202
+        
+        new_form.representative_thumbnail = geometry.screenshot_id
+        if payload["use_fields_from_url"]:
+            create_default_fields_from_geometry(geometry, new_form)
+
+    await new_form.commit()
+
+    return {
+        "form": condensed_form_dump.dump(new_form),
+        "status": "ok"
+    }, 201
+
+@blueprint.route("/form/<idx>")
+@admin_required 
+async def get_form_specific(idx):
+    obj = await Form.find_one({"id": bson.ObjectId(idx)})
+
+    if obj is None:
+        return {"error": "no such form"}, 404
+
+    return obj.dump()
+
+@blueprint.route("/form/<idx>", methods=["DELETE"])
+@admin_required 
+async def delete_form_specific(idx):
+    obj = await Form.find_one({"id": bson.ObjectId(idx)})
+
+    if obj is None:
+        return {"error": "no such form"}, 404
+    
+    # Make sure any courses using this form have their config cleared
+    await Course.collection.update_many({
+        "form_config": obj.pk
+    }, {"$set": {"configuration_locked": False}, "$unset": {"form_config": None}})
+
+    await obj.remove()
+
+    return '', 204
+
+@blueprint.route("/form/<idx>/thumb.png")
+@admin_required
+async def generic_form_thumbnail_img(idx):
+    obj = await Form.find_one({"id": bson.ObjectId(idx)})
+
+    if obj is None:
+        return {"error": "no such course"}, 404
+
+    if obj.representative_thumbnail is None:
+        return {"error": "form has no thumbnail yet"}, 404
+
+    try:
+        stream = await gridfs().open_download_stream(obj.representative_thumbnail)
+    except NoFile:
+        return {"error": "thumbnail not in db"}, 404
+
+    return (await stream.read()), 200, {"Content-Type": "image/png"}
