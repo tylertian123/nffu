@@ -1,10 +1,11 @@
 import React from 'react';
 
 import {Row, Col, FormCheck, Form, Button, Alert, Spinner, ListGroup} from 'react-bootstrap';
+import {LinkContainer} from 'react-router-bootstrap';
 import {ExtraUserInfoContext} from '../../common/userinfo';
 import {useFormik} from 'formik';
 import * as yup from 'yup';
-import {Link, Redirect, Switch, Route, useParams} from 'react-router-dom';
+import {Link, Switch, Route, useParams} from 'react-router-dom';
 import useBackoffEffect from '../../common/pendprovider';
 import CourseWizard from './coursewizard';
 
@@ -196,8 +197,6 @@ function CourseListEntry(props) {
 	let confstr = null;
 	let editstr = null;
 
-	const [redirecting, setRedirecting] = React.useState(false);
-
 	if (course.configuration_locked) {
 		confstr = <p className="text-success">Configuration verified <BsCheckAll /></p>;
 		editstr = "View configuration";
@@ -229,8 +228,9 @@ function CourseListEntry(props) {
 					<i>awaiting form style setup from administrator</i>
 				</li>)}
 			</ul>
-			<Button className="align-self-end" onClick={() => setRedirecting(true)} variant={course.configuration_locked ? "secondary" : "primary"}>{editstr} <BsArrowRight /></Button>
-			{redirecting && <Redirect to={"/lockbox/cfg/" + course.id} />}
+			<LinkContainer to={"/lockbox/cfg/" + course.id}>
+				<Button className="align-self-end" variant={course.configuration_locked ? "secondary" : "primary"}>{editstr} <BsArrowRight /></Button>
+			</LinkContainer>
 		</div>
 	</ListGroup.Item>
 }
@@ -266,8 +266,6 @@ function CourseViewer() {
 
 	const [ course, setCourse ] = React.useState(null);
 	const [ error, setError ] = React.useState('');
-
-	const [redirecting, setRedirecting] = React.useState(false);
 
 	React.useEffect(() => {
 		(async () => {
@@ -339,8 +337,10 @@ function CourseViewer() {
 		reconfig = <p class="text-muted"><BsCheckAll /> This course was verified by an admin, so you can't edit its configuration. If you think it's wrong, tell an admin directly.</p>;
 	}
 	else {
-		reconfig = current_config === null ? <Button onClick={() => setRedirecting(true)} variant="success">Start configuring <BsArrowRight /></Button> :
-			<Button onClick={() => setRedirecting(true)}>Reconfigure <BsArrowClockwise /></Button>;
+		reconfig = <LinkContainer to={"/lockbox/cfg/" + course.id + "/setup"}>
+		{current_config === null ? <Button variant="success">Start configuring <BsArrowRight /></Button> :
+		                    	   <Button>Reconfigure <BsArrowClockwise /></Button>}
+		</LinkContainer>;
 	}
 
 	return <div>
@@ -361,8 +361,6 @@ function CourseViewer() {
 		</>)}
 		
 		<div className="w-100 d-flex justify-content-end mt-2">{reconfig}</div>
-
-		{redirecting && <Redirect to={"/lockbox/cfg/" + course.id + "/setup"} />}
 	</div>
 }
 
