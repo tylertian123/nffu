@@ -1,0 +1,9 @@
+@import './boot.scss';
+
+.simple-eval-mono {
+	font-family: $font-family-monospace;
+	background-color: lighten($body-bg, 2.5);
+
+	border: $input-border-width solid $input-border-color;
+    @include border-radius($input-border-radius, 0);
+}

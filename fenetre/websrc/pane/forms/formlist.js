@@ -4,6 +4,7 @@ import reactModal from '@prezly/react-promise-modal';
 import {Row, Col, FormCheck, Form, Button, Alert, Spinner, ListGroup, Modal} from 'react-bootstrap';
 import {ExtraUserInfoContext} from '../../common/userinfo';
 import {Formik} from 'formik';
+import {LinkContainer} from 'react-router-bootstrap';
 import * as yup from 'yup';
 import {Link, Redirect, Switch, Route, useParams} from 'react-router-dom';
 import useBackoffEffect from '../../common/pendprovider';
@@ -124,7 +125,9 @@ function FormListEntry(props) {
 				<li>Used by <span className="text-info">{form.used_by}</span> courses</li>
 				{!!form.representative_thumbnail || <li><i>no thumbnail set</i></li>}
 			</ul>
-			<Button>Edit <BsArrowRight /></Button>
+			<LinkContainer to={"/forms/form/" + form.id}>
+				<Button>Edit <BsArrowRight /></Button>
+			</LinkContainer>
 		</div>
 	</ListGroup.Item>
 }
