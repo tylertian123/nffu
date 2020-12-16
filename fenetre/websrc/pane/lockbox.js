@@ -8,7 +8,7 @@ import Cfg from './lockbox/cfg';
 
 function Lockbox() {
 	return <Row>
-		<Col sm md="4" lg="2" className="mb-3">
+		<Col md="4" lg="2" className="mb-3">
 			<Nav variant="pills" className="flex-column">
 				<LinkContainer to="/lockbox/cfg">
 					<Nav.Link>Setup</Nav.Link>
@@ -18,7 +18,7 @@ function Lockbox() {
 				</LinkContainer>
 			</Nav>
 		</Col>
-		<Col sm md="8" lg="10">
+		<Col md="8" lg="10">
 			<ExtraUserInfoProvider>
 				<Switch>
 					<Route path="/lockbox/cfg">

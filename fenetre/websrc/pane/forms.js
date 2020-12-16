@@ -5,19 +5,23 @@ import {LinkContainer} from 'react-router-bootstrap'
 import {Route, Switch} from 'react-router'
 import {ExtraUserInfoProvider} from '../common/userinfo';
 import FormList from './forms/formlist';
+import FormEditor from './forms/formeditor';
 
 function Forms() {
 	return <Row>
-		<Col sm md="4" lg="2" className="mb-3">
+		<Col md="4" lg="2" className="mb-3">
 			<Nav variant="pills" className="flex-column">
 				<LinkContainer to="/forms/form">
 					<Nav.Link>Forms</Nav.Link>
 				</LinkContainer>
 			</Nav>
 		</Col>
-		<Col sm md="8" lg="10">
+		<Col md="8" lg="10">
 			<ExtraUserInfoProvider>
 				<Switch>
+					<Route path="/forms/form/:idx">
+						<FormEditor />
+					</Route>
 					<Route path="/forms/form">
 						<FormList />
 					</Route>

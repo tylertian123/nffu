@@ -11,7 +11,7 @@ import Users from './authcfg/users';
 function AuthCfg() {
 	return <AdminOnly>
 		<Row>
-			<Col sm md="4" lg="2" className="mb-3">
+			<Col md="4" lg="2" className="mb-3">
 				<Nav variant="pills" className="flex-column">
 					<LinkContainer to="/authcfg/users">
 						<Nav.Link>Users</Nav.Link>
@@ -21,7 +21,7 @@ function AuthCfg() {
 					</LinkContainer>
 				</Nav>
 			</Col>
-			<Col sm md="8" lg="10">
+			<Col md="8" lg="10">
 				<Switch>
 					<Route path="/authcfg/users">
 						<Users />
