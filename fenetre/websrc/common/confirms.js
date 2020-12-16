@@ -5,6 +5,16 @@ import {Button, Modal, Form} from 'react-bootstrap';
 import {Formik} from 'formik';
 import * as yup from 'yup';
 
+function imageHighlight(src) {
+	return reactModal(({show, onDismiss}) => (
+		<Modal size="xl" centered show={show} onHide={onDismiss}>
+			<Modal.Body>
+				<img className="d-block img-fluid img-thumbnail" src={src} />
+			</Modal.Body>
+		</Modal>
+	));
+}
+
 function confirmationDialog(body) {
 	return reactModal(({show, onSubmit, onDismiss}) => (
 		<Modal centered show={show} onHide={onDismiss}>
@@ -93,4 +103,4 @@ function passwordChangeDialog(body) {
 	});
 }
 
-export {confirmationDialog, passwordChangeDialog}
+export {confirmationDialog, passwordChangeDialog, imageHighlight}

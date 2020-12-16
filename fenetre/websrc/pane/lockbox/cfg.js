@@ -10,6 +10,7 @@ import useBackoffEffect from '../../common/pendprovider';
 import CourseWizard from './coursewizard';
 
 import {BsCheckAll, BsCheck, BsExclamationCircle, BsArrowRight, BsArrowLeft, BsArrowClockwise} from 'react-icons/bs';
+import {imageHighlight} from '../../common/confirms';
 
 import "regenerator-runtime/runtime";
 
@@ -325,7 +326,8 @@ function CourseViewer() {
 			</Col>
 			{course.form_config_data && (<Col lg>
 				{course.form_config_data.has_thumbnail ? 
-					<img className="d-block img-fluid img-thumbnail" src={`/api/v1/course/${course.id}/form/thumb.png`} />
+				<img onClick={() => imageHighlight(`/api/v1/course/${course.id}/form/thumb.png`)} 
+					className="d-block img-fluid img-thumbnail" src={`/api/v1/course/${course.id}/form/thumb.png`} />
 				:   <p>no thumbnail available</p>}
 			</Col>)}
 		</Row>
