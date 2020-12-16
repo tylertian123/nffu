@@ -52,6 +52,12 @@ async def invalid_data(e: ma.ValidationError):
         "extra": e.normalized_messages()
     }, 400
 
+@blueprint.errorhandler(bson.errors.InvalidId)
+async def invalid_id(e):
+    return {
+        "error": "invalid id format"
+    }, 400
+
 @blueprint.route("/me")
 @login_required
 async def userinfo():
