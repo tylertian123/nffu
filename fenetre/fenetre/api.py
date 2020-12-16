@@ -743,7 +743,9 @@ async def get_form_specific(idx):
     if obj is None:
         return {"error": "no such form"}, 404
 
-    return obj.dump()
+    data = obj.dump()
+    data["used_by"] = await Course.count_documents({"form_config": obj.pk})
+    return data
 
 @blueprint.route("/form/<idx>", methods=["DELETE"])
 @admin_required 
