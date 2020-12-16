@@ -65,7 +65,11 @@ class FETransformer(lark.Transformer):
         "dmon": lambda date: date.month,                                            # dmon(date): get the month from a date
         "dday": lambda date: date.day,                                              # dday(date): get the day from a date
 
-        "dadd": lambda date, days: date + datetime.timedelta(days=days)             # dadd(date, offset): add offset days to the date
+        "dadd": lambda date, days: date + datetime.timedelta(days=days),             # dadd(date, offset): add offset days to the date
+
+        "min": min,
+        "max": max,
+        "unmax": min
     }
 
     def __init__(self, context: dict):
