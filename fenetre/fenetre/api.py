@@ -4,7 +4,7 @@ from fenetre.auth import admin_required, eula_required
 from fenetre import auth, lockbox
 from quart_auth import login_required, current_user, logout_user
 import quart_auth
-from fenetre.db import User, SignupProvider, Course, Form, gridfs
+from fenetre.db import User, SignupProvider, Course, Form, gridfs, FormField
 from umongo.marshmallow_bonus import ObjectId as ObjectIdField
 from gridfs.errors import NoFile
 from fenetre.formutil import form_geometry_compatible, create_default_fields_from_geometry
@@ -735,6 +735,36 @@ async def create_blank_form():
         "status": "ok"
     }, 201
 
+class UpdateFormThumb(ma.Schema):
+    initialize_from = ma_fields.URL(validate=ma_validate.Regexp(GOOGLE_FORM_URL_REGEX), required=True)
+
+update_form_thumb_schema = UpdateFormThumb()
+
+@blueprint.route("/form/<idx>", methods=["PUT"])
+@admin_required 
+async def update_form_thumb(idx):
+    msg = await request.json
+    payload = update_form_thumb_schema.load(msg)
+
+    form = await Form.find_one({"id": bson.ObjectId(idx)})
+    if form is None:
+        return {"error": "no such form"}, 404
+
+    geometry = await lockbox.get_form_geometry(await current_user.user, payload["initialize_from"], needs_screenshot=True)
+    if geometry is None:
+        return {
+            "form": None,
+            "status": "pending"
+        }, 202
+
+    form.representative_thumbnail = geometry.screenshot_id
+    await form.commit()
+
+    return {
+        "form": condensed_form_dump.dump(form),
+        "status": "ok"
+    }, 201
+
 @blueprint.route("/form/<idx>")
 @admin_required 
 async def get_form_specific(idx):
@@ -781,3 +811,33 @@ async def generic_form_thumbnail_img(idx):
         return {"error": "thumbnail not in db"}, 404
 
     return (await stream.read()), 200, {"Content-Type": "image/png"}
+
+class FormUpdateLoad(ma.Schema):
+    sub_fields = ma_fields.List(ma_fields.Nested(FormField.schema.as_marshmallow_schema()), required=False)
+    name = ma_fields.String(required=False)
+    is_default = ma_fields.Bool(required=False)
+
+form_update_load_schema = FormUpdateLoad()
+
+
+@blueprint.route("/form/<idx>", methods=["PATCH"])
+@admin_required 
+async def update_patch_form(idx):
+    msg = await request.json
+    payload = form_update_load_schema.load(msg)
+
+    form = await Form.find_one({"id": bson.ObjectId(idx)})
+    if form is None:
+        return {"error": "no such form"}, 404
+
+    if "sub_fields" in payload:
+        form.sub_fields = payload["sub_fields"]
+
+    if "name" in payload:
+        form.name = payload["name"]
+
+    if "is_default" in payload:
+        form.is_default = payload["is_default"]
+
+    await form.commit()
+    return '', 204
