@@ -9,7 +9,7 @@ import {Link, Redirect, Switch, Route, useParams} from 'react-router-dom';
 import useBackoffEffect from '../../common/pendprovider';
 
 import {BsX, BsCheck, BsExclamationCircle, BsArrowRight, BsArrowLeft, BsArrowClockwise, BsPlus} from 'react-icons/bs';
-import {imageHighlight} from '../../common/confirms';
+import {imageHighlight, textInputDialog, confirmationDialog} from '../../common/confirms';
 
 import "regenerator-runtime/runtime";
 import "../../css/code-input.scss";
@@ -72,7 +72,11 @@ function SubFieldEditor(props) {
 }
 
 function FormFieldEditor(props) {
+	const [isDirty, setIsDirty] = React.useState(false);
+	const [isSaving, setIsSaving] = React.useState(false);
+
 	const [fields, dispatch] = React.useReducer((state, action) => {
+		setIsDirty(true);
 		const n = [...state];
 		switch (action.type) {
 			case 'add':
@@ -103,6 +107,27 @@ function FormFieldEditor(props) {
 		return n;
 	}, props.fields);
 
+	const save = async () => {
+		setIsSaving(true);
+
+		const resp = await fetch(`/api/v1/form/${props.idx}`, {
+			method: "PATCH",
+			headers: {"Content-Type": "application/json"},
+			body: JSON.stringify({
+				sub_fields: fields
+			})
+		});
+
+		setIsSaving(false);
+
+		if (!resp.ok) {
+			alert((await resp.json()).error);
+		}
+		else {
+			setIsDirty(false);
+		}
+	};
+
 	return <div>
 		{fields.map((x, idx) =>
 		<SubFieldEditor field={x} key={idx}
@@ -114,7 +139,7 @@ function FormFieldEditor(props) {
 		/>)}
 		<div className="d-flex w-100 justify-content-end">
 			<Button onClick={() => dispatch({type: 'add'})} variant="success" className="mr-1">Add</Button>
-			<Button>Save</Button>
+			<Button disabled={!isDirty || isSaving} onClick={save}>{isSaving ? <Spinner animation="border" size="sm" /> : 'Save'}</Button>
 		</div>
 	</div>
 }
@@ -124,6 +149,12 @@ function FormEditor() {
 
 	const [ form, setForm ] = React.useState(null);
 	const [ error, setError ] = React.useState('');
+	const [ redirecting, setRedirecting ] = React.useState(false);
+	const [ processing, setProcessing ] = React.useState('');
+
+	function sleep(ms) {
+	  return new Promise(resolve => setTimeout(resolve, ms));
+	}
 
 	React.useEffect(() => {
 		(async () => {
@@ -150,8 +181,90 @@ function FormEditor() {
 		}
 	}
 
+	const changeName = async () => {
+		const newName = await textInputDialog(<p>Enter a new name:</p>);
+		if (newName) {
+			setProcessing("Changing name...");
+			const resp = await fetch(`/api/v1/form/${idx}`, {
+				method: "PATCH",
+				headers: {"Content-Type": "application/json"},
+				body: JSON.stringify({
+					name: newName
+				})
+			});
+			setProcessing('');
+
+			if (!resp.ok) {
+				// todo show error
+				alert((await resp.json()).error);
+			}
+			else {
+				setForm({...form, name: newName});
+			}
+		}
+	};
+
+	const deleteMe = async () => {
+		if (await confirmationDialog(<p>Are you sure you want to delete the form <code>{form.name}</code>? {!!form.used_by && <b>It is still used by <span class="text-info">{form.used_by}</span> courses</b>}</p>)) {
+			setProcessing("deleting");
+
+			const resp = await fetch(`/api/v1/form/${idx}`, {
+				method: "DELETE",
+			});
+
+			if (!resp.ok) {
+				// todo show error
+				alert((await resp.json()).error);
+				setProcessing('');
+			}
+			else {
+				setRedirecting(true);
+			}
+		}
+	}
+
+	const updateThumbnail = async () => {
+		const newUrl = await textInputDialog(<p>Enter URL to load new thumbnail from:</p>, yup.string().required().matches(/^(?:https?:\/\/)?docs.google.com\/forms(?:\/u\/\d+)?\/d\/e\/([A-Za-z0-9-_]+)\/viewform/, "url should be a google form url"));
+		if (!newUrl) return;
+
+		setProcessing("Updating thumbnail...");
+		let tries = 0;
+		while (tries < 10) {
+			const resp = await fetch(`/api/v1/form/${idx}`, {
+				method: "PUT",
+				headers: {"Content-Type": "application/json"},
+				body: JSON.stringify({
+					initialize_from: newUrl
+				})
+			});
+			const data = await resp.json();
+
+			if (!resp.ok) {
+				alert(data.error);
+				setProcessing('');
+				return;
+			}
+			else if (data.status == "pending") {
+				setProcessing("Downloading thumbnail image...");
+			}
+			else {
+				setForm({...form, representative_thumbnail: data.form.representative_thumbnail});
+				setProcessing('');
+				return;
+			}
+
+			await sleep(2800);
+			++tries;
+		}
+
+		alert("timed out");
+	};
+
+	if (redirecting) return <Redirect to="/forms/form" />;
+
 	return <div>
 		<Link to="/forms/form"><span className="text-secondary"><BsArrowLeft /> Back</span></Link>
+		{processing && <Alert className="d-flex align-items-center my-1" variant="secondary"><Spinner className="mr-2" animation="border" /> {processing}</Alert>}
 		<Row>
 			<Col sm>
 				<h1>{form.name}</h1>
@@ -163,14 +276,16 @@ function FormEditor() {
 			</Col>
 			<Col sm>
 				{!!form.representative_thumbnail && <img onClick={() => imageHighlight(`/api/v1/form/${form.id}/thumb.png`)} className="d-block img-fluid img-thumbnail" src={`/api/v1/form/${form.id}/thumb.png`} />}
-				<div className="d-flex w-100 justify-content-end">
-					<Button className="mt-3">{form.representative_thumbnail ? "Update thumbnail" : "Add thumbnail"}</Button>
+				<div className="d-flex w-100 justify-content-end mt-3">
+					<Button onClick={changeName} className="mx-1">Change name</Button>
+					<Button onClick={updateThumbnail} className="">{form.representative_thumbnail ? "Update thumbnail" : "Add thumbnail"}</Button>
+					<Button onClick={deleteMe} variant="danger" className="mx-1">Delete</Button>
 				</div>
 			</Col>
 		</Row>
 		<hr />
 		<h2>Fields</h2>
-		<FormFieldEditor fields={form.sub_fields} />
+		<FormFieldEditor idx={form.id} fields={form.sub_fields} />
 	</div>
 }
 

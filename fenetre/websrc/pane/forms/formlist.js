@@ -26,10 +26,10 @@ function NewFormDialog() {
 	}
 
 	return reactModal(({show, onSubmit, onDismiss}) => (
-		<Modal centered show={show} onHide={onDismiss}>
+		<Modal size="lg" centered show={show} onHide={onDismiss}>
 			<Modal.Header>
 				<Modal.Title>
-					New form
+					<h1>New form</h1>
 				</Modal.Title>
 			</Modal.Header>
 
@@ -37,6 +37,9 @@ function NewFormDialog() {
 				initialValues={{name: '', initialize_from: '', use_fields_from_url: true}}
 				validationSchema={schema}
 				onSubmit={async (values, {setStatus, setFieldError}) => {
+					if (!values.initialize_from) {
+						values.initialize_from = undefined;
+					}
 					let tries = 0;
 					while (tries < 10) {
 						try {
@@ -97,7 +100,7 @@ function NewFormDialog() {
 							<Form.Control.Feedback type="invalid">{formik.errors.initialize_from}</Form.Control.Feedback>
 						</Form.Group>
 						<Form.Group>
-							<Form.Check type="checkbox" name="use_fields_from_url" checked={formik.values.use_fields_from_url} onChange={formik.onChange} label="Load default fields from geometry?" />
+							<Form.Check disabled={!formik.values.initialize_from} type="checkbox" name="use_fields_from_url" checked={formik.values.use_fields_from_url} onChange={formik.onChange} label="Load default fields from geometry?" />
 						</Form.Group>
 					</Modal.Body>
 

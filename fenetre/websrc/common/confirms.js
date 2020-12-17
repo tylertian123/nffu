@@ -30,6 +30,55 @@ function confirmationDialog(body) {
 	));
 }
 
+function textInputDialog(body, extraValidations) {
+	let schema;
+	if (extraValidations !== undefined) {
+		schema = yup.object({response: extraValidations});
+	}
+	else {
+		schema = yup.object({response: yup.string().required('this is required')});
+	}
+
+	return reactModal(({show, onSubmit, onDismiss}) => {
+		return <Modal backdrop="static" centered show={show} onHide={onDismiss}>
+			<Modal.Header>
+				<Modal.Title>
+					{body}
+				</Modal.Title>
+			</Modal.Header>
+
+			<Formik validationSchema={schema}
+				onSubmit={(values) => {onSubmit(values.response)}}
+				initialValues={{response: ''}}
+			>
+				{({handleSubmit, handleChange, values, errors}) => (
+					<Form noValidate onSubmit={handleSubmit}>
+						<Modal.Body>
+							<Form.Group>
+								<Form.Control
+									name="response"
+									type="text"
+									onChange={handleChange}
+									value={values.response}
+									isInvalid={!!errors.response}
+								/>
+								<Form.Control.Feedback type="invalid">
+									{errors.response}
+								</Form.Control.Feedback>
+							</Form.Group>
+						</Modal.Body>
+						
+					<Modal.Footer>
+						<Button variant="secondary" onClick={onDismiss}>Cancel</Button>
+						<Button type="submit" variant="primary">OK</Button>
+					</Modal.Footer>
+				</Form>
+			)}
+			</Formik>
+		</Modal>
+	});
+}
+
 function passwordChangeDialog(body) {
 	const schema = yup.object({
 		password: yup.string().required().min(8),
@@ -103,4 +152,4 @@ function passwordChangeDialog(body) {
 	});
 }
 
-export {confirmationDialog, passwordChangeDialog, imageHighlight}
+export {confirmationDialog, passwordChangeDialog, imageHighlight, textInputDialog}
