@@ -3,9 +3,11 @@ from quart import Quart, current_app
 from umongo.frameworks import MotorAsyncIOInstance
 from marshmallow import fields as ma_fields, missing as missing_
 from umongo import Document, fields, validate, EmbeddedDocument
+from marshmallow import ValidationError
 import asyncio
 import enum
 import bson
+import itertools
 
 def private_db() -> AsyncIOMotorDatabase:
     return current_app.priv_db
@@ -138,9 +140,16 @@ class FormField(EmbeddedDocument):
     # Type of field
     kind = fields.StrField(required=True, validate=validate.OneOf([x.value for x in FormFieldType]))
 
+def _validate_form_fields(x):
+    if len(set(y.index_on_page for y in x)) != len(x):
+        raise ValidationError("duplicate index_on_page")
+
+    if any(x.expected_label_segment in y.expected_label_segment for x, y in itertools.combinations(x, 2)):
+        raise ValidationError("ambiguous expected_label_segment")
+
 @_shared_instance.register
 class Form(Document):
-    sub_fields = fields.ListField(fields.EmbeddedField(FormField), default=list)
+    sub_fields = fields.ListField(fields.EmbeddedField(FormField), default=list, validate=_validate_form_fields)
 
     # id of file in gridfs, should be a png
     representative_thumbnail = fields.ObjectIdField(default=None)
