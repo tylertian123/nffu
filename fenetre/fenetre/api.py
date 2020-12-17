@@ -517,7 +517,6 @@ async def generate_valid_configs(idx):
     payload = request_course_config_options.load(msg)
 
     valid_options = []
-    had_default = False
 
     # get the geometry from lockbox
     try:
@@ -532,18 +531,17 @@ async def generate_valid_configs(idx):
         return {"status": "pending", "options": []}, 202
 
     # try to add the default one
-    default_option = await Form.find_one({"is_default": True})
-    if default_option is not None and form_geometry_compatible(requested_geom, default_option):
-        had_default = True
-        valid_options.append(
-            course_config_option_dump.dump({
-                "reason": "default-form",
-                "form_title": default_option.name,
-                "for_course": obj.pk,
-                "form_config_id": default_option.pk,
-                "has_thumbnail": default_option.representative_thumbnail is not None
-            })
-        )
+    async for default_option in Form.find({"is_default": True}):
+        if default_option is not None and form_geometry_compatible(requested_geom, default_option):
+            valid_options.append(
+                course_config_option_dump.dump({
+                    "reason": "default-form",
+                    "form_title": default_option.name,
+                    "for_course": obj.pk,
+                    "form_config_id": default_option.pk,
+                    "has_thumbnail": default_option.representative_thumbnail is not None
+                })
+            )
 
     # find any courses with the same url
     already_processed = set()
@@ -551,9 +549,9 @@ async def generate_valid_configs(idx):
         if potential.form_config is not None and potential.form_config.pk not in already_processed:
             already_processed.add(potential.form_config.pk)
             option = await potential.form_config.fetch()
-            if option is None or option.is_default and had_default or not form_geometry_compatible(requested_geom, option):
+            if option is None or option.is_default or not form_geometry_compatible(requested_geom, option):
                 continue
-            valid_options.append(
+            valid_options.insert(0,   # add to start of list so it shows up first
                 course_config_option_dump.dump({
                     "reason": "matches-url",
                     "form_title": option.name,
