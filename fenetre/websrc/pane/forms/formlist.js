@@ -116,11 +116,45 @@ function NewFormDialog() {
 function FormListEntry(props) {
 	const {form} = props;
 
+	const [processing, setProcessing] = React.useState(false);
+	const [isDefault, setIsDefault] = React.useState(form.is_default);
+
+	const updateIsDefault = (e) => {
+		(async (value) => {
+			setProcessing(true);
+
+			const oldDefault = isDefault;
+
+			try {
+				setIsDefault(value);
+
+				const response = await fetch("/api/v1/form/" + form.id, {
+					"method": "PATCH",
+					"headers": {"Content-Type": "application/json"},
+					"body": JSON.stringify({
+						"is_default": value
+					})
+				});
+
+				if (!response.ok) {
+					throw Error("failed");
+				}
+			}
+			catch (err) {
+				setIsDefault(oldDefault);
+				alert(err);
+			}
+			finally {
+				setProcessing(false);
+			}
+		})(e.target.checked);
+	};
+
 	return <ListGroup.Item>
 		<div className="text-dark d-flex w-100 justify-content-between">
-			<h3 className="mb-0">{form.name}</h3>
+			<div><h3 className="d-inline mb-0">{form.name}</h3> {processing ? <Spinner size="sm" animation="border" /> : null}</div>
 			<Form inline className="align-self-middle">
-				<FormCheck id={"def-switch-" + form.id} onChange={(e) => props.onSetDefault(form.id, e.target.value)} checked={form.is_default} type="switch" custom label="Default" />
+				<FormCheck onChange={updateIsDefault} disabled={processing} id={"def-switch-" + form.id} checked={isDefault} type="switch" custom label="Default" />
 			</Form>
 		</div>
 		<div className="d-flex mt-2 w-100 justify-content-between align-items-end">
@@ -129,7 +163,7 @@ function FormListEntry(props) {
 				{!!form.representative_thumbnail || <li><i>no thumbnail set</i></li>}
 			</ul>
 			<LinkContainer to={"/forms/form/" + form.id}>
-				<Button>Edit <BsArrowRight /></Button>
+				<Button disabled={processing}>Edit <BsArrowRight /></Button>
 			</LinkContainer>
 		</div>
 	</ListGroup.Item>
