@@ -4,8 +4,10 @@ import {Row, Col, Nav, FormCheck, Form, Button, Alert} from 'react-bootstrap';
 import {LinkContainer} from 'react-router-bootstrap'
 import {Route, Switch} from 'react-router'
 import {ExtraUserInfoProvider} from '../common/userinfo';
+
 import FormList from './forms/formlist';
 import FormEditor from './forms/formeditor';
+import AdmCourseList from './forms/courselist';
 
 function Forms() {
 	return <Row>
@@ -13,6 +15,9 @@ function Forms() {
 			<Nav variant="pills" className="flex-column">
 				<LinkContainer to="/forms/form">
 					<Nav.Link>Forms</Nav.Link>
+				</LinkContainer>
+				<LinkContainer to="/forms/course">
+					<Nav.Link>Courses</Nav.Link>
 				</LinkContainer>
 			</Nav>
 		</Col>
@@ -24,6 +29,9 @@ function Forms() {
 					</Route>
 					<Route path="/forms/form">
 						<FormList />
+					</Route>
+					<Route path="/forms/course">
+						<AdmCourseList />
 					</Route>
 				</Switch>
 			</ExtraUserInfoProvider>
