@@ -62,6 +62,9 @@ function SubFieldEditor(props) {
 			<Form.Group as={Col}>
 				<Form.Label>Value expression</Form.Label>
 				<Editor padding={10} className="simple-eval-mono " value={props.field.target_value} onValueChange={(e) => props.onChangeValue(e)} highlight={code => highlight(code, prismSimpleLanguage)}/>
+				<Form.Text className="text-muted">
+					For more information on how these expressions work, see the documentation <a className="alert-link" href="https://github.com/tylertian123/nffu/blob/master/docs/fieldexpr.md" target="_blank">on GitHub here</a>
+				</Form.Text>
 			</Form.Group>
 		</Form.Row>
 		<div className="d-flex w-100 justify-content-end">
