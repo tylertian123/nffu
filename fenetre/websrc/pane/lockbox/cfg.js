@@ -336,7 +336,7 @@ function CourseViewer() {
 	let reconfig = null;
 
 	if (course.configuration_locked) {
-		reconfig = <p class="text-muted"><BsCheckAll /> This course was verified by an admin, so you can't edit its configuration. If you think it's wrong, tell an admin directly.</p>;
+		reconfig = <p className="text-muted"><BsCheckAll /> This course was verified by an admin, so you can't edit its configuration. If you think it's wrong, tell an admin directly.</p>;
 	}
 	else {
 		reconfig = <LinkContainer to={"/lockbox/cfg/" + course.id + "/setup"}>
