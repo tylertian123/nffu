@@ -180,6 +180,13 @@ def get_form_geometry(form_url: str, credentials: GhosterCredentials):
                 except NoSuchElementException:
                     raise GhosterInvalidForm(f"Form field {j} missing header")
 
+        # try to redact email before grabbing screenshot.
+        try:
+            email_tag = browser.find_element_by_class_name("freebirdFormviewerViewHeaderEmailAddress")
+            browser.execute_script("arguments[0].innerText = '<redacted>'", email_tag)
+        except NoSuchElementException:
+            pass
+
         shot = browser.find_element_by_tag_name("html").screenshot_as_png
 
         return needs_signin, fields, shot
