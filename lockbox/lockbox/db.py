@@ -272,7 +272,7 @@ class LockboxDB:
         geom = await self.CachedFormGeometryImpl.find_one({"url": url})
         # Does not exist or doesn't have screenshot
         if geom is None or (grab_screenshot and geom.screenshot_file_id is None and geom.geometry is not None):
-            existing = await self.CachedFormGeometryImpl.count_documents({"requested_by": token})
+            existing = await self.CachedFormGeometryImpl.count_documents({"requested_by": token, "geometry": None})
             # Admin limit: 5
             if (override_limit and existing >= 5) or existing:
                 raise LockboxDBError("Max number of requests at a time exceeded", LockboxDBError.RATE_LIMIT_EXCEEDED)
