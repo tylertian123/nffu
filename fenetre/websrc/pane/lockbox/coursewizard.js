@@ -1,16 +1,10 @@
 import React from 'react';
-
-import {Row, Col, FormCheck, Form, Button, Alert, Spinner, ListGroup} from 'react-bootstrap';
-import {ExtraUserInfoContext} from '../../common/userinfo';
-import {useFormik} from 'formik';
-import * as yup from 'yup';
-import {Link, Redirect, Switch, Route, useParams} from 'react-router-dom';
-import useBackoffEffect from '../../common/pendprovider';
-
-import {BsCheckAll, BsCheck, BsExclamationCircle, BsArrowRight, BsArrowLeft, BsArrowClockwise} from 'react-icons/bs';
-import {imageHighlight} from '../../common/confirms';
-
+import {Alert, Button, Col, Form, FormCheck, Row, Spinner} from 'react-bootstrap';
+import {BsArrowLeft, BsCheck} from 'react-icons/bs';
+import {Link, Redirect, useParams} from 'react-router-dom';
 import "regenerator-runtime/runtime";
+import {imageHighlight} from '../../common/confirms';
+import useBackoffEffect from '../../common/pendprovider';
 
 const InnerCourseContext = React.createContext();
 

@@ -1,7 +1,6 @@
 import React from 'react';
 
 import {Row, Col, ListGroup, Form, FormCheck, Button, Spinner} from 'react-bootstrap';
-import {BsClipboard, BsPlus} from 'react-icons/bs';
 import {UserInfoContext} from '../../common/userinfo';
 import {confirmationDialog, passwordChangeDialog} from '../../common/confirms';
 

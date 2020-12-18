@@ -1,22 +1,14 @@
-import React from 'react';
-import reactModal from '@prezly/react-promise-modal';
-
-import {Row, Col, FormCheck, Form, Button, Alert, Spinner, ListGroup, Modal} from 'react-bootstrap';
-import {ExtraUserInfoContext} from '../../common/userinfo';
-import {Formik} from 'formik';
-import * as yup from 'yup';
-import {Link, Redirect, Switch, Route, useParams} from 'react-router-dom';
-import useBackoffEffect from '../../common/pendprovider';
-
-import {BsX, BsCheck, BsExclamationCircle, BsArrowRight, BsArrowLeft, BsArrowClockwise, BsPlus} from 'react-icons/bs';
-import {imageHighlight, textInputDialog, confirmationDialog} from '../../common/confirms';
-
-import "regenerator-runtime/runtime";
-import "../../css/code-input.scss";
-
-import Editor from 'react-simple-code-editor';
-import { highlight } from 'prismjs/components/prism-core';
+import {highlight} from 'prismjs/components/prism-core';
 import 'prismjs/themes/prism-okaidia.css';
+import React from 'react';
+import {Alert, Button, Col, Form, Row, Spinner} from 'react-bootstrap';
+import {BsArrowLeft} from 'react-icons/bs';
+import {Link, Redirect, useParams} from 'react-router-dom';
+import Editor from 'react-simple-code-editor';
+import "regenerator-runtime/runtime";
+import * as yup from 'yup';
+import {confirmationDialog, imageHighlight, textInputDialog} from '../../common/confirms';
+import "../../css/code-input.scss";
 
 const prismSimpleLanguage = {
 	'string': {

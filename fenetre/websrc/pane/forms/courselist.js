@@ -1,16 +1,7 @@
 import React from 'react';
-import reactModal from '@prezly/react-promise-modal';
-
-import {Row, Col, FormCheck, Form, Button, Alert, Spinner, ListGroup, Modal} from 'react-bootstrap';
+import {Alert, Button, ListGroup, Spinner} from 'react-bootstrap';
+import {BsCheck, BsCheckAll, BsExclamationCircle} from 'react-icons/bs';
 import {LinkContainer} from 'react-router-bootstrap';
-import {ExtraUserInfoContext} from '../../common/userinfo';
-import {Formik} from 'formik';
-import * as yup from 'yup';
-import {Link, Redirect, Switch, Route, useParams} from 'react-router-dom';
-import useBackoffEffect from '../../common/pendprovider';
-
-import {BsX, BsCheck, BsExclamationCircle, BsArrowRight, BsArrowLeft, BsArrowClockwise, BsPlus} from 'react-icons/bs';
-import {imageHighlight, textInputDialog, confirmationDialog} from '../../common/confirms';
 
 import "regenerator-runtime/runtime";
 

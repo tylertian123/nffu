@@ -1,17 +1,13 @@
-import React from 'react';
 import reactModal from '@prezly/react-promise-modal';
-
-import {Row, Col, FormCheck, Form, Button, Alert, Spinner, ListGroup, Modal} from 'react-bootstrap';
-import {ExtraUserInfoContext} from '../../common/userinfo';
 import {Formik} from 'formik';
+import React from 'react';
+import {Alert, Button, Form, FormCheck, ListGroup, Modal, Spinner} from 'react-bootstrap';
+import {BsArrowRight, BsPlus} from 'react-icons/bs';
 import {LinkContainer} from 'react-router-bootstrap';
-import * as yup from 'yup';
-import {Link, Redirect, Switch, Route, useParams} from 'react-router-dom';
-import useBackoffEffect from '../../common/pendprovider';
-
-import {BsCheckAll, BsCheck, BsExclamationCircle, BsArrowRight, BsArrowLeft, BsArrowClockwise, BsPlus} from 'react-icons/bs';
-
+import {Redirect} from 'react-router-dom';
 import "regenerator-runtime/runtime";
+import * as yup from 'yup';
+
 
 // awaitable
 function NewFormDialog() {
