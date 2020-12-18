@@ -385,7 +385,19 @@ async def delete_user(idx):
 @blueprint.route("/course")
 @admin_required
 async def list_all_courses():
-    return '', 204
+    courses = Course.find({})
+
+    results = []
+
+    async for course in courses:
+        dump = user_course_enrollment_dump.dump(course)
+        if course.form_config is not None:
+            dump["form_config_id"] = str(course.form_config.pk)
+        else:
+            dump["form_config_id"] = None
+        results.append(dump)
+
+    return {"courses": results}
 
 @blueprint.route("/course/<idx>")
 @eula_required  # specifically not admin so that users can _view_ courses if they have the id
