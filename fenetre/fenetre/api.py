@@ -788,6 +788,13 @@ async def delete_form_specific(idx):
         "form_config": obj.pk
     }, {"$set": {"configuration_locked": False}, "$unset": {"form_config": None}})
 
+    # Make sure any thumbnails are deleted
+    if obj.representative_thumbnail is not None:
+        try:
+            await gridfs().delete(obj.representative_thumbnail)
+        except NoFile:
+            pass
+
     await obj.remove()
 
     return '', 204
