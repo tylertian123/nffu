@@ -162,7 +162,7 @@ function FormEditor() {
 			}
 
 			else {
-				setForm(data);
+				setForm(data.form);
 			}
 		})();
 	}, [idx]);

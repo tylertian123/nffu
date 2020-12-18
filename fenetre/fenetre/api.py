@@ -797,7 +797,7 @@ async def get_form_specific(idx):
 
     data = obj.dump()
     data["used_by"] = await Course.count_documents({"form_config": obj.pk})
-    return data
+    return {"form": data}
 
 @blueprint.route("/form/<idx>", methods=["DELETE"])
 @admin_required 
