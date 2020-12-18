@@ -755,6 +755,14 @@ async def update_form_thumb(idx):
             "status": "pending"
         }, 202
 
+    # Make sure any thumbnails are deleted
+    if form.representative_thumbnail is not None:
+        if await Form.count_documents({"representative_thumbnail": form.representative_thumbnail}) <= 1:
+            try:
+                await gridfs().delete(form.representative_thumbnail)
+            except NoFile:
+                pass
+
     form.representative_thumbnail = geometry.screenshot_id
     await form.commit()
 
@@ -790,10 +798,11 @@ async def delete_form_specific(idx):
 
     # Make sure any thumbnails are deleted
     if obj.representative_thumbnail is not None:
-        try:
-            await gridfs().delete(obj.representative_thumbnail)
-        except NoFile:
-            pass
+        if await Form.count_documents({"representative_thumbnail": obj.representative_thumbnail}) <= 1:
+            try:
+                await gridfs().delete(obj.representative_thumbnail)
+            except NoFile:
+                pass
 
     await obj.remove()
 
