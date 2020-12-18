@@ -3,7 +3,10 @@
 @import "~bootswatch/dist/solar/variables";
 $font-family-sans-serif:      "IBM Plex Sans Condensed", "Roboto", "Liberation Sans", "Arial", sans-serif !important;
 $font-family-monospace:       "IBM Plex Mono", "Roboto Mono", Consolas, "Liberation Mono", monospace !important;
+$font-family-base: $font-family-sans-serif !default;
+
 $web-font-path: 			  "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans+Condensed:ital,wght@0,400;0,700;1,400;1,700&display=swap";
+//@import url($web-font-path);
 
 $primary: lighten($orange, 2.5);
 $enable-gradients: false;
@@ -16,4 +19,20 @@ $success: #2ab148;
 
 hr {
 	border-color: #999;
+}
+
+.rounded-bottom-0 {
+	@include border-bottom-radius(0);
+}
+
+.rounded-top-0 {
+	@include border-top-radius(0);
+}
+
+.list-group-item.active {
+	background-color: darken($primary, 1) !important;
+}
+
+.list-group-item-action:hover, .list-group-item-action:focus {
+	background-color: darken($primary, 1.5) !important;
 }

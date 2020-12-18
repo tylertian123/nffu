@@ -21,6 +21,8 @@ import itsdangerous
 
 blueprint = Blueprint("api", __name__, url_prefix="/api/v1")
 
+GOOGLE_FORM_URL_REGEX = r"^https://docs.google.com/forms/d/e/([A-Za-z0-9-_]+)/viewform$"
+
 def init_app(app):
     @app.before_serving
     async def create_signers():
@@ -422,6 +424,50 @@ async def course_info(idx):
 
     return {"course": dump}, 200
 
+class CourseUpdateSchema(ma.Schema):
+    form_config_id = ObjectIdField(required=False)
+    
+    configuration_locked = ma_fields.Bool()
+
+    form_url = ma_fields.Url(validate=ma_validate.Regexp(GOOGLE_FORM_URL_REGEX))
+
+    has_attendance_form = ma_fields.Bool()
+
+course_update_schema = CourseUpdateSchema()
+
+@blueprint.route("/course/<idx>", methods=["PATCH"])
+@admin_required 
+async def adm_course_update(idx):
+    obj = await Course.find_one({"id": bson.ObjectId(idx)})
+
+    if obj is None:
+        return {"error": "no such course"}, 404
+
+    msg = await request.json
+    payload = course_update_schema.load(msg)
+
+    if "has_attendance_form" in payload:
+        obj.has_attendance_form = payload["has_attendance_form"]
+
+    if "form_url" in payload:
+        obj.form_url = payload["form_url"]
+
+    if "form_config_id" in payload:
+        if not obj.has_attendance_form or not obj.form_url:
+            return {"error": "config w/o url"}, 400
+        new_form = await Form.find_one({"id": payload["form_config_id"]})
+
+        if new_form is None:
+            return {"error": "invalid form id"}, 404
+
+        obj.form_config = new_form
+
+    if "configuration_locked" in payload:
+        obj.configuration_locked = payload["configuration_locked"]
+
+    await obj.commit()
+    return '', 204
+
 class UserFormDump(Form.schema.as_marshmallow_schema()):
     @ma.post_dump(pass_original=True)
     def add_thumb_present(self, data, orig, **kwargs):
@@ -505,8 +551,6 @@ class CourseConfigOptionDump(ma.Schema):
         return data
 
 course_config_option_dump = CourseConfigOptionDump()
-
-GOOGLE_FORM_URL_REGEX = r"^https://docs.google.com/forms/d/e/([A-Za-z0-9-_]+)/viewform$"
 
 class RequestCourseConfigOptions(ma.Schema):
     form_url = ma_fields.URL(required=True, validate=ma_validate.Regexp(GOOGLE_FORM_URL_REGEX))

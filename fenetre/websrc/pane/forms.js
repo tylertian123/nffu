@@ -8,6 +8,7 @@ import {ExtraUserInfoProvider} from '../common/userinfo';
 import FormList from './forms/formlist';
 import FormEditor from './forms/formeditor';
 import AdmCourseList from './forms/courselist';
+import CourseEditor from './forms/courseedit';
 
 function Forms() {
 	return <Row>
@@ -29,6 +30,9 @@ function Forms() {
 					</Route>
 					<Route path="/forms/form">
 						<FormList />
+					</Route>
+					<Route path="/forms/course/:idx">
+						<CourseEditor />
 					</Route>
 					<Route path="/forms/course">
 						<AdmCourseList />

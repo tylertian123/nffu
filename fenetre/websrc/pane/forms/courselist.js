@@ -56,14 +56,14 @@ function AdmCourseListEntry(props) {
 function AdmCourseList() {
 	const [courses, setCourses] = React.useState(null);
 
-	const reloadCourses = React.useEffect(() => {
-	(async () => {
-		const response = await fetch("/api/v1/course");
-		const data = await response.json();
+	React.useEffect(() => {
+		(async () => {
+			const response = await fetch("/api/v1/course");
+			const data = await response.json();
 
-		if (!response.ok) alert(data.error);
-		else setCourses(data.courses);
-	})()}, []);
+			if (!response.ok) alert(data.error);
+			else setCourses(data.courses);
+		})()}, []);
 
 	if (courses === null) {
 		return <Alert className="d-flex align-items-center" variant="secondary"><Spinner className="mr-2" animation="border" /> loading...</Alert>;
