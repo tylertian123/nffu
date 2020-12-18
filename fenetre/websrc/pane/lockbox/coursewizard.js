@@ -8,6 +8,7 @@ import {Link, Redirect, Switch, Route, useParams} from 'react-router-dom';
 import useBackoffEffect from '../../common/pendprovider';
 
 import {BsCheckAll, BsCheck, BsExclamationCircle, BsArrowRight, BsArrowLeft, BsArrowClockwise} from 'react-icons/bs';
+import {imageHighlight} from '../../common/confirms';
 
 import "regenerator-runtime/runtime";
 
@@ -129,7 +130,8 @@ function ChooseFormConfigQuestion(props) {
 					</Col>
 					{option.has_thumbnail &&
 					<Col md>
-						<img className="d-block img-fluid img-thumbnail" src={`/api/v1/course/${course.id}/config_options/${option.token}/thumb.png`} />
+						<img className="d-block img-fluid img-thumbnail" src={`/api/v1/course/${course.id}/config_options/${option.token}/thumb.png`} 
+												onClick={() => imageHighlight(`/api/v1/course/${course.id}/config_options/${option.token}/thumb.png`)} />
 					</Col>}
 				</Row>
 			</Form.Check.Label>
