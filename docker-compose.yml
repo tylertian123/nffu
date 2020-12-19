@@ -4,11 +4,31 @@ services:
   lockbox:
     build: ./lockbox
     image: docker-registry.i.mm12.xyz/nffu-lockbox:0.0.0
-    expose:
-      - "80"
     secrets:
       - lockbox-credential-key
+    environment:
+      - LOCKBOX_CREDENTIAL_KEY_FILE=/run/secrets/lockbox-credential-key
+  fenetre:
+    build: ./fenetre
+    image: docker-registry.i.mm12.xyz/nffu-fenetre:0.0.0
+    ports:
+      - "8083:8000"
+    command: 'hypercorn fenetre.app:create_app() -b 0.0.0.0:8000 --access-logfile -'
+  db:
+    image: mongo:4.4
+    volumes:
+      - db-data:/data/db
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
+    command: --quiet --wiredTigerCacheSizeGB 0.05
 
 secrets:
   lockbox-credential-key:
-    external: true
+    file: lockbox-credential-key
+    # external: true
+
+volumes:
+  db-data:
