@@ -6,7 +6,7 @@
 		{{headerplate('main')}}
 
 		{% for path, kind in calculated_fetches %}
-			<link rel="preload" href="{{path}}" as="{{kind}}" crossorigin />
+			<link rel="preload" href="{{path}}" as="{{kind}}" {{"crossorigin" if kind == "fetch" else ''}} />
 		{% endfor %}
 
 		{{ userinfo(current_user) }}
