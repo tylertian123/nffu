@@ -8,6 +8,7 @@ from fenetre.db import init_app as db_init_app
 from fenetre.auth import init_app as auth_init_app, try_login_user, AuthenticationError, verify_signup_code, eula_required, EulaRequired
 from fenetre.static import setup_digest
 from fenetre.lockbox import init_app as lockbox_init_app
+from fenetre.prefetch import resolve_preloads_for
 
 import secrets
 
@@ -38,7 +39,7 @@ def create_app():
     @app.route("/app/<path:path>")
     @eula_required
     async def main(path):
-        return await render_template("app.html")
+        return await render_template("app.html", calculated_fetches=await resolve_preloads_for(path))
 
     @app.route("/")
     async def root():

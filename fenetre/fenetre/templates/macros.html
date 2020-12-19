@@ -20,3 +20,19 @@
 		};
 	</script>
 {% endmacro %}
+
+{% macro headerplate(chunk) %}
+	<meta charset="utf-8">
+	<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
+	<link rel="preload" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans+Condensed:ital,wght@0,400;0,700;1,400;1,700&display=swap" as="style" />
+	<link rel="stylesheet" type="text/css" href="{{ static_url_for('static', filename=chunk + '.css') }}" />
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="preload" href="{{ static_url_for('static', filename=chunk + '.js') }}" as="script" />
+	<script src="{{ static_url_for('static', filename='vendors.js') }}" defer></script>
+{% endmacro %}
+
+{% macro bodyplate(chunk) %}
+	<div id="mount" />
+
+	<script src="{{ static_url_for('static', filename=chunk + '.js') }}" defer></script>
+{%endmacro%}

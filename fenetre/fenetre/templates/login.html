@@ -1,18 +1,14 @@
-{% from 'macros.html' import flashjs %}
+{% from 'macros.html' import flashjs, bodyplate, headerplate %}
 
 <!DOCTYPE html>
 <html lang="en">
 	<head>
-		<link rel="stylesheet" type="text/css" href="{{ static_url_for('static', filename='login.css') }}" />
-		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<script src="{{ static_url_for('static', filename='vendors.js') }}"></script>
-		<title>nffu - login</title>
+		{{headerplate('login')}}
 
+		<title>nffu - login</title>
 		{{ flashjs() }}
 	</head>
 	<body>
-		<div id="mount" />
-
-		<script src="{{ static_url_for('static', filename='login.js') }}"></script>
+		{{bodyplate('login')}}
 	</body>
 </html>

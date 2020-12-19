@@ -1,17 +1,18 @@
-{% from "macros.html" import userinfo %}
+{% from "macros.html" import userinfo, headerplate, bodyplate %}
 
 <!DOCTYPE html>
 <html lang="en">
 	<head>
-		<link rel="stylesheet" type="text/css" href="{{ static_url_for('static', filename='main.css') }}" />
-		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<script src="{{ static_url_for('static', filename='vendors.js') }}"></script>
+		{{headerplate('main')}}
+
+		{% for path, kind in calculated_fetches %}
+			<link rel="preload" href="{{path}}" as="{{kind}}" crossorigin />
+		{% endfor %}
+
 		{{ userinfo(current_user) }}
 		<title>nffu</title>
 	</head>
 	<body>
-		<div id="mount" />
-
-		<script src="{{ static_url_for('static', filename='main.js') }}"></script>
+		{{bodyplate('main')}}
 	</body>
 </html>

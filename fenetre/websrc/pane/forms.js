@@ -3,7 +3,6 @@ import React from 'react';
 import {Row, Col, Nav, FormCheck, Form, Button, Alert} from 'react-bootstrap';
 import {LinkContainer} from 'react-router-bootstrap'
 import {Route, Switch} from 'react-router'
-import {ExtraUserInfoProvider} from '../common/userinfo';
 
 import FormList from './forms/formlist';
 import FormEditor from './forms/formeditor';
@@ -23,22 +22,20 @@ function Forms() {
 			</Nav>
 		</Col>
 		<Col md="8" lg="10">
-			<ExtraUserInfoProvider>
-				<Switch>
-					<Route path="/forms/form/:idx">
-						<FormEditor />
-					</Route>
-					<Route path="/forms/form">
-						<FormList />
-					</Route>
-					<Route path="/forms/course/:idx">
-						<CourseEditor />
-					</Route>
-					<Route path="/forms/course">
-						<AdmCourseList />
-					</Route>
-				</Switch>
-			</ExtraUserInfoProvider>
+			<Switch>
+				<Route path="/forms/form/:idx">
+					<FormEditor />
+				</Route>
+				<Route path="/forms/form">
+					<FormList />
+				</Route>
+				<Route path="/forms/course/:idx">
+					<CourseEditor />
+				</Route>
+				<Route path="/forms/course">
+					<AdmCourseList />
+				</Route>
+			</Switch>
 		</Col>
 	</Row>;
 }
