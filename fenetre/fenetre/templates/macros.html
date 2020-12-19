@@ -24,15 +24,22 @@
 {% macro headerplate(chunk) %}
 	<meta charset="utf-8">
 	<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
-	<link rel="preload" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans+Condensed:ital,wght@0,400;0,700;1,400;1,700&display=swap" as="style" />
-	<link rel="stylesheet" type="text/css" href="{{ static_url_for('static', filename=chunk + '.css') }}" />
+	<link rel="preload" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans+Condensed:ital,wght@0,400;0,700;1,400;1,700&display=swap" as="style">
+	<link rel="stylesheet" type="text/css" href="{{ static_url_for('static', filename=chunk + '.css') }}">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<link rel="preload" href="{{ static_url_for('static', filename=chunk + '.js') }}" as="script" />
-	<script src="{{ static_url_for('static', filename='vendors.js') }}" defer></script>
+	<link rel="preload" href="{{ static_url_for('static', filename=chunk + '.js') }}" as="script">
+	<script src="{{ static_url_for('static', filename='vendors.js') }}"></script>
 {% endmacro %}
 
 {% macro bodyplate(chunk) %}
 	<div id="mount" />
 
-	<script src="{{ static_url_for('static', filename=chunk + '.js') }}" defer></script>
+	<script src="{{ static_url_for('static', filename=chunk + '.js') }}"></script>
+
+	<noscript>
+		<div class="container">
+			<h1>You need JS!</h1>
+			<p>Sorry, but this is written with React and so you need javascript for it to work at all. If this bothers you so much try writing something against the semi-stable API, idk whatever floats your boat.</p>
+		</div>
+	</noscript>
 {%endmacro%}
