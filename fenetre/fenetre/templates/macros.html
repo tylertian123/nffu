@@ -22,6 +22,7 @@
 {% endmacro %}
 
 {% macro headerplate(chunk) %}
+	<link rel="shortcut icon" href="{{ static_url_for('static', filename='favicon.ico') }}">
 	<meta charset="utf-8">
 	<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
 	<link rel="preload" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans+Condensed:ital,wght@0,400;0,700;1,400;1,700&display=swap" as="style">

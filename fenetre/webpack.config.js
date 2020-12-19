@@ -2,6 +2,7 @@ const path = require('path');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
+const CopyPlugin = require('copy-webpack-plugin');
 
 module.exports = (env, options) => {
 	return {
@@ -34,7 +35,12 @@ module.exports = (env, options) => {
 			]
 		},
 		plugins: [
-			new MiniCssExtractPlugin()
+			new MiniCssExtractPlugin(),
+			new CopyPlugin({
+				patterns: [
+					{ from: './websrc/favicon.ico' }
+				]
+			})
 		],
 		devtool: options.mode == 'development' ? 'eval-source-map' : false,
 		optimization: {
