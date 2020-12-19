@@ -1,4 +1,4 @@
-from werkzeug.routing import Rule, Map, NotFound
+from werkzeug.routing import Rule, Map, NotFound, RequestRedirect
 from quart import request
 from quart_auth import current_user, Unauthorized
 from fenetre.db import Course, Form
@@ -82,8 +82,13 @@ async def _courselist(params):
 
 async def resolve_preloads_for(path):
     try:
-        matched_eps, params = _prefetchers.match(path)
+        if path in ("", "/"):
+            matched_eps, params = ("me",), {}
+        else:
+            matched_eps, params = _prefetchers.match(path)
     except NotFound:
+        return ()
+    except RequestRedirect:
         return ()
 
     results = []
