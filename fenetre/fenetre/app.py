@@ -1,7 +1,7 @@
 import quart.flask_patch
 
 from flask_static_digest import FlaskStaticDigest
-from quart import Quart, render_template, url_for, redirect, request, flash
+from quart import Quart, render_template, url_for, redirect, request, flash, session
 from quart_auth import login_required, Unauthorized, current_user, logout_user
 
 from fenetre.db import init_app as db_init_app
@@ -39,7 +39,10 @@ def create_app():
     @app.route("/app/<path:path>")
     @eula_required
     async def main(path):
-        return await render_template("app.html", calculated_fetches=await resolve_preloads_for(path))
+        pres = await resolve_preloads_for(path)
+        if "next_url" in session:
+            del session["next_url"]
+        return await render_template("app.html", calculated_fetches=pres)
 
     @app.route("/")
     async def root():
@@ -54,6 +57,8 @@ def create_app():
             except AuthenticationError as e:
                 await flash(str(e), "auth-error")
             else:
+                if "next_url" in session:
+                    return redirect(session["next_url"])
                 return redirect(url_for("main"))
         elif await current_user.is_authenticated:
             return redirect(url_for("main"))
@@ -69,6 +74,10 @@ def create_app():
     @app.errorhandler(Unauthorized)
     async def unauthorized(_):
         await flash("You are not authorized to access that page")
+        if "next_url" in session and session["next_url"] == request.path:
+            del session["next_url"]
+        else:
+            session["next_url"] = request.path
         return redirect(url_for("login"))
 
     @app.route("/signup", defaults={"code": None})
