@@ -4,6 +4,8 @@ Main server implementation.
 
 import functools
 import json
+import logging
+import os
 from aiohttp import web
 from .db import LockboxDB, LockboxDBError
 
@@ -97,6 +99,14 @@ class LockboxServer:
 
         Does not return until the server is killed.
         """
+
+        # Setup access logging
+        stdio_handler = logging.StreamHandler()
+        stdio_handler.setLevel(logging.INFO)
+        logger = logging.getLogger('aiohttp.access')
+        logger.addHandler(stdio_handler)
+        logger.setLevel(logging.DEBUG)
+
         web.run_app(self.make_app(), host="0.0.0.0", port=80)
     
     @_handle_db_errors
@@ -111,9 +121,7 @@ class LockboxServer:
             "token": "...", // A token consisting of 64 hex digits for this user
         }
         """
-        print("Got request: POST to /user")
         token = await self.db.create_user()
-        print("Created new user")
         return web.json_response({"token": token}, status=200)
     
     @_handle_db_errors
@@ -142,9 +150,7 @@ class LockboxServer:
         Possible error response codes:
         - 400: Invalid format, token, or field value (including TDSB credentials)
         """
-        print("Got request: PATCH to /user")
         await self.db.modify_user(token, **payload)
-        print("User modified")
         return web.Response(status=204)
     
     @_handle_db_errors
@@ -171,14 +177,12 @@ class LockboxServer:
         Possible error response codes:
         - 401: Invalid token
         """
-        print("Got request: GET to /user")
         data = await self.db.get_user(token)
         # Modify data
         data["credentials_set"] = "password" in data and "login" in data
         data.pop("id", None)
         data.pop("password", None)
         data.pop("token", None)
-        print("User data returned")
         return web.json_response(data, status=200)
     
     @_handle_db_errors
@@ -199,7 +203,6 @@ class LockboxServer:
         Possible error response codes:
         - 401: Invalid token
         """
-        print("Got request: DELETE to /user")
         await self.db.delete_user(token)
         print("User deleted")
         return web.Response(status=204)
@@ -223,7 +226,6 @@ class LockboxServer:
         - 400: Invalid error id
         - 401: Invalid token
         """
-        print("Got request: DELETE to", request.rel_url)
         await self.db.delete_user_error(token, request.match_info["id"])
         print("Error deleted")
         return web.Response(status=204)
@@ -253,18 +255,16 @@ class LockboxServer:
         Possible error response codes:
         - 401: Invalid token
         """
-        print("Got request: GET to /user/courses")
         data = await self.db.get_user(token)
         # No credentials
         if not ("password" in data and "login" in data):
-            print("User courses returned")
+            print("User credentials not present")
             return web.json_response({"courses": None, "pending": False})
         # Credentials present, but courses are not
         if data.get("courses") is None:
-            print("User courses returned")
+            print("User courses pending")
             return web.json_response({"courses": None, "pending": True})
         # Both present
-        print("User courses returned")
         return web.json_response({"courses": data["courses"], "pending": False})
     
     @_handle_db_errors
@@ -287,9 +287,7 @@ class LockboxServer:
         - 409: Cannot update courses due to missing credentials
         - 500: Failed to decrypt user password
         """
-        print("Got request: POST to /user/courses/update")
         await self.db.update_user_courses(token)
-        print("User courses updated")
         return web.Response(status=204)
     
     @_handle_db_errors
@@ -337,7 +335,6 @@ class LockboxServer:
         - 429: Concurrent request limit exceeded
         - 409: Cannot sign into form due to missing credentials
         """
-        print("Got request: POST to /form_geometry")
         if "url" not in payload:
             return web.json_response({"error": "Missing field: 'url'"}, status=400)
         result = await self.db.get_form_geometry(token, payload["url"], payload.get("override_limit", False), payload.get("grab_screenshot", False))
@@ -347,5 +344,4 @@ class LockboxServer:
             print(f"Form geometry error {status}: {result['error']}")
             return web.json_response(result, status=status)
         else:
-            print("Form geometry info returned")
             return web.json_response(result, status=200)
