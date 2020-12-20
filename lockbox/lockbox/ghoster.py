@@ -8,10 +8,11 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
-
+from typing import List, Tuple
 
 from lockbox.documents import FormFieldType
 import collections
+import datetime
 
 # Helper strucuts
 GhosterCredentials = collections.namedtuple("GhosterCredentials", "email tdsb_user tdsb_pass")
@@ -112,12 +113,150 @@ def _get_input_header(browser: webdriver.Firefox, element: webdriver.firefox.web
     header_element = element.find_element_by_class_name("freebirdFormviewerComponentsQuestionBaseTitle")
     return header_element.text
 
-
 class GhosterAuthFailed(Exception):
     pass
 
 class GhosterInvalidForm(Exception):
     pass
+
+class GhosterPossibleFail(Exception):
+    """
+    Raised when an error _might_ have occured and re-trying the operation could be dangerous
+
+    (e.g. timed out waiting for page change after pressing submit)
+
+    This error's args will be:
+        (error message, screenshot of failing page for manual review)
+    """
+
+    pass
+
+def _fill_in_field(browser: webdriver.Firefox, element: webdriver.firefox.webelement.FirefoxWebElement, with_value, kind: FormFieldType):
+    """
+    Fill in a field
+    """
+
+    if kind in [FormFieldType.TEXT, FormFieldType.LONG_TEXT]:
+        text_field = element.find_element_by_css_selector("input.quantumWizTextinputPaperinputInput" if kind == FormFieldType.TEXT else "textarea.quantumWizTextinputPapertextareaInput")
+
+        if not isinstance(with_value, str):
+            raise TypeError()
+
+        text_field.send_keys(with_value)
+
+    elif kind == FormFieldType.DATE:
+        if not isinstance(with_value, datetime.date):
+            raise TypeError()
+
+        components = element.find_elements_by_css_selector("input.quantumWizTextinputPaperinputInput")
+
+        month = [x for x in components if x.get_attribute("max") == '12'][0]
+        day   = [x for x in components if x.get_attribute("max") == '31'][0]
+        year  = [x for x in components if int(x.get_attribute("min")) >= 1000][0]
+
+        month.send_keys(str(with_value.month))
+        day.send_keys(str(with_value.day))
+        year.send_keys(str(with_value.year))
+
+    elif kind in [FormFieldType.MULTIPLE_CHOICE, FormFieldType.DROPDOWN, FormFieldType.CHECKBOX]:
+        if not isinstance(with_value, int):
+            raise TypeError()
+
+        if kind == FormFieldType.MULTIPLE_CHOICE:
+            options = element.find_elements_by_class_name("docssharedWizToggleLabeledLabelWrapper")
+            options[with_value].click()
+
+        elif kind == FormFieldType.CHECKBOX:
+            options = element.find_elements_by_class_name("quantumWizTogglePapercheckboxInnerBox")
+            options[with_value].click()
+
+        elif kind == FormFieldType.DROPDOWN:
+            opener = element.find_element_by_class_name("quantumWizMenuPaperselectDropDown")
+            opener.click()
+
+            popup = element.find_element_by_class_name("exportSelectPopup")
+            WebDriverWait(browser, 4, poll_frequency=0.25).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.exportSelectPopup .quantumWizMenuPaperselectOption")))
+            options = popup.find_elements_by_class_name("exportOption")
+            options[with_value + 1].click()  # + 1 for the "Choose" label
+
+    else:
+        raise NotImplementedError()
+
+
+def fill_form(form_url: str, credentials: GhosterCredentials, components: List[Tuple[int, str, FormFieldType, object]]):
+    """
+    Fill in a form. Expects the URL, credentials and a description of what to fill in.
+
+    The components array is structured as [
+        (index, title, kind, value)...
+    ]
+
+    Returns two screenshots on success, the first being a picture of the form filled in and the second being a picture of the success screen.
+    """
+
+    with _create_browser() as browser:
+        # load form
+        browser.get(form_url)
+
+        if "accounts.google.com" in browser.current_url:
+            try:
+                _do_google_auth_flow(browser, credentials) # if this times out the auth failed
+            except NoSuchElementException:
+                raise GhosterAuthFailed("Invalid authentication challenge page")
+            except TimeoutException:
+                raise GhosterAuthFailed("Invalid authentication")
+
+        try:
+            # ensure page is completely loaded
+            WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "freebirdFormviewerViewNavigationSubmitButton"))) # if this times out the page is too complex
+        except TimeoutException:
+            if "alreadyresponded" in browser.current_url:
+                raise GhosterInvalidForm("Form already responded to")
+            elif "formrestricted" in browser.current_url:
+                raise GhosterAuthFailed("Form not accessible by account")
+            else:
+                raise GhosterInvalidForm("Form doesn't have a submit button; may be multi-page?")
+
+        # get all elements on the page
+        sub_elems = browser.find_elements_by_css_selector(".freebirdFormviewerViewItemList .freebirdFormviewerViewNumberedItemContainer")
+        
+        for (index, expected_title, kind, value) in components:
+            if index >= len(sub_elems):
+                raise GhosterInvalidForm("Requested component (" + expected_title + ") is out of range")
+
+            if expected_title not in _get_input_header(browser, sub_elems[index]):
+                raise GhosterInvalidForm("Requested component (" + expected_title + ") is not present at index (" + str(index) + ")")
+
+            try:
+                _fill_in_field(browser, sub_elems[index], value, kind)
+            except NoSuchElementException:
+                raise GhosterInvalidForm("Requested component (" + expected_title + ") is of the wrong type (missing element)")
+            except TimeoutException:
+                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (timed out waiting for select)")
+            except IndexError:
+                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (option out of range)")
+            except TypeError:
+                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (invalid expression result type)")
+            except NotImplementedError:
+                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (kind not implemented)")
+
+
+        # record screenshot of filled in page
+        shot_pre = browser.find_element_by_tag_name("html").screenshot_as_png
+
+        # locate submit button
+        submit_button = browser.find_element_by_class_name("freebirdFormviewerViewNavigationSubmitButton")
+        submit_button.click()
+
+        try:
+            WebDriverWait(browser, 10).until(EC.url_contains("formResponse"))
+        except TimeoutException:
+            raise GhosterPossibleFail("Timed out waiting for response page", browser.find_element_by_tag_name("html").screenshot_as_png)
+        
+        shot_post = browser.find_element_by_tag_name("html").screenshot_as_png
+
+        return shot_pre, shot_post
+
 
 def get_form_geometry(form_url: str, credentials: GhosterCredentials):
     """
