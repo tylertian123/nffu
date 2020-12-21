@@ -5,7 +5,6 @@ Main server implementation.
 import functools
 import json
 import logging
-import os
 from aiohttp import web
 from .db import LockboxDB, LockboxDBError
 

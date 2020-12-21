@@ -119,8 +119,7 @@ class Form(Document): # pylint: disable=abstract-method
     # Friendly title for this form configuration
     name = fields.StrField()
 
-    # is this form the default? if there are multiple of these, uh panic
-    # TODO: use io_validate to check that
+    # is this form the default?
     is_default = fields.BoolField(default=False)
 
 

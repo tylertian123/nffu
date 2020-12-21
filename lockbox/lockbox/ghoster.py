@@ -14,7 +14,7 @@ from lockbox.documents import FormFieldType
 import collections
 import datetime
 
-# Helper strucuts
+# Helper structs
 GhosterCredentials = collections.namedtuple("GhosterCredentials", "email tdsb_user tdsb_pass")
 
 # Various helper functions for doing common tasks
@@ -59,7 +59,7 @@ def _do_google_auth_flow(browser: webdriver.Firefox, credentials: GhosterCredent
     #print("clicking login in aw")
 
 
-def _guess_input_type(browser: webdriver.Firefox, element: webdriver.firefox.webelement.FirefoxWebElement):
+def _guess_input_type(browser: webdriver.Firefox, element: webdriver.firefox.webelement.FirefoxWebElement): # pylint: disable=unused-argument
     """
     Try to figure out what kind of input this is.
 
@@ -105,7 +105,7 @@ def _guess_input_type(browser: webdriver.Firefox, element: webdriver.firefox.web
     # Otherwise explicitly return None
     return None
 
-def _get_input_header(browser: webdriver.Firefox, element: webdriver.firefox.webelement.FirefoxWebElement):
+def _get_input_header(browser: webdriver.Firefox, element: webdriver.firefox.webelement.FirefoxWebElement): # pylint: disable=unused-argument
     """
     Get the header text
     """
@@ -121,15 +121,13 @@ class GhosterInvalidForm(Exception):
 
 class GhosterPossibleFail(Exception):
     """
-    Raised when an error _might_ have occured and re-trying the operation could be dangerous
+    Raised when an error _might_ have occurred and re-trying the operation could be dangerous
 
     (e.g. timed out waiting for page change after pressing submit)
 
     This error's args will be:
         (error message, screenshot of failing page for manual review)
     """
-
-    pass
 
 def _fill_in_field(browser: webdriver.Firefox, element: webdriver.firefox.webelement.FirefoxWebElement, with_value, kind: FormFieldType):
     """
@@ -201,21 +199,21 @@ def fill_form(form_url: str, credentials: GhosterCredentials, components: List[T
         if "accounts.google.com" in browser.current_url:
             try:
                 _do_google_auth_flow(browser, credentials) # if this times out the auth failed
-            except NoSuchElementException:
-                raise GhosterAuthFailed("Invalid authentication challenge page")
-            except TimeoutException:
-                raise GhosterAuthFailed("Invalid authentication")
+            except NoSuchElementException as e:
+                raise GhosterAuthFailed("Invalid authentication challenge page") from e
+            except TimeoutException as e:
+                raise GhosterAuthFailed("Invalid authentication") from e
 
         try:
             # ensure page is completely loaded
             WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "freebirdFormviewerViewNavigationSubmitButton"))) # if this times out the page is too complex
-        except TimeoutException:
+        except TimeoutException as e:
             if "alreadyresponded" in browser.current_url:
-                raise GhosterInvalidForm("Form already responded to")
+                raise GhosterInvalidForm("Form already responded to") from e
             elif "formrestricted" in browser.current_url:
-                raise GhosterAuthFailed("Form not accessible by account")
+                raise GhosterAuthFailed("Form not accessible by account") from e
             else:
-                raise GhosterInvalidForm("Form doesn't have a submit button; may be multi-page?")
+                raise GhosterInvalidForm("Form doesn't have a submit button; may be multi-page?") from e
 
         # get all elements on the page
         sub_elems = browser.find_elements_by_css_selector(".freebirdFormviewerViewItemList .freebirdFormviewerViewNumberedItemContainer")
@@ -229,16 +227,16 @@ def fill_form(form_url: str, credentials: GhosterCredentials, components: List[T
 
             try:
                 _fill_in_field(browser, sub_elems[index], value, kind)
-            except NoSuchElementException:
-                raise GhosterInvalidForm("Requested component (" + expected_title + ") is of the wrong type (missing element)")
-            except TimeoutException:
-                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (timed out waiting for select)")
-            except IndexError:
-                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (option out of range)")
-            except TypeError:
-                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (invalid expression result type)")
-            except NotImplementedError:
-                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (kind not implemented)")
+            except NoSuchElementException as e:
+                raise GhosterInvalidForm("Requested component (" + expected_title + ") is of the wrong type (missing element)") from e
+            except TimeoutException as e:
+                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (timed out waiting for select)") from e
+            except IndexError as e:
+                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (option out of range)") from e
+            except TypeError as e:
+                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (invalid expression result type)") from e
+            except NotImplementedError as e:
+                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (kind not implemented)") from e
 
 
         # record screenshot of filled in page
@@ -250,8 +248,8 @@ def fill_form(form_url: str, credentials: GhosterCredentials, components: List[T
 
         try:
             WebDriverWait(browser, 10).until(EC.url_contains("formResponse"))
-        except TimeoutException:
-            raise GhosterPossibleFail("Timed out waiting for response page", browser.find_element_by_tag_name("html").screenshot_as_png)
+        except TimeoutException as e:
+            raise GhosterPossibleFail("Timed out waiting for response page", browser.find_element_by_tag_name("html").screenshot_as_png) from e
         
         shot_post = browser.find_element_by_tag_name("html").screenshot_as_png
 
@@ -290,21 +288,21 @@ def get_form_geometry(form_url: str, credentials: GhosterCredentials):
             needs_signin = True
             try:
                 _do_google_auth_flow(browser, credentials) # if this times out the auth failed
-            except NoSuchElementException:
-                raise GhosterAuthFailed("Invalid authentication challenge page")
-            except TimeoutException:
-                raise GhosterAuthFailed("Invalid authentication")
+            except NoSuchElementException as e:
+                raise GhosterAuthFailed("Invalid authentication challenge page") from e
+            except TimeoutException as e:
+                raise GhosterAuthFailed("Invalid authentication") from e
 
         try:
             # ensure page is completely loaded
             WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "freebirdFormviewerViewNavigationSubmitButton"))) # if this times out the page is too complex
-        except TimeoutException:
+        except TimeoutException as e:
             if "alreadyresponded" in browser.current_url:
-                raise GhosterInvalidForm("Form not setup for multiple responses")
+                raise GhosterInvalidForm("Form not setup for multiple responses") from e
             elif "formrestricted" in browser.current_url:
-                raise GhosterAuthFailed("Account not able to access form")
+                raise GhosterAuthFailed("Account not able to access form") from e
             else:
-                raise GhosterInvalidForm("Form doesn't have a submit button; may be multi-page?")
+                raise GhosterInvalidForm("Form doesn't have a submit button; may be multi-page?") from e
 
         # get all components on the page
         sub_elems = browser.find_elements_by_css_selector(".freebirdFormviewerViewItemList .freebirdFormviewerViewNumberedItemContainer")
@@ -316,8 +314,8 @@ def get_form_geometry(form_url: str, credentials: GhosterCredentials):
             if f_type is not None:
                 try:
                     fields.append((j, _get_input_header(browser, elem), f_type))
-                except NoSuchElementException:
-                    raise GhosterInvalidForm(f"Form field {j} missing header")
+                except NoSuchElementException as e:
+                    raise GhosterInvalidForm(f"Form field {j} missing header") from e
 
         # try to redact email before grabbing screenshot.
         try:
