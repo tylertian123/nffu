@@ -75,21 +75,6 @@ def init_app(app: Quart):
 
         print("ok")
 
-    @app.cli.command()
-    def add_test_data():
-        init_db_in_cli_context()
-
-        async def inner():
-            boring_form = Form(
-                    is_default=True,
-                    name="TDSB default"
-            )
-            await boring_form.commit()
-
-            print("added form: " + str(boring_form.pk))
-
-        asyncio.get_event_loop().run_until_complete(inner())
-
 @_private_instance.register
 class User(Document):
     username = fields.StrField(required=True, unique=True, validate=validate.Length(min=6), error_messages={"unique": "Username already taken"})
