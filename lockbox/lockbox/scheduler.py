@@ -1,6 +1,7 @@
 import asyncio
 import datetime
-from . import db
+import pymongo
+from . import db # pylint: disable=unused-import # For type hinting
 from .documents import TaskType
 
 
@@ -85,13 +86,13 @@ class Scheduler:
         try:
             while True:
                 # Find earliest scheduled task
-                task = await self._db.TaskImpl.find_one({"is_running": False}, sort="next_run_at")
+                task = await self._db.TaskImpl.find_one({"is_running": False}, sort=[("next_run_at", pymongo.ASCENDING)])
                 if task is None:
                     timeout = None
                 else:
                     timeout = max((task.next_run_at - datetime.datetime.now()).total_seconds(), 0)
                 try:
-                    asyncio.wait_for(self._update_event.wait(), timeout)
+                    await asyncio.wait_for(self._update_event.wait(), timeout)
                     continue
                 except asyncio.TimeoutError:
                     # Mark as running since create_task() doesn't force context switch
@@ -106,6 +107,9 @@ class Scheduler:
         Start the task scheduler.
 
         The main scheduling loop is started as an asyncio task.
+
+        This method should only ever be called ONCE on startup.
+        Subsequent calls may spawn more scheduling loops, causing unintended side effects.
         """
         await self._init()
         asyncio.create_task(self._run())

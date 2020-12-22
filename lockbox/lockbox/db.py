@@ -75,15 +75,18 @@ class LockboxDB:
         self.FormFieldImpl = self._shared_instance.register(documents.FormField)
         self.FormImpl = self._shared_instance.register(documents.Form)
         self.CourseImpl = self._shared_instance.register(documents.Course)
+
+        self._scheduler = scheduler.Scheduler(self)
         
     async def init(self):
         """
-        Initialize the databases.
+        Initialize the databases and task scheduler.
         """
         await self.UserImpl.ensure_indexes()
         await self.CourseImpl.ensure_indexes()
         await self.CachedFormGeometryImpl.collection.drop()
         await self.CachedFormGeometryImpl.ensure_indexes()
+        await self._scheduler.start()
     
     def private_db(self) -> AsyncIOMotorDatabase:
         return self._private_db
