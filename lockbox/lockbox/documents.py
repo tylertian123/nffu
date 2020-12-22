@@ -87,6 +87,7 @@ class Task(Document): # pylint: disable=abstract-method
     owner = fields.ReferenceField(User, default=None)
     next_run_at = fields.DateTimeField(required=True)
     is_running = fields.BoolField(default=False)
+    retry_count = fields.IntField(default=0)
 
 
 class FormFieldType(enum.Enum):
