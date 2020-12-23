@@ -15,8 +15,9 @@ from tdsbconnects import TDSBConnects, TimetableItem
 from umongo import ValidationError
 from umongo.frameworks import MotorAsyncIOInstance
 from . import documents
-from . import tdsb
 from . import ghoster
+from . import scheduler
+from . import tdsb
 
 
 class LockboxDBError(Exception):
@@ -69,19 +70,23 @@ class LockboxDB:
         self.UserImpl = self._private_instance.register(documents.User)
         self.FormGeometryEntryImpl = self._private_instance.register(documents.FormGeometryEntry)
         self.CachedFormGeometryImpl = self._private_instance.register(documents.CachedFormGeometry)
+        self.TaskImpl = self._private_instance.register(documents.Task)
 
         self.FormFieldImpl = self._shared_instance.register(documents.FormField)
         self.FormImpl = self._shared_instance.register(documents.Form)
         self.CourseImpl = self._shared_instance.register(documents.Course)
+
+        self._scheduler = scheduler.Scheduler(self)
         
     async def init(self):
         """
-        Initialize the databases.
+        Initialize the databases and task scheduler.
         """
         await self.UserImpl.ensure_indexes()
         await self.CourseImpl.ensure_indexes()
         await self.CachedFormGeometryImpl.collection.drop()
         await self.CachedFormGeometryImpl.ensure_indexes()
+        await self._scheduler.start()
     
     def private_db(self) -> AsyncIOMotorDatabase:
         return self._private_db

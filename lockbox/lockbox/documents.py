@@ -51,7 +51,7 @@ class User(Document): # pylint: disable=abstract-method
     """
     token = fields.StrField(required=True, unique=True, validate=validate.Length(equal=64))
 
-    # The following 3 values could be unconfigured
+    # The following 4 values could be unconfigured
     # Since the server only updates these after it validates credentials,
     # if both login and password exist, they're guaranteed to be valid credentials
     login = fields.StrField(required=False, unique=True, validate=validate.Regexp(r"\d+"))
@@ -61,10 +61,33 @@ class User(Document): # pylint: disable=abstract-method
     # or the courses are in the process of being populated
     # An empty array indicates no courses found
     courses = fields.ListField(fields.ObjectIdField(), required=False, allow_none=True)
+    # Should be set as soon as valid credentials are detected
     email = fields.EmailField(required=False, allow_none=True)
 
     active = fields.BoolField(default=True)
     errors = fields.ListField(fields.EmbeddedField(LockboxFailure), default=[])
+
+
+class TaskType(enum.Enum):
+    """
+    An enum for possible task types.
+    """
+
+    FILL_FORM = "fill-form"
+
+
+class Task(Document): # pylint: disable=abstract-method
+    """
+    A task that runs repeatedly, such as the daily form filling.
+
+    Used by the scheduler.
+    """
+    
+    kind = fields.StrField(required=True, validate=validate.OneOf([x.value for x in TaskType]))
+    owner = fields.ReferenceField(User, default=None)
+    next_run_at = fields.DateTimeField(required=True)
+    is_running = fields.BoolField(default=False)
+    retry_count = fields.IntField(default=0)
 
 
 class FormFieldType(enum.Enum):
@@ -119,8 +142,7 @@ class Form(Document): # pylint: disable=abstract-method
     # Friendly title for this form configuration
     name = fields.StrField()
 
-    # is this form the default? if there are multiple of these, uh panic
-    # TODO: use io_validate to check that
+    # is this form the default?
     is_default = fields.BoolField(default=False)
 
 

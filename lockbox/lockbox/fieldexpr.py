@@ -73,6 +73,7 @@ class FETransformer(lark.Transformer):
     }
 
     def __init__(self, context: dict):
+        super().__init__()
         self.context = context
 
     from operator import add, sub, mul, mod, floordiv as div, neg, gt, ge, lt, le, eq, ne
