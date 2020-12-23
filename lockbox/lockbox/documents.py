@@ -74,6 +74,7 @@ class TaskType(enum.Enum):
     """
 
     FILL_FORM = "fill-form"
+    CHECK_DAY = "check-day"
 
 
 class Task(Document): # pylint: disable=abstract-method

@@ -1,3 +1,11 @@
+"""
+Task scheduler.
+
+The scheduler works by keeping track of tasks in a mongodb collection.
+See documents.Task for the format of task documents.
+The scheduler runs a main loop and spawns asyncio tasks as necessary.
+"""
+
 import asyncio
 import datetime
 import pymongo
@@ -24,7 +32,7 @@ class Scheduler:
     """
 
     # Actual coroutines to execute for tasks (dict of {task_type: coro})
-    # Each coroutine should have signature (owner: User, retries: int) -> datetime.datetime
+    # Each coroutine should have signature (db: LockboxDB, owner: User, retries: int) -> datetime.datetime
     TASK_FUNCS = {}
 
     def __init__(self, db: "db.LockboxDB"): # pylint: disable=redefined-outer-name
@@ -60,7 +68,7 @@ class Scheduler:
             owner = None
         # Run task
         try:
-            next_run = await self.TASK_FUNCS[TaskType(task.kind)](owner, task.retry_count)
+            next_run = await self.TASK_FUNCS[TaskType(task.kind)](self._db, owner, task.retry_count)
             # Task success, reset retries
             task.retry_count = 0
         except TaskError as e:
@@ -76,6 +84,7 @@ class Scheduler:
             task.next_run_at = next_run
             task.is_running = False
             await task.commit()
+            self.update()
         else:
             await task.remove()
     
@@ -90,7 +99,10 @@ class Scheduler:
                 if task is None:
                     timeout = None
                 else:
-                    timeout = max((task.next_run_at - datetime.datetime.now()).total_seconds(), 0)
+                    timeout = (task.next_run_at - datetime.datetime.now()).total_seconds()
+                    if timeout < 0:
+                        timeout = 0
+                        print(f"Warning: Missed/late task: {task.kind} scheduled for {task.next_run_at}.")
                 try:
                     await asyncio.wait_for(self._update_event.wait(), timeout)
                     continue

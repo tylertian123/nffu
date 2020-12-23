@@ -18,6 +18,7 @@ from . import documents
 from . import ghoster
 from . import scheduler
 from . import tdsb
+from . import tasks
 
 
 class LockboxDBError(Exception):
@@ -77,7 +78,11 @@ class LockboxDB:
         self.CourseImpl = self._shared_instance.register(documents.Course)
 
         self._scheduler = scheduler.Scheduler(self)
-        
+        tasks.set_task_handlers(self._scheduler)
+        # Current school day, set by the check day task, used as a fallback
+        # TODO: Re-run check_day if this is None
+        self.current_day = None
+
     async def init(self):
         """
         Initialize the databases and task scheduler.

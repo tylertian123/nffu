@@ -47,7 +47,7 @@ async def get_async_periods(session: tdsbconnects.TDSBConnects = None, logged_in
                 for offset, day in enumerate(days):
                     # School days have the format "D<N>" where N is the number
                     # Non-school days are just "D"
-                    if len(day) == 2 and day not in day_offsets:
+                    if len(day) >= 2 and day not in day_offsets:
                         day_offsets[day] = offset + i
                         if len(day_offsets) == CYCLE_LENGTH:
                             break
