@@ -4,16 +4,16 @@ from flask_static_digest import FlaskStaticDigest
 from quart import Quart, render_template, url_for, redirect, request, flash, session
 from quart_auth import login_required, Unauthorized, current_user, logout_user
 
-from fenetre.db import init_app as db_init_app
-from fenetre.auth import init_app as auth_init_app, try_login_user, AuthenticationError, verify_signup_code, eula_required, EulaRequired
-from fenetre.static import setup_digest
-from fenetre.lockbox import init_app as lockbox_init_app
-from fenetre.prefetch import resolve_preloads_for
+from .db import init_app as db_init_app
+from .auth import init_app as auth_init_app, try_login_user, AuthenticationError, verify_signup_code, eula_required, EulaRequired
+from .static import setup_digest
+from .lockbox import init_app as lockbox_init_app
+from .prefetch import resolve_preloads_for
 
 import secrets
 
 # blueprints
-from fenetre.api import blueprint as api_blueprint, init_app as api_init_app
+from .api import blueprint as api_blueprint, init_app as api_init_app
 
 # plugins
 static_digest = FlaskStaticDigest()

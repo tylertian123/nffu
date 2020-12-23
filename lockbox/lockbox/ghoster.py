@@ -10,7 +10,7 @@ from selenium.webdriver.firefox.options import Options
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from typing import List, Tuple
 
-from lockbox.documents import FormFieldType
+from .documents import FormFieldType
 import collections
 import datetime
 

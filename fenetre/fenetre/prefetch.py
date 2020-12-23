@@ -1,7 +1,7 @@
 from werkzeug.routing import Rule, Map, NotFound, RequestRedirect
 from quart import request
 from quart_auth import current_user, Unauthorized
-from fenetre.db import Course, Form
+from .db import Course, Form
 import bson
 
 _prefetchers = Map([

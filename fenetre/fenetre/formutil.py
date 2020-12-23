@@ -1,5 +1,5 @@
-from fenetre.lockbox import FormGeometry
-from fenetre.db import Form, FormField, FormFieldType
+from .lockbox import FormGeometry
+from .db import Form, FormField, FormFieldType
 
 def form_geometry_compatible(geometry: FormGeometry, with_form: Form):
     if not with_form.sub_fields:

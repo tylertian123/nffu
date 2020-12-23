@@ -1,13 +1,13 @@
 from quart import Blueprint, request, flash, current_app
 from quart.exceptions import HTTPException
-from fenetre.auth import admin_required, eula_required
-from fenetre import auth, lockbox
+from .auth import admin_required, eula_required
+from . import auth, lockbox
 from quart_auth import login_required, current_user, logout_user
 import quart_auth
-from fenetre.db import User, SignupProvider, Course, Form, gridfs, FormField
+from .db import User, SignupProvider, Course, Form, gridfs, FormField
 from umongo.marshmallow_bonus import ObjectId as ObjectIdField
 from gridfs.errors import NoFile
-from fenetre.formutil import form_geometry_compatible, create_default_fields_from_geometry
+from .formutil import form_geometry_compatible, create_default_fields_from_geometry
 import bson
 import marshmallow as ma
 import marshmallow.fields as ma_fields

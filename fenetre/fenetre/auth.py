@@ -1,6 +1,6 @@
 from quart_auth import login_user, logout_user, current_user, AuthUser, AuthManager, Unauthorized, login_required
-from fenetre.db import User, init_db_in_cli_context, SignupProvider
-from fenetre.lockbox import create_new_lockbox_identity, destroy_lockbox_identity
+from .db import User, init_db_in_cli_context, SignupProvider
+from .lockbox import create_new_lockbox_identity, destroy_lockbox_identity
 from motor.motor_asyncio import AsyncIOMotorCollection
 from functools import wraps
 import enum
