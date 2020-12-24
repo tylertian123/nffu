@@ -24,6 +24,7 @@ async def check_day(db: "db.LockboxDB", owner, retries: int):
 
     This task should run daily before any forms are filled.
     """
+    print("Info: Starting check day")
     # Next run may not be exactly 1 day from now because of retries and other delays
     # Do some conversions to make sure it's tomorrow in local time
     next_run = datetime.datetime.combine(datetime.datetime.today() + datetime.timedelta(days=1),
@@ -51,14 +52,15 @@ async def check_day(db: "db.LockboxDB", owner, retries: int):
                 continue
             day = days[0]
             break
-        except aiohttp.ClientResponseError as e:
-            if e.code != 401:
-                print(f"Warning: CHECK_DAY: Non-401 HTTP error when trying to login as {user.login}: {e}")
+        except aiohttp.ClientError as e:
+            if not (isinstance(e, aiohttp.ClientResponseError) and e.code == 401):
+                print(f"Warning: CHECK_DAY: Non-401 error when trying to login as {user.login}: {e}")
             continue
         finally:
             await session.close()
     # Cannot find valid set of credentials or TDSB Connects is down?
     if day is None:
+        print("Info: Check day: No valid credentials or TDSB Connects down")
         db.current_day = None
         # Retry one more time
         if retries < 1:
@@ -70,16 +72,20 @@ async def check_day(db: "db.LockboxDB", owner, retries: int):
     # There is school
     if len(day) >= 2:
         db.current_day = int(day[1:])
+        print("Info: Check day: Current school day is a Day", db.current_day)
     else:
+        print("Info: Check day: No school today.")
         # No school today
         db.current_day = -1
         # Update only fill form tasks that are scheduled to run today
         start = datetime.datetime.now(tz=LOCAL_TZ)
-        end = start.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(1)
+        end = start.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(days=1)
         start = start.astimezone(datetime.timezone.utc)
         end = end.astimezone(datetime.timezone.utc)
-        await db.UserImpl.update_many({"kind": TaskType.FILL_FORM.value, "next_run_at": {"$gte": start, "$lt": end}},
+        result = await db.TaskImpl.collection.update_many({"kind": TaskType.FILL_FORM.value,
+                "next_run_at": {"$gte": start, "$lt": end}},
             [{"$set": {"next_run_at": {"$add": ["$next_run_at", 24 * 60 * 60 * 1000]}}}])
+        print(f"Info: Check day: {result.modified_count} tasks modified.")
     return next_run
 
 
