@@ -1,5 +1,6 @@
 import lark
 import datetime
+import random
 
 _grammar = r"""
 ?expr: comp
@@ -69,7 +70,8 @@ class FETransformer(lark.Transformer):
 
         "min": min,
         "max": max,
-        "unmax": min
+        "unmax": min,
+        "random": random.randint
     }
 
     def __init__(self, context: dict):

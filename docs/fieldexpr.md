@@ -56,74 +56,74 @@ There are a variety of built-in functions. This list may be out of date, for a c
 
 - `substr(s_in, start[, end])`
 
-   Return the substring of `s_in` from `start` to `end` (if not provided to end of string)
+   Return the substring of `s_in` from `start` to `end` (if not provided to end of string.)
 
 - `len(s_in)`
 
-   Length of string `s_in`
+   Length of string `s_in`.
 
 - `tok(s_in, s_tok, idx)`
 
-   Return the `idx`-th part of `s_in` split by `s_tok`
+   Return the `idx`-th part of `s_in` split by `s_tok`.
 
 - `cap(s_in)`
 
-   Return `s_in` capitalized
+   Return `s_in` capitalized.
 
 - `upper(s_in)`
 
-   Return `s_in` uppercased
+   Return `s_in` uppercased.
 
 - `lower(s_in)`
 
-   Return `s_in` lowercased
+   Return `s_in` lowercased.
 
 - `padl(s_in, s_pad, minlen)`
 
-   Return `s_in` padded with `s_pad` from the left to make it at least `minlen` long
+   Return `s_in` padded with `s_pad` from the left to make it at least `minlen` long.
 
 - `padr(s_in, s_pad, minlen)`
 
-   Return `s_in` padded with `s_pad` from the right to make it at least `minlen` long
+   Return `s_in` padded with `s_pad` from the right to make it at least `minlen` long.
 
 ### Type conversion
 
 - `str(x)`
 
-   Return `x` as string (does not work for dates)
+   Return `x` as string (does not work for dates.)
 
 - `int(x)`
 
-   Parse `x` into integer (converts booleans into 0-1)
+   Parse `x` into integer (converts booleans into 0-1.)
 
 - `date(year, month, day)`
 
-   Create date from year/month/day `int`s
+   Create date from year/month/day `int`s.
 
 ### Date handling
                                                                                                   
 - `dyear(date)`
 
-   Get the year from a date
+   Get the year from a date.
 
 - `dmon(date)`
 
-   Get the month from a date
+   Get the month from a date.
 
 - `dday(date)`
 
-   Get the day from a date
+   Get the day from a date.
 
                                                                                                     
 - `dadd(date, offset)`
 
-   Add `offset` days to the date
+   Add `offset` days to the date.
 
 ### Utility
 
 - `if(cond, if_true, if_false)`
 
-   If `cond` is nonzero (or a true boolean value), return `if_true` else return `if_false`
+   If `cond` is nonzero (or a true boolean value), return `if_true` else return `if_false`.
 
 - `min(a, b)`
    
@@ -132,6 +132,10 @@ There are a variety of built-in functions. This list may be out of date, for a c
 - `max(a, b)`
 
    Return the maximum of `a` and `b`.
+
+- `random(a, b)`
+   
+   Return a random integer between `a` and `b` inclusive.
 
 ## Variables
 
