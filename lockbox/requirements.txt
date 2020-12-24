@@ -1,4 +1,5 @@
 aiohttp
+python-dateutil
 cryptography
 pytdsbconnects
 umongo[motor]>=3.0.0b13
