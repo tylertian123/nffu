@@ -2,11 +2,11 @@
 Classes for storing and performing db operations.
 """
 
-import datetime
 import aiohttp
 import asyncio
 import base64
 import bson
+import datetime
 import os
 import secrets
 import typing
@@ -97,7 +97,7 @@ class LockboxDB:
         # Re-schedule the check day task if current day is not checked
         if self.current_day is None:
             check_task = await self.TaskImpl.find_one({"kind": documents.TaskType.CHECK_DAY.value})
-            now = datetime.datetime.now()
+            now = datetime.datetime.utcnow()
             if check_task is None:
                 # Create check task if it does not exist
                 check_task = self.TaskImpl(kind=documents.TaskType.CHECK_DAY.value, next_run_at=now)

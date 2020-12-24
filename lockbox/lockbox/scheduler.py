@@ -33,6 +33,7 @@ class Scheduler:
 
     # Actual coroutines to execute for tasks (dict of {task_type: coro})
     # Each coroutine should have signature (db: LockboxDB, owner: User, retries: int) -> datetime.datetime
+    # The returned datetime should be in UTC!
     TASK_FUNCS = {}
 
     def __init__(self, db: "db.LockboxDB"): # pylint: disable=redefined-outer-name
@@ -84,7 +85,7 @@ class Scheduler:
             if e.retry_in is not None:
                 print(f"Warning: Task {self._format_task(task)} failed, retrying in {e.retry_in}s: {e}")
                 # Set next retry time and increase retry count
-                next_run = datetime.datetime.now() + datetime.timedelta(seconds=e.retry_in)
+                next_run = datetime.datetime.utcnow() + datetime.timedelta(seconds=e.retry_in)
                 task.retry_count += 1
             else:
                 print(f"Warning: Task {self._format_task(task)} failed, not retrying: {e}")
@@ -110,7 +111,7 @@ class Scheduler:
                 if task is None:
                     timeout = None
                 else:
-                    timeout = (task.next_run_at - datetime.datetime.now()).total_seconds()
+                    timeout = (task.next_run_at - datetime.datetime.utcnow()).total_seconds()
                     if timeout < 0:
                         print(f"Warning: Late task: {self._format_task(task)} (late {-timeout}s).")
                         timeout = 0

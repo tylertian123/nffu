@@ -6,11 +6,14 @@ import aiohttp
 import datetime
 import tdsbconnects
 from cryptography.fernet import InvalidToken
+from dateutil import tz
 from . import db
 from . import scheduler
 from .documents import TaskType
 
 
+LOCAL_TZ = tz.gettz()
+# In local time
 CHECK_DAY_RUN_TIME = datetime.time(hour=4, minute=0)
 
 
@@ -22,8 +25,9 @@ async def check_day(db: "db.LockboxDB", owner, retries: int):
     This task should run daily before any forms are filled.
     """
     # Next run may not be exactly 1 day from now because of retries and other delays
+    # Do some conversions to make sure it's tomorrow in local time
     next_run = datetime.datetime.combine(datetime.datetime.today() + datetime.timedelta(days=1),
-                                         CHECK_DAY_RUN_TIME)
+                                         CHECK_DAY_RUN_TIME, tzinfo=LOCAL_TZ).astimezone(datetime.timezone.utc)
     day = None
     # Try to get a set of valid credentials
     async for user in db.UserImpl.find():
@@ -70,8 +74,10 @@ async def check_day(db: "db.LockboxDB", owner, retries: int):
         # No school today
         db.current_day = -1
         # Update only fill form tasks that are scheduled to run today
-        start = datetime.datetime.now()
+        start = datetime.datetime.now(tz=LOCAL_TZ)
         end = start.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(1)
+        start = start.astimezone(datetime.timezone.utc)
+        end = end.astimezone(datetime.timezone.utc)
         await db.UserImpl.update_many({"kind": TaskType.FILL_FORM.value, "next_run_at": {"$gte": start, "$lt": end}},
             [{"$set": {"next_run_at": {"$add": ["$next_run_at", 24 * 60 * 60 * 1000]}}}])
     return next_run
