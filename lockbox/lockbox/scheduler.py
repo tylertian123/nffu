@@ -8,9 +8,13 @@ The scheduler runs a main loop and spawns asyncio tasks as necessary.
 
 import asyncio
 import datetime
+import logging
 import pymongo
 from . import db # pylint: disable=unused-import # For type hinting
 from .documents import TaskType
+
+
+logger = logging.getLogger("scheduler")
 
 
 class TaskError(Exception):
@@ -64,7 +68,7 @@ class Scheduler:
         Currently reports task that were interrupted, and set all tasks' is_running to false.
         """
         async for task in self._db.TaskImpl.find({"is_running": True}):
-            print(f"Warning: Detected interrupted task: {self._format_task(task)}.")
+            logger.warning(f"Detected interrupted task: {self._format_task(task)}.")
             task.is_running = False
             await task.commit()
     
@@ -76,6 +80,7 @@ class Scheduler:
             owner = await task.owner.fetch()
         else:
             owner = None
+        logger.info(f"Starting task {self._format_task(task)}")
         # Run task
         try:
             next_run = await self.TASK_FUNCS[TaskType(task.kind)](self._db, owner, task.retry_count)
@@ -83,12 +88,12 @@ class Scheduler:
             task.retry_count = 0
         except TaskError as e:
             if e.retry_in is not None:
-                print(f"Warning: Task {self._format_task(task)} failed, retrying in {e.retry_in}s: {e}")
+                logger.warning(f"Task {self._format_task(task)} failed, retrying in {e.retry_in}s: {e}")
                 # Set next retry time and increase retry count
                 next_run = datetime.datetime.utcnow() + datetime.timedelta(seconds=e.retry_in)
                 task.retry_count += 1
             else:
-                print(f"Warning: Task {self._format_task(task)} failed, not retrying: {e}")
+                logger.warning(f"Task {self._format_task(task)} failed, not retrying: {e}")
                 # If no retry time given, task is deleted
                 next_run = None
         # Update task if next run time is provided
@@ -97,7 +102,9 @@ class Scheduler:
             task.is_running = False
             await task.commit()
             self.update()
+            logger.info(f"Task success (rescheduled): {self._format_task(task)}")
         else:
+            logger.info(f"Task success (deleted): {self._format_task(task)}")
             await task.remove()
     
     async def _run(self):
@@ -113,7 +120,7 @@ class Scheduler:
                 else:
                     timeout = (task.next_run_at - datetime.datetime.utcnow()).total_seconds()
                     if timeout < 0:
-                        print(f"Warning: Late task: {self._format_task(task)} (late {-timeout}s).")
+                        logger.warning(f"Late task: {self._format_task(task)} (late {-timeout}s).")
                         timeout = 0
                 try:
                     await asyncio.wait_for(self._update_event.wait(), timeout)

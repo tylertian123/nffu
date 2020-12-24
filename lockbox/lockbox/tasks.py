@@ -2,6 +2,7 @@
 Task function definitions for the scheduler.
 """
 
+import logging
 import aiohttp
 import datetime
 import tdsbconnects
@@ -10,6 +11,9 @@ from dateutil import tz
 from . import db
 from . import scheduler
 from .documents import TaskType
+
+
+logger = logging.getLogger("task")
 
 
 LOCAL_TZ = tz.gettz()
@@ -24,7 +28,7 @@ async def check_day(db: "db.LockboxDB", owner, retries: int):
 
     This task should run daily before any forms are filled.
     """
-    print("Info: Starting check day")
+    logger.info("Starting check day")
     # Next run may not be exactly 1 day from now because of retries and other delays
     # Do some conversions to make sure it's tomorrow in local time
     next_run = datetime.datetime.combine(datetime.datetime.today() + datetime.timedelta(days=1),
@@ -54,13 +58,13 @@ async def check_day(db: "db.LockboxDB", owner, retries: int):
             break
         except aiohttp.ClientError as e:
             if not (isinstance(e, aiohttp.ClientResponseError) and e.code == 401):
-                print(f"Warning: CHECK_DAY: Non-401 error when trying to login as {user.login}: {e}")
+                logger.warning(f"Check day: Non-auth error when trying to login as {user.login}: {e}")
             continue
         finally:
             await session.close()
     # Cannot find valid set of credentials or TDSB Connects is down?
     if day is None:
-        print("Info: Check day: No valid credentials or TDSB Connects down")
+        logger.warning("Check day: No valid credentials or TDSB Connects down")
         db.current_day = None
         # Retry one more time
         if retries < 1:
@@ -72,9 +76,9 @@ async def check_day(db: "db.LockboxDB", owner, retries: int):
     # There is school
     if len(day) >= 2:
         db.current_day = int(day[1:])
-        print("Info: Check day: Current school day is a Day", db.current_day)
+        logger.info(f"Check day: Current school day is a Day {db.current_day}")
     else:
-        print("Info: Check day: No school today.")
+        logger.info("Check day: No school today.")
         # No school today
         db.current_day = -1
         # Update only fill form tasks that are scheduled to run today
@@ -85,7 +89,7 @@ async def check_day(db: "db.LockboxDB", owner, retries: int):
         result = await db.TaskImpl.collection.update_many({"kind": TaskType.FILL_FORM.value,
                 "next_run_at": {"$gte": start, "$lt": end}},
             [{"$set": {"next_run_at": {"$add": ["$next_run_at", 24 * 60 * 60 * 1000]}}}])
-        print(f"Info: Check day: {result.modified_count} tasks modified.")
+        logger.info(f"Check day: {result.modified_count} tasks modified.")
     return next_run
 
 
@@ -93,7 +97,7 @@ async def fill_form(db: "db.LockboxDB", owner, retries: int):
     """
     Fills in the form for a particular user.
     """
-    print("Fill form stub")
+    logger.info("Fill form stub")
 
 
 def set_task_handlers(scheduler):

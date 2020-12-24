@@ -7,6 +7,7 @@ import asyncio
 import base64
 import bson
 import datetime
+import logging
 import os
 import secrets
 import typing
@@ -20,6 +21,9 @@ from . import ghoster
 from . import scheduler
 from . import tdsb
 from . import tasks
+
+
+logger = logging.getLogger("db")
 
 
 class LockboxDBError(Exception):
@@ -157,16 +161,17 @@ class LockboxDB:
             except ghoster.GhosterInvalidForm as e:
                 geom.error = str(e)
                 geom.response_status = 400
+        logger.info(f"Getting form geometry for {url}")
         screenshot_data = await asyncio.get_event_loop().run_in_executor(None, _inner)
         if grab_screenshot:
             geom.screenshot_file_id = await self._shared_gridfs.upload_from_stream("form-thumb.png", screenshot_data)
         await geom.commit()
-        print("Done getting form geometry for ", url)
+        logger.info(f"Done getting form geometry for {url}")
         async def _delete_geom():
             try:
                 await asyncio.sleep(15 * 60) # 15 mins
                 await geom.remove()
-                print("Form geometry deleted for ", url)
+                logger.info(f"Form geometry deleted for {url}")
             except asyncio.TimeoutError:
                 pass
         asyncio.create_task(_delete_geom())
@@ -201,7 +206,7 @@ class LockboxDB:
             # Verify user credentials if username and password are both present
             # and at least one is being modified
             if user.login is not None and user.password is not None and (login is not None or password is not None):
-                print("Verifying credentials")
+                logger.info(f"Verifying credentials for login {user.login}")
                 session = TDSBConnects()
                 try:
                     await session.login(login, password)
@@ -209,6 +214,7 @@ class LockboxDB:
                     user.email = info.email
                 except aiohttp.ClientResponseError as e:
                     user.email = None
+                    logger.info(f"TDSB login error for login {user.login}")
                     # Invalid credentials, clean up and raise
                     await session.close()
                     if e.code == 401:
@@ -219,10 +225,13 @@ class LockboxDB:
                 user.courses = None
                 # Commit before creating the async task to avoid problems
                 await user.commit()
+                logger.info(f"Credentials good for login {user.login}")
                 async def get_courses():
+                    logger.info(f"Getting courses for login {user.login}")
                     async with session:
                         courses = await tdsb.get_async_periods(session, logged_in=True, include_all_slots=True)
                     await self._populate_user_courses(user, courses)
+                    logger.info(f"Done getting courses for login {user.login}")
                 asyncio.create_task(get_courses())
             else:
                 await user.commit()
