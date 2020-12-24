@@ -75,6 +75,7 @@ class TaskType(enum.Enum):
 
     FILL_FORM = "fill-form"
     CHECK_DAY = "check-day"
+    POPULATE_COURSES = "populate-courses"
 
 
 class Task(Document): # pylint: disable=abstract-method
@@ -83,7 +84,7 @@ class Task(Document): # pylint: disable=abstract-method
 
     Used by the scheduler.
     """
-    
+
     kind = fields.StrField(required=True, validate=validate.OneOf([x.value for x in TaskType]))
     owner = fields.ReferenceField(User, default=None)
     next_run_at = fields.DateTimeField(required=True)
@@ -134,7 +135,7 @@ class Form(Document): # pylint: disable=abstract-method
 
     Taken from fenetre/db.py.
     """
-    
+
     sub_fields = fields.ListField(fields.EmbeddedField(FormField))
 
     # id of file in gridfs, should be a png
@@ -169,7 +170,7 @@ class Course(Document): # pylint: disable=abstract-method
 
     # form URL
     form_url = fields.URLField(default=None)
-    
+
     # form configuration
     form_config = fields.ReferenceField(Form, default=None)
 
@@ -202,6 +203,6 @@ class CachedFormGeometry(Document): # pylint: disable=abstract-method
     geometry = fields.ListField(fields.EmbeddedField(FormGeometryEntry), required=False, allow_none=True)
     auth_required = fields.BoolField(required=False, allow_none=True)
     screenshot_file_id = fields.ObjectIdField(required=False, allow_none=True)
-    
+
     response_status = fields.IntField(required=False)
     error = fields.StrField(required=False)

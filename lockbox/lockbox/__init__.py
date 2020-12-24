@@ -11,7 +11,7 @@ def setup_loggers(level: int):
         logger = logging.getLogger(name)
         logger.setLevel(level)
         logger.addHandler(handler)
-    
+
     # aiohttp access gets separate handler for different format since it already has enough info
     ah_handler = logging.StreamHandler()
     ah_handler.setLevel(level)

@@ -19,7 +19,6 @@ from umongo.frameworks import MotorAsyncIOInstance
 from . import documents
 from . import ghoster
 from . import scheduler
-from . import tdsb
 from . import tasks
 
 
@@ -102,50 +101,22 @@ class LockboxDB:
         # Re-schedule the check day task if current day is not checked
         if self.current_day is None:
             check_task = await self.TaskImpl.find_one({"kind": documents.TaskType.CHECK_DAY.value})
-            now = datetime.datetime.utcnow()
             if check_task is None:
                 # Create check task if it does not exist
-                check_task = self.TaskImpl(kind=documents.TaskType.CHECK_DAY.value, next_run_at=now)
-                await check_task.commit()
-                self._scheduler.update()
+                await self._scheduler.create_task(kind=documents.TaskType.CHECK_DAY)
             # Check if the task will run later today
             # If the check task is set to run on a different date then make it run now
-            elif check_task.next_run_at.date() > now.date():
-                check_task.next_run_at = now
+            elif check_task.next_run_at.replace(tzinfo=datetime.timezone.utc).astimezone(tasks.LOCAL_TZ).date() > datetime.datetime.today().date():
+                check_task.next_run_at = datetime.datetime.utcnow()
                 await check_task.commit()
                 self._scheduler.update()
-    
+
     def private_db(self) -> AsyncIOMotorDatabase:
         return self._private_db
-    
+
     def shared_db(self) -> AsyncIOMotorDatabase:
         return self._shared_db
-    
-    async def _populate_user_courses(self, user, courses: typing.List[TimetableItem]) -> None:
-        """
-        Populate a user's courses, creating new Course documents if new courses are encountered.
-        """
-        user.courses = []
-        # Populate courses collection
-        for course in courses:
-            db_course = await self.CourseImpl.find_one({"course_code": course.course_code})
-            if db_course is None:
-                db_course = self.CourseImpl(course_code=course.course_code, teacher_name=course.course_teacher_name)
-                # Without this, known_slots for different courses will all point to the same instance of list
-                db_course.known_slots = []
-            else:
-                # Make sure the teacher name is set
-                if not db_course.teacher_name:
-                    db_course.teacher_name = course.course_teacher_name
-            # Fill in known slots
-            slot_str = f"{course.course_cycle_day}-{course.course_period}"
-            if slot_str not in db_course.known_slots:
-                db_course.known_slots.append(slot_str)
-            await db_course.commit()
-            if db_course.pk not in user.courses:
-                user.courses.append(db_course.pk)
-        await user.commit()
-    
+
     async def _get_geometry(self, url: str, geom, user, password: str, grab_screenshot: bool):
         """
         Fill in form geometry. Also starts a task for deletion.
@@ -179,7 +150,32 @@ class LockboxDB:
             except asyncio.TimeoutError:
                 pass
         asyncio.create_task(_delete_geom())
-    
+
+    async def populate_user_courses(self, user, courses: typing.List[TimetableItem]) -> None:
+        """
+        Populate a user's courses, creating new Course documents if new courses are encountered.
+        """
+        user.courses = []
+        # Populate courses collection
+        for course in courses:
+            db_course = await self.CourseImpl.find_one({"course_code": course.course_code})
+            if db_course is None:
+                db_course = self.CourseImpl(course_code=course.course_code, teacher_name=course.course_teacher_name)
+                # Without this, known_slots for different courses will all point to the same instance of list
+                db_course.known_slots = []
+            else:
+                # Make sure the teacher name is set
+                if not db_course.teacher_name:
+                    db_course.teacher_name = course.course_teacher_name
+            # Fill in known slots
+            slot_str = f"{course.course_cycle_day}-{course.course_period}"
+            if slot_str not in db_course.known_slots:
+                db_course.known_slots.append(slot_str)
+            await db_course.commit()
+            if db_course.pk not in user.courses:
+                user.courses.append(db_course.pk)
+        await user.commit()
+
     async def create_user(self) -> str:
         """
         Create a new user.
@@ -211,37 +207,29 @@ class LockboxDB:
             # and at least one is being modified
             if user.login is not None and user.password is not None and (login is not None or password is not None):
                 logger.info(f"Verifying credentials for login {user.login}")
-                session = TDSBConnects()
                 try:
-                    await session.login(login, password)
-                    info = await session.get_user_info()
-                    user.email = info.email
+                    async with TDSBConnects() as session:
+                        await session.login(login, password)
+                        info = await session.get_user_info()
+                        user.email = info.email
                 except aiohttp.ClientResponseError as e:
                     user.email = None
                     logger.info(f"TDSB login error for login {user.login}")
                     # Invalid credentials, clean up and raise
-                    await session.close()
                     if e.code == 401:
                         raise LockboxDBError("Incorrect TDSB credentials", LockboxDBError.INVALID_FIELD) from e
                     raise LockboxDBError(f"HTTP error while logging into TDSB Connects: {str(e)}") from e
                 # Now we know credentials are valid
                 # Set user courses to None to mark as pending
                 user.courses = None
-                # Commit before creating the async task to avoid problems
                 await user.commit()
                 logger.info(f"Credentials good for login {user.login}")
-                async def get_courses():
-                    logger.info(f"Getting courses for login {user.login}")
-                    async with session:
-                        courses = await tdsb.get_async_periods(session, logged_in=True, include_all_slots=True)
-                    await self._populate_user_courses(user, courses)
-                    logger.info(f"Done getting courses for login {user.login}")
-                asyncio.create_task(get_courses())
+                await self._scheduler.create_task(kind=documents.TaskType.POPULATE_COURSES, owner=user)
             else:
                 await user.commit()
         except ValidationError as e:
             raise LockboxDBError(f"Invalid field: {e}", LockboxDBError.INVALID_FIELD) from e
-    
+
     async def get_user(self, token: str) -> typing.Dict[str, typing.Any]:
         """
         Get user data as a formatted dict.
@@ -250,7 +238,7 @@ class LockboxDB:
         if user is None:
             raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
         return user.dump()
-    
+
     async def delete_user(self, token: str) -> None:
         """
         Delete a user by token.
@@ -259,7 +247,7 @@ class LockboxDB:
         if user is None:
             raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
         await user.remove()
-    
+
     async def delete_user_error(self, token: str, eid: str) -> None:
         """
         Delete an error by id for a user.
@@ -273,7 +261,7 @@ class LockboxDB:
             raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
         if result.modified_count == 0:
             raise LockboxDBError("Bad error id")
-    
+
     async def update_user_courses(self, token: str) -> None:
         """
         Refresh the detected courses for a user.
@@ -283,18 +271,16 @@ class LockboxDB:
             raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
         if user.login is None or user.password is None:
             raise LockboxDBError("Cannot update courses: Missing credentials", LockboxDBError.STATE_CONFLICT)
-        # Attempt to decrypt the password here
+        # Make sure the password is valid
         try:
-            password = self.fernet.decrypt(user.password).decode("utf-8")
+            self.fernet.decrypt(user.password).decode("utf-8")
         except InvalidToken as e:
             raise LockboxDBError("Internal server error: Cannot decrypt password", LockboxDBError.INTERNAL_ERROR) from e
         # Force courses into pending
         user.courses = None
         await user.commit()
-        async def update_courses():
-            await self._populate_user_courses(user, await tdsb.get_async_periods(username=user.login, password=password, include_all_slots=True))
-        asyncio.create_task(update_courses())
-    
+        await self._scheduler.create_task(kind=documents.TaskType.POPULATE_COURSES, owner=user)
+
     async def get_form_geometry(self, token: str, url: str, override_limit: bool, grab_screenshot: bool) -> dict:
         """
         Get the form geometry for a given form URL.
@@ -321,7 +307,7 @@ class LockboxDB:
                     break
         else:
             screenshot_valid = True
-        # If this form was never requested before, 
+        # If this form was never requested before,
         # or the screenshot requirement is not satisfied AND the operation is not already pending
         if geom is None or (not screenshot_valid and geom.geometry is not None):
             existing = await self.CachedFormGeometryImpl.count_documents({"requested_by": token, "geometry": None})
@@ -353,7 +339,7 @@ class LockboxDB:
             "error": geom.error,
             "status": geom.response_status
         }
-    
+
     async def get_tasks(self) -> typing.List[dict]:
         """
         Get a list of serialized tasks.

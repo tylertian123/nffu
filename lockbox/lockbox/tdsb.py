@@ -67,4 +67,4 @@ async def get_async_periods(session: tdsbconnects.TDSBConnects = None, logged_in
         if not provided:
             await session.close()
     return found
-    
+

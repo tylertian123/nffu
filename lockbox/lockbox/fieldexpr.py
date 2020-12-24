@@ -19,7 +19,7 @@ _grammar = r"""
     | sum "+" product -> add
     | sum "-" product -> sub
 
-?product: factor 
+?product: factor
         | product "*" factor -> mul
         | product "/" factor -> div
         | product "%" factor -> mod
@@ -61,7 +61,7 @@ class FETransformer(lark.Transformer):
         "str": str,                                                                 # str(x): return x as string (does not work for dates)
         "int": int,                                                                 # int(x): parse x into integer
         "date": datetime.date,                                                      # date(year, month, day): create date from year/month/day ints
-        
+
         "dyear": lambda date: date.year,                                            # dyear(date): get the year from a date
         "dmon": lambda date: date.month,                                            # dmon(date): get the month from a date
         "dday": lambda date: date.day,                                              # dday(date): get the day from a date
@@ -87,7 +87,7 @@ class FETransformer(lark.Transformer):
 
     or_ = lambda x, y: x or y
     and_ = lambda x, y: x and y
-    
+
     def variable(self, name):
         return self.context[name]
 
@@ -99,7 +99,7 @@ _parser = lark.Lark(_grammar, start="expr")
 def interpret(text, context: dict):
     """
     Interpret the given text as a field-expression.
-    
+
     `context` should be dictionary of string variables to int/string/date.
 
     The expected values are currently:
@@ -111,7 +111,7 @@ def interpret(text, context: dict):
         - $grade: student grade (integer)
         - $course_code: course code
         - $teacher_name: teacher full name
-        - $day_cycle: current school day (1-4) 
+        - $day_cycle: current school day (1-4)
     """
-    
+
     return FETransformer(context).transform(_parser.parse(text))

@@ -28,7 +28,7 @@ def _create_browser():
 def _do_google_auth_flow(browser: webdriver.Firefox, credentials: GhosterCredentials):
     """
     Handle the google->aw auth flow.
-    
+
     Expects the browser to be at a google login page and completes the login sequence.
     """
 
@@ -81,7 +81,7 @@ def _guess_input_type(browser: webdriver.Firefox, element: webdriver.firefox.web
             return FormFieldType.LONG_TEXT
         else:
             return None # unknown text-subtype
-    
+
     # Check for radio root
     roots = element.find_elements_by_class_name("freebirdFormviewerComponentsQuestionRadioRoot")
     if roots:
@@ -217,7 +217,7 @@ def fill_form(form_url: str, credentials: GhosterCredentials, components: List[T
 
         # get all elements on the page
         sub_elems = browser.find_elements_by_css_selector(".freebirdFormviewerViewItemList .freebirdFormviewerViewNumberedItemContainer")
-        
+
         for (index, expected_title, kind, value) in components:
             if index >= len(sub_elems):
                 raise GhosterInvalidForm("Requested component (" + expected_title + ") is out of range")
@@ -250,7 +250,7 @@ def fill_form(form_url: str, credentials: GhosterCredentials, components: List[T
             WebDriverWait(browser, 10).until(EC.url_contains("formResponse"))
         except TimeoutException as e:
             raise GhosterPossibleFail("Timed out waiting for response page", browser.find_element_by_tag_name("html").screenshot_as_png) from e
-        
+
         shot_post = browser.find_element_by_tag_name("html").screenshot_as_png
 
         return shot_pre, shot_post

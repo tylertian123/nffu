@@ -89,14 +89,14 @@ class LockboxServer:
         ])
 
         self.db = LockboxDB("db", 27017)
-    
+
     async def make_app(self):
         """
         Perform async initialization for the app.
         """
         await self.db.init()
         return self.app
-    
+
     def run(self):
         """
         Run the sever.
@@ -105,7 +105,7 @@ class LockboxServer:
         """
 
         web.run_app(self.make_app(), host="0.0.0.0", port=80)
-    
+
     @_handle_db_errors
     async def _post_user(self, request: web.Request): # pylint: disable=unused-argument
         """
@@ -120,7 +120,7 @@ class LockboxServer:
         """
         token = await self.db.create_user()
         return web.json_response({"token": token}, status=200)
-    
+
     @_handle_db_errors
     @_json_payload
     @_extract_token
@@ -136,7 +136,7 @@ class LockboxServer:
             "password": "...", // Optional, TDSB password
             "active": true, // Optional, whether form-filling is active for this user (default true)
         }
-        
+
         204 on success.
 
         Returns the following JSON on failure:
@@ -149,7 +149,7 @@ class LockboxServer:
         """
         await self.db.modify_user(token, **payload)
         return web.Response(status=204)
-    
+
     @_handle_db_errors
     @_extract_token
     async def _get_user(self, request: web.Request, token): # pylint: disable=unused-argument
@@ -181,7 +181,7 @@ class LockboxServer:
         data.pop("password", None)
         data.pop("token", None)
         return web.json_response(data, status=200)
-    
+
     @_handle_db_errors
     @_extract_token
     async def _delete_user(self, request: web.Request, token: str): # pylint: disable=unused-argument
@@ -202,7 +202,7 @@ class LockboxServer:
         """
         await self.db.delete_user(token)
         return web.Response(status=204)
-    
+
     @_handle_db_errors
     @_extract_token
     async def _delete_user_error(self, request: web.Request, token: str):
@@ -224,7 +224,7 @@ class LockboxServer:
         """
         await self.db.delete_user_error(token, request.match_info["id"])
         return web.Response(status=204)
-    
+
     @_handle_db_errors
     @_extract_token
     async def _get_user_courses(self, request: web.Request, token: str): # pylint: disable=unused-argument
@@ -261,7 +261,7 @@ class LockboxServer:
             return web.json_response({"courses": None, "pending": True})
         # Both present
         return web.json_response({"courses": data["courses"], "pending": False})
-    
+
     @_handle_db_errors
     @_extract_token
     async def _post_user_courses_update(self, request: web.Request, token: str): # pylint: disable=unused-argument
@@ -284,7 +284,7 @@ class LockboxServer:
         """
         await self.db.update_user_courses(token)
         return web.Response(status=204)
-    
+
     @_handle_db_errors
     @_json_payload
     @_extract_token
@@ -311,7 +311,7 @@ class LockboxServer:
                     "kind": "text"  // The type of this entry
                 },
             ],
-            "auth_required": false, // True if the form prompted for authentication 
+            "auth_required": false, // True if the form prompted for authentication
                                     // null if pending is true
             "screenshot_id": "...", // File ID of taken screenshot in GridFS.
             "pending": false, // Whether the geometry is pending (still being processed)
@@ -340,9 +340,9 @@ class LockboxServer:
             return web.json_response(result, status=status)
         else:
             return web.json_response(result, status=200)
-    
+
     @_handle_db_errors
-    async def _get_debug_tasks(self, request: web.Request):
+    async def _get_debug_tasks(self, request: web.Request): # pylint: disable=unused-argument
         """
         Handle a GET to /debug/tasks. For debug purposes.
 

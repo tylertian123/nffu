@@ -9,6 +9,7 @@ The scheduler runs a main loop and spawns asyncio tasks as necessary.
 import asyncio
 import datetime
 import logging
+import typing
 import pymongo
 from . import db # pylint: disable=unused-import # For type hinting
 from .documents import TaskType
@@ -43,7 +44,7 @@ class Scheduler:
     def __init__(self, db: "db.LockboxDB"): # pylint: disable=redefined-outer-name
         self._db = db
         self._update_event = asyncio.Event()
-    
+
     def update(self):
         """
         Tell the scheduler that a new task has been created.
@@ -51,7 +52,7 @@ class Scheduler:
         This updates the next task to be run.
         """
         self._update_event.set()
-    
+
     def _format_task(self, task) -> str:
         """
         Formats a task document as a string.
@@ -60,7 +61,7 @@ class Scheduler:
         if task.retry_count:
             s += f" ({task.retry_count} retries)"
         return s
-    
+
     async def _init(self):
         """
         Initialize the scheduler.
@@ -71,7 +72,7 @@ class Scheduler:
             logger.warning(f"Detected interrupted task: {self._format_task(task)}.")
             task.is_running = False
             await task.commit()
-    
+
     async def _run_task(self, task):
         """
         Run a specific task (given as a mongo Document).
@@ -106,7 +107,7 @@ class Scheduler:
         else:
             logger.info(f"Task success (deleted): {self._format_task(task)}")
             await task.remove()
-    
+
     async def _run(self):
         """
         Main scheduling loop.
@@ -119,9 +120,11 @@ class Scheduler:
                     timeout = None
                 else:
                     timeout = (task.next_run_at - datetime.datetime.utcnow()).total_seconds()
-                    if timeout < 0:
+                    # Only if the task is late by more than 10ms
+                    # Since we don't want warnings for tasks that were scheduled to run immediately
+                    if -timeout > 0.01:
                         logger.warning(f"Late task: {self._format_task(task)} (late {-timeout}s).")
-                        timeout = 0
+                    timeout = max(timeout, 0)
                 try:
                     await asyncio.wait_for(self._update_event.wait(), timeout)
                     continue
@@ -132,7 +135,7 @@ class Scheduler:
                     asyncio.create_task(self._run_task(task))
         except asyncio.CancelledError:
             pass
-    
+
     async def start(self):
         """
         Start the task scheduler.
@@ -144,3 +147,17 @@ class Scheduler:
         """
         await self._init()
         asyncio.create_task(self._run())
+
+    async def create_task(self, kind: TaskType, run_at: typing.Optional[datetime.datetime] = None,
+                       owner: typing.Optional[typing.Any] = None):
+        """
+        Create a new task.
+
+        If run_at is not specified or None, the task will be scheduled immediately.
+        """
+        run_at = run_at or datetime.datetime.utcnow()
+        task = self._db.TaskImpl(kind=kind.value, next_run_at=run_at)
+        if owner is not None:
+            task.owner = owner
+        await task.commit()
+        self.update()
