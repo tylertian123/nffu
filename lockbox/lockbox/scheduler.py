@@ -102,7 +102,7 @@ class Scheduler:
             task.is_running = False
             await task.commit()
             self.update()
-            logger.info(f"Task success (rescheduled): {self._format_task(task)}")
+            logger.info(f"Task rescheduled: {self._format_task(task)}")
         else:
             logger.info(f"Task success (deleted): {self._format_task(task)}")
             await task.remove()

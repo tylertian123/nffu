@@ -14,7 +14,7 @@ import typing
 from cryptography.fernet import Fernet, InvalidToken
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase, AsyncIOMotorGridFSBucket
 from tdsbconnects import TDSBConnects, TimetableItem
-from umongo import ValidationError
+from umongo import ValidationError, DeleteError
 from umongo.frameworks import MotorAsyncIOInstance
 from . import documents
 from . import ghoster
@@ -84,8 +84,9 @@ class LockboxDB:
 
         self._scheduler = scheduler.Scheduler(self)
         tasks.set_task_handlers(self._scheduler)
-        # Current school day, set by the check day task, used as a fallback
-        # TODO: Re-run check_day if this is None
+        # Current school day, set by the check day task
+        # Used as a fallback & indicator of whether the day's been checked
+        # None when the day has not been checked
         self.current_day = None
 
     async def init(self):
@@ -163,15 +164,18 @@ class LockboxDB:
                 geom.response_status = 400
         logger.info(f"Getting form geometry for {url}")
         screenshot_data = await asyncio.get_event_loop().run_in_executor(None, _inner)
-        if grab_screenshot:
+        if grab_screenshot and screenshot_data is not None:
             geom.screenshot_file_id = await self._shared_gridfs.upload_from_stream("form-thumb.png", screenshot_data)
         await geom.commit()
         logger.info(f"Done getting form geometry for {url}")
         async def _delete_geom():
             try:
                 await asyncio.sleep(15 * 60) # 15 mins
-                await geom.remove()
-                logger.info(f"Form geometry deleted for {url}")
+                try:
+                    await geom.remove()
+                    logger.info(f"Form geometry deleted for {url}")
+                except DeleteError:
+                    pass
             except asyncio.TimeoutError:
                 pass
         asyncio.create_task(_delete_geom())
@@ -306,8 +310,20 @@ class LockboxDB:
         except InvalidToken as e:
             raise LockboxDBError("Internal server error: Cannot decrypt password", LockboxDBError.INTERNAL_ERROR) from e
         geom = await self.CachedFormGeometryImpl.find_one({"url": url})
-        # Does not exist or doesn't have screenshot
-        if geom is None or (grab_screenshot and geom.screenshot_file_id is None and geom.geometry is not None):
+        # Check if screenshot requirement is satisfied
+        if geom is not None and grab_screenshot:
+            screenshot_valid = False
+            # If screenshot ID exists, check the GridFS bucket to make sure it's actually valid
+            # the screenshot data may have been deleted by fenetre
+            if geom.screenshot_file_id is not None:
+                async for _ in self._shared_gridfs.find({"_id": geom.screenshot_file_id}):
+                    screenshot_valid = True
+                    break
+        else:
+            screenshot_valid = True
+        # If this form was never requested before, 
+        # or the screenshot requirement is not satisfied AND the operation is not already pending
+        if geom is None or (not screenshot_valid and geom.geometry is not None):
             existing = await self.CachedFormGeometryImpl.count_documents({"requested_by": token, "geometry": None})
             # Admin limit: 5
             if (override_limit and existing >= 5) or existing:
