@@ -47,6 +47,15 @@ class Scheduler:
         """
         self._update_event.set()
     
+    def _format_task(self, task) -> str:
+        """
+        Formats a task document as a string.
+        """
+        s = f"{task.kind} scheduled for {task.next_run_at}"
+        if task.retry_count:
+            s += f" ({task.retry_count} retries)"
+        return s
+    
     async def _init(self):
         """
         Initialize the scheduler.
@@ -54,7 +63,7 @@ class Scheduler:
         Currently reports task that were interrupted, and set all tasks' is_running to false.
         """
         async for task in self._db.TaskImpl.find({"is_running": True}):
-            print(f"Warning: Interrupted task: {task.kind} originally started on {task.next_run_at}.")
+            print(f"Warning: Detected interrupted task: {self._format_task(task)}.")
             task.is_running = False
             await task.commit()
     
@@ -73,10 +82,12 @@ class Scheduler:
             task.retry_count = 0
         except TaskError as e:
             if e.retry_in is not None:
+                print(f"Warning: Task {self._format_task(task)} failed, retrying in {e.retry_in}s: {e}")
                 # Set next retry time and increase retry count
                 next_run = datetime.datetime.now() + datetime.timedelta(seconds=e.retry_in)
                 task.retry_count += 1
             else:
+                print(f"Warning: Task {self._format_task(task)} failed, not retrying: {e}")
                 # If no retry time given, task is deleted
                 next_run = None
         # Update task if next run time is provided
@@ -101,8 +112,8 @@ class Scheduler:
                 else:
                     timeout = (task.next_run_at - datetime.datetime.now()).total_seconds()
                     if timeout < 0:
+                        print(f"Warning: Late task: {self._format_task(task)} (late {-timeout}s).")
                         timeout = 0
-                        print(f"Warning: Missed/late task: {task.kind} scheduled for {task.next_run_at}.")
                 try:
                     await asyncio.wait_for(self._update_event.wait(), timeout)
                     continue

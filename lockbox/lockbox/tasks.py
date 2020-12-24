@@ -14,7 +14,7 @@ from .documents import TaskType
 CHECK_DAY_RUN_TIME = datetime.time(hour=4, minute=0)
 
 
-async def check_day(db: db.LockboxDB, owner, retries: int):
+async def check_day(db: "db.LockboxDB", owner, retries: int):
     """
     Checks if the current day is a school day.
     If not, postpones the run time of all tasks with type FILL_FORM by 1 day.
@@ -69,12 +69,15 @@ async def check_day(db: db.LockboxDB, owner, retries: int):
     else:
         # No school today
         db.current_day = -1
-        await db.UserImpl.update_many({"kind": TaskType.FILL_FORM.value},
+        # Update only fill form tasks that are scheduled to run today
+        start = datetime.datetime.now()
+        end = start.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(1)
+        await db.UserImpl.update_many({"kind": TaskType.FILL_FORM.value, "next_run_at": {"$gte": start, "$lt": end}},
             [{"$set": {"next_run_at": {"$add": ["$next_run_at", 24 * 60 * 60 * 1000]}}}])
     return next_run
 
 
-async def fill_form(db: db.LockboxDB, owner, retries: int):
+async def fill_form(db: "db.LockboxDB", owner, retries: int):
     """
     Fills in the form for a particular user.
     """

@@ -81,6 +81,7 @@ class LockboxServer:
             web.get("/user/courses", self._get_user_courses),
             web.post("/user/courses/update", self._post_user_courses_update),
             web.post("/form_geometry", self._post_form_geometry),
+            web.get("/debug/tasks", self._get_debug_tasks),
         ])
 
         self.db = LockboxDB("db", 27017)
@@ -344,3 +345,25 @@ class LockboxServer:
             return web.json_response(result, status=status)
         else:
             return web.json_response(result, status=200)
+    
+    async def _get_debug_tasks(self, request: web.Request):
+        """
+        Handle a GET to /debug/tasks. For debug purposes.
+
+        Returns the following JSON on success:
+        {
+            "tasks": [ // A list of tasks
+                {
+                    "kind": "check-day", // The type of the task, see TaskType enum in documents.py
+                    "owner": null, // Reference to the lockbox user that owns this task
+                    "next_run_at": "1970-01-01T00:00:00.00", // ISO datetime string of the next time this task should run
+                    "is_running": false, // Whether the task is already running
+                    "retry_count": 0, // How many times the task has failed
+                }
+            ]
+        }
+        """
+        tasks = await self.db.get_tasks()
+        for task in tasks:
+            task.pop("id", None)
+        return web.json_response({"tasks": tasks}, status=200)

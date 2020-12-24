@@ -2,6 +2,7 @@
 Classes for storing and performing db operations.
 """
 
+import datetime
 import aiohttp
 import asyncio
 import base64
@@ -92,6 +93,22 @@ class LockboxDB:
         await self.CachedFormGeometryImpl.collection.drop()
         await self.CachedFormGeometryImpl.ensure_indexes()
         await self._scheduler.start()
+
+        # Re-schedule the check day task if current day is not checked
+        if self.current_day is None:
+            check_task = await self.TaskImpl.find_one({"kind": documents.TaskType.CHECK_DAY.value})
+            now = datetime.datetime.now()
+            if check_task is None:
+                # Create check task if it does not exist
+                check_task = self.TaskImpl(kind=documents.TaskType.CHECK_DAY.value, next_run_at=now)
+                await check_task.commit()
+                self._scheduler.update()
+            # Check if the task will run later today
+            # If the check task is set to run on a different date then make it run now
+            elif check_task.next_run_at.date() > now.date():
+                check_task.next_run_at = now
+                await check_task.commit()
+                self._scheduler.update()
     
     def private_db(self) -> AsyncIOMotorDatabase:
         return self._private_db
@@ -311,3 +328,9 @@ class LockboxDB:
             "error": geom.error,
             "status": geom.response_status
         }
+    
+    async def get_tasks(self) -> typing.List[dict]:
+        """
+        Get a list of serialized tasks.
+        """
+        return [task.dump() async for task in self.TaskImpl.find()]
