@@ -66,6 +66,7 @@ class User(Document): # pylint: disable=abstract-method
 
     active = fields.BoolField(default=True)
     errors = fields.ListField(fields.EmbeddedField(LockboxFailure), default=[])
+    grade = fields.IntField(required=False, allow_none=True, default=None)
 
 
 class TaskType(enum.Enum):

@@ -187,7 +187,7 @@ class LockboxDB:
         return token
 
     async def modify_user(self, token: str, login: str = None, password: str = None, # pylint: disable=unused-argument
-                          active: bool = None, **kwargs) -> None:
+                          active: bool = None, grade: int = None, **kwargs) -> None:
         """
         Modify user data.
 
@@ -203,6 +203,8 @@ class LockboxDB:
                 user.password = self.fernet.encrypt(password.encode("utf-8"))
             if active is not None:
                 user.active = active
+            if grade is not None:
+                user.grade = grade
             # Verify user credentials if username and password are both present
             # and at least one is being modified
             if user.login is not None and user.password is not None and (login is not None or password is not None):
