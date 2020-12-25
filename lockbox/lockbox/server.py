@@ -135,6 +135,7 @@ class LockboxServer:
             "login": "...", // Optional, TDSB login (student number)
             "password": "...", // Optional, TDSB password
             "active": true, // Optional, whether form-filling is active for this user (default true)
+            "grade": 12, // Optional, the user's grade (int)
         }
 
         204 on success.
@@ -164,6 +165,7 @@ class LockboxServer:
             "active": true, // Whether form-filling is active for this user
             "errors": [], // An array of LockboxFailures listing the errors
             "credentials_set": true, // Whether credentials are set (both student number and password)
+            "grade": 12, // Optional, the user's grade (int)
         }
 
         Returns the following JSON on failure:
