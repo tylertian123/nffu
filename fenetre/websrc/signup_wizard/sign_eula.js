@@ -62,7 +62,7 @@ function EulaSigningCeremony() {
 				<li><b>Store your TDSB username and password:</b> In order to fill in the forms we need to (automatically) log in as your TDSB Google account (since the forms are
 					almost entirely set as only accessible to TDSB accounts, and most teachers use the built-in email logging anyways for determining who filled in the form) and to
 					do this we must store your password. We cannot use the normal "authorize this app" (OAuth) system because there is no official API for filling in Google Forms automatically.
-					We store the passwords encrypted with AES-GCM-256 on our own servers using a key that was generated randomly and that we haven't looked at; however it is technically feasible for us (and anyone
+					We store the passwords encrypted with the Fernet system on our own servers using a key that was generated randomly and that we haven't looked at; however it is technically feasible for us (and anyone
 					who obtains access to our servers) to retrieve your <i>original plaintext password</i> with enough effort. These credentials are never sent anywhere outside of our
 					servers once you give them to us.</li>
 				<li><b>Automatically fill in your asynchronous attendance forms in your name: </b>I mean, you're probably aware of this given that it's the purpose of <code>nffu</code> but 
