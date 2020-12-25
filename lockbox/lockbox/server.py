@@ -383,7 +383,7 @@ class LockboxServer:
         for task in tasks:
             task.pop("id", None)
         return web.json_response({"tasks": tasks}, status=200)
-    
+
     async def _post_debug_tasks_update(self, request: web.Request): # pylint: disable=unused-argument
         """
         Handle a POST to /debug/tasks/update.

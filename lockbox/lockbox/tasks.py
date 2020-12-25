@@ -8,6 +8,7 @@ import bson
 import datetime
 import gridfs
 import logging
+import os
 import random
 import tdsbconnects
 import typing
@@ -25,12 +26,27 @@ logger = logging.getLogger("task")
 
 
 LOCAL_TZ = tz.gettz()
-# TODO: Read these from env vars
-# In local time
+# Vars in local time, defaults are below
 CHECK_DAY_RUN_TIME = (datetime.time(hour=4, minute=0), datetime.time(hour=4, minute=0))
 FILL_FORM_RUN_TIME = (datetime.time(hour=7, minute=0), datetime.time(hour=9, minute=0))
 FILL_FORM_RETRY_LIMIT = 3
 FILL_FORM_RETRY_IN = 30 * 60 # half an hour
+
+
+if os.environ.get("LOCKBOX_CHECK_DAY_RUN_TIME"):
+    tstart, tend = os.environ["LOCKBOX_CHECK_DAY_RUN_TIME"].split("-")
+    tstart = datetime.datetime.strptime(tstart.strip(), "%H:%M:%S").time()
+    tend = datetime.datetime.strptime(tend.strip(), "%H:%M:%S").time()
+    CHECK_DAY_RUN_TIME = (tstart, tend)
+if os.environ.get("LOCKBOX_FILL_FORM_RUN_TIME"):
+    tstart, tend = os.environ["LOCKBOX_FILL_FORM_RUN_TIME"].split("-")
+    tstart = datetime.datetime.strptime(tstart.strip(), "%H:%M:%S").time()
+    tend = datetime.datetime.strptime(tend.strip(), "%H:%M:%S").time()
+    FILL_FORM_RUN_TIME = (tstart, tend)
+if os.environ.get("LOCKBOX_FILL_FORM_RETRY_LIMIT"):
+    FILL_FORM_RETRY_LIMIT = int(os.environ["LOCKBOX_FILL_FORM_RETRY_LIMIT"])
+if os.environ.get("LOCKBOX_FILL_FORM_RETRY_IN"):
+    FILL_FORM_RETRY_IN = float(os.environ["LOCKBOX_FILL_FORM_RETRY_IN"])
 
 
 def next_run_time(time_range: typing.Tuple[datetime.time, datetime.time]) -> datetime.datetime:
@@ -144,7 +160,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             owner.errors = []
         owner.errors.append(failure)
         await owner.commit()
-    
+
     async def clear_last_result():
         """
         Clear the last fill form result of this user.
@@ -165,7 +181,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
                 except gridfs.NoFile:
                     logger.warning(f"Fill form: Failed to delete previous result conformation page screenshot for user {owner.pk}: No file")
         owner.last_fill_form_result = None
-    
+
     async def set_last_result_error():
         """
         Set the last fill form result of this user to error.
@@ -176,7 +192,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         """
         await clear_last_result()
         owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.FAILURE.value, time_logged=datetime.datetime.utcnow())
-    
+
     # Make sure password can be decrypted
     try:
         password = db.fernet.decrypt(owner.password).decode("utf-8")

@@ -1,3 +1,32 @@
+"""
+The lockbox package handles storing user credentials and form filling information,
+and actually filling out the forms.
+
+At least one of the following environment variables are REQUIRED to be set:
+    - LOCKBOX_CREDENTIAL_KEY:
+        A base 64 encoded 32-byte key for encrypting users' TDSB credentials;
+        if set, overrides LOCKBOX_CREDENTIAL_KEY_FILE.
+    - LOCKBOX_CREDENTIAL_KEY_FILE:
+        Path to a file containing a 32-byte key in raw binary for encrypting
+        users' TDSB credentials; not used if LOCKBOX_CREDENTIAL_KEY is set.
+
+The following environment variables MAY be set to customize lockbox's behaviour:
+    - LOCKBOX_CHECK_DAY_RUN_TIME:
+        A string in the (Python datetime) format "%H:%M:%S-%H:%M:%S" for the
+        time range (both ends inclusive) in which the Check Day task runs.
+        Times are in the local timezone. A random time will be chosen from the
+        range for each run of the task. E.g. "04:00:00-05:00:00" sets the task
+        to run sometime between 4am and 5am each day. Defaults to 4am-4am.
+    - LOCKBOX_FILL_FORM_RUN_TIME:
+        The time range in which the Fill Form tasks are to be run each day.
+        Same format as LOCKBOX_CHECK_DAY_RUN_TIME. Defaults to 7am-9am.
+    - LOCKBOX_FILL_FORM_RETRY_LIMIT:
+        Limit for the number of retries for each Fill Form task. Defaults to 3.
+    - LOCKBOX_FILL_FORM_RETRY_IN:
+        The number of seconds to wait before retrying for each Fill Form task.
+        Defaults to 1800 (30 minutes). This is a float.
+"""
+
 import logging
 from .server import LockboxServer
 
