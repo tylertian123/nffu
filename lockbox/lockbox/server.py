@@ -86,6 +86,7 @@ class LockboxServer:
             web.post("/user/courses/update", self._post_user_courses_update),
             web.post("/form_geometry", self._post_form_geometry),
             web.get("/debug/tasks", self._get_debug_tasks),
+            web.post("/debug/tasks/update", self._post_debug_tasks_update),
         ])
 
         self.db = LockboxDB("db", 27017)
@@ -378,3 +379,12 @@ class LockboxServer:
         for task in tasks:
             task.pop("id", None)
         return web.json_response({"tasks": tasks}, status=200)
+    
+    async def _post_debug_tasks_update(self, request: web.Request): # pylint: disable=unused-argument
+        """
+        Handle a POST to /debug/tasks/update.
+
+        204 on success.
+        """
+        self.db._scheduler.update()
+        return web.Response(status=204)

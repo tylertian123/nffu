@@ -138,7 +138,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         This does commit the user document.
         """
         failure = db.LockboxFailureImpl(_id=bson.ObjectId(), time_logged=datetime.datetime.utcnow(),
-                                        kind=kind, message=message)
+                                        kind=kind.value, message=message)
         # Make sure it's a new list instance
         if not owner.errors:
             owner.errors = []
@@ -175,7 +175,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         Note that this does NOT commit the owner document.
         """
         await clear_last_result()
-        owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.FAILURE, time_logged=datetime.datetime.utcnow())
+        owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.FAILURE.value, time_logged=datetime.datetime.utcnow())
     
     # Make sure password can be decrypted
     try:
@@ -253,17 +253,17 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             first_name = last_name = info.name
     # Populate fieldexpr context
     fieldexpr_context = {
-        "$name": info.name,
-        "$first_name": first_name,
-        "$last_name": last_name,
-        "$student_number": owner.login,
-        "$email": info.email,
-        "$today": datetime.datetime.now(),
-        "$grade": owner.grade if owner.grade is not None else 0,
-        "$course_code": course.course_code,
-        "$teacher_name": course.course_teacher_name,
-        "$teacher_email": course.course_teacher_email,
-        "$day_cycle": course.course_cycle_day,
+        "name": info.name,
+        "first_name": first_name,
+        "last_name": last_name,
+        "student_number": owner.login,
+        "email": info.email,
+        "today": datetime.datetime.now(),
+        "grade": owner.grade if owner.grade is not None else 0,
+        "course_code": course.course_code,
+        "teacher_name": course.course_teacher_name,
+        "teacher_email": course.course_teacher_email,
+        "day_cycle": course.course_cycle_day,
     }
     ghoster_credentials = ghoster.GhosterCredentials(info.email, owner.login, password)
     # Format fields
@@ -289,7 +289,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
     logger.info(f"Fill form: Form filling started for course {course.course_code}")
     def _inner():
         try:
-            return ghoster.fill_form(course.form_url, ghoster_credentials, fields)
+            return ghoster.fill_form(db_course.form_url, ghoster_credentials, fields)
         except ghoster.GhosterError as e:
             return e
     result = await asyncio.get_event_loop().run_in_executor(None, _inner)
@@ -300,7 +300,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             # Upload screenshot
             screenshot_id = await db.shared_gridfs().upload_from_stream("confirmation.png", screenshot)
             await clear_last_result()
-            owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.POSSIBLE_FAILURE,
+            owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.POSSIBLE_FAILURE.value,
                 time_logged=datetime.datetime.utcnow(), confirmation_screenshot_id=screenshot_id)
             await report_failure(LockboxFailureType.FORM_FILLING, f"Possible form filling failure (Not retrying): {message}")
             return next_run_time(FILL_FORM_RUN_TIME)
@@ -324,7 +324,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
     fid = await db.shared_gridfs().upload_from_stream("form.png", fss)
     cid = await db.shared_gridfs().upload_from_stream("confirmation.png", css)
     await clear_last_result()
-    owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.SUCCESS,
+    owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.SUCCESS.value,
         time_logged=datetime.datetime.utcnow(), form_screenshot_id=fid, confirmation_screenshot_id=cid)
     await owner.commit()
     logger.info(f"Fill form: Finished for user {owner.pk}")

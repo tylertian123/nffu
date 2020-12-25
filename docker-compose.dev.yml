@@ -36,6 +36,8 @@ services:
           cpus: "0.75"
           memory: 64M
     command: --quiet --wiredTigerCacheSizeGB 0.05
+    logging:
+      driver: none
 
 secrets:
   lockbox-credential-key:
