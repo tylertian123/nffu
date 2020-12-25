@@ -276,6 +276,7 @@ class LockboxDB:
         user = await self.UserImpl.find_one({"token": token})
         if user is None:
             raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
+        # TODO: Delete screenshots
         await user.remove()
 
     async def delete_user_error(self, token: str, eid: str) -> None:

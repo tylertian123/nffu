@@ -127,6 +127,7 @@ class Scheduler:
                     timeout = max(timeout, 0)
                 try:
                     await asyncio.wait_for(self._update_event.wait(), timeout)
+                    self._update_event.clear()
                     continue
                 except asyncio.TimeoutError:
                     # Mark as running since create_task() doesn't force context switch
