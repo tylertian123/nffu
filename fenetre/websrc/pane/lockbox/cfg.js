@@ -85,7 +85,7 @@ function CredentialChanger() {
 
 			<Form.Group>
 				<Form.Label>TDSB Password</Form.Label>
-				<Form.Control type="password" name="password" isInvalid={!!formik.errors.password && formik.touched.password} {...formik.getFieldProps('password')} />
+				<Form.Control autocomplete="new-password" type="password" name="password" isInvalid={!!formik.errors.password && formik.touched.password} {...formik.getFieldProps('password')} />
 				<Form.Control.Feedback type="invalid">{formik.errors.password}</Form.Control.Feedback>
 			</Form.Group>
 
@@ -280,6 +280,7 @@ function GradeChanger() {
 	return <>
 		{eui.lockbox_grade === null && <Alert variant="warning">We couldn't detect your grade automatically, please set it here instead.</Alert>}
 		<Form noValidate onSubmit={formik.handleSubmit}>
+			{formik.status && <p className="text-danger">{formik.status}</p>}
 			<Form.Group>
 				<Form.Label>School grade</Form.Label>
 				<Form.Control type="number" {...formik.getFieldProps("grade")} name="grade" isInvalid={!!formik.errors.grade && formik.touched.grade} />

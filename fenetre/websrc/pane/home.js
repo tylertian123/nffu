@@ -215,6 +215,7 @@ function PasswordChanger() {
 						<Form.Label>Old password</Form.Label>
 						<Form.Control 
 							name="oldPassword" 
+							autocomplete="current-password"
 							type="password" 
 							onChange={handleChange}
 							onBlur={handleBlur}
@@ -231,6 +232,7 @@ function PasswordChanger() {
 						<Form.Control 
 							name="password" 
 							type="password" 
+							autocomplete="new-password"
 							onChange={handleChange}
 							onBlur={handleBlur}
 							isInvalid={!!errors.password && touched.password}
@@ -246,6 +248,7 @@ function PasswordChanger() {
 						<Form.Control 
 							name="passwordConfirm" 
 							type="password" 
+							autocomplete="new-password"
 							onChange={handleChange}
 							onBlur={handleBlur}
 							isInvalid={!!errors.passwordConfirm && touched.passwordConfirm}
