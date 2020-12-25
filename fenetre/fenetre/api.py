@@ -85,7 +85,7 @@ async def userinfo():
     }
 
 class LockboxFailureDump(ma.Schema):
-    time_logged = ma_fields.DateTime(required=True)
+    time_logged = ma_fields.DateTime(required=True, format='%Y-%m-%dT%H:%M:%SZ')
     id = ma_fields.String(required=True) # this comes from an external api and is therefore not an objectid
     kind = ma_fields.String(missing="unknown")
     message = ma_fields.String(required=False, default="")
@@ -234,7 +234,8 @@ async def get_lockbox_form_fill_status():
     else:
         return {
             "status": data.result,
-            "last_filled_at": data.time_logged.isoformat() + "Z"
+            "last_filled_at": data.time_logged.isoformat() + "Z",
+            "related_course": str(data.course) if data.course is not None else None
         }
 
 @blueprint.route("/me/lockbox/form_status/form_thumb.png")
