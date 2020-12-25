@@ -181,6 +181,7 @@ class LockboxServer:
             "last_fill_form_result": { // Optional, the result of the last form filling operation for this user
                 "result": "success", // Result type, see documents.FillFormResultType
                 "time_logged": "1970-01-01T00:00:00.00Z", // ISO datetime string of the time this result was logged (UTC)
+                "course": "...", // Optional, the ID of the course document that represents the course filled in
                 "form_screenshot_id": "...", // Optional, file ID of the form's screenshot in GridFS, only present if result was success
                 "confirmation_screenshot_id": "...", // Optional, file ID of the confirmation page's screenshot in GridFS, only present if result was success or possible-failure
             }
