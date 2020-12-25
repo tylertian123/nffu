@@ -80,7 +80,8 @@ async def userinfo():
         "signed_eula": userdata.signed_eula,
         "lockbox_credentials_present": lockbox_status is not None and lockbox_status.has_credentials,
         "lockbox_form_active": lockbox_status is not None and lockbox_status.active,
-        "unconfigured_courses_present": unconfigured_courses_present
+        "unconfigured_courses_present": unconfigured_courses_present,
+        "lockbox_grade": lockbox_status.grade
     }
 
 class LockboxFailureDump(ma.Schema):
@@ -170,6 +171,7 @@ class LockboxUpdateSchema(ma.Schema):
     login    = ma_fields.String(validate=ma_validate.Regexp("\d{5,9}"), data_key="username")
     password = ma_fields.String()
     active   = ma_fields.Bool()
+    grade    = ma_fields.Int(validate=ma_validate.Range(9, 12))
 
 lockbox_update_schema = LockboxUpdateSchema()
 
