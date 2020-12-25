@@ -137,22 +137,48 @@ async def get_form_fill_result(user: User) -> LockboxUserStatus:
 
 LockboxFailure = collections.namedtuple("LockboxFailure", "id kind message time_logged")
 
+class LockboxFailureSchema(Schema):
+    _id = ObjectIdField(required=True)
+    time_logged = ma_fields.DateTime(required=True)
+    kind = ma_fields.Str(required=True)
+    message = ma_fields.Str(missing=None, allow_none=True)
+
+lockbox_failure_schema = LockboxFailureSchema()
+
 async def get_errors_for(user: User) -> typing.AsyncIterable[LockboxFailure]:
     """
     Retrieve all lockbox errors for a specific user.
+
+    No results if the user doesn't have a lockbox identity
     """
 
-    responses = []  # TODO
+    if user.lockbox_token is None:
+        return
 
-    for i in responses:
-        yield i
+    async with _lockbox_sess().get("http://lockbox/user", headers=_headers_for_user(user)) as resp:
+        if not resp.ok:
+            raise LockboxError("failed to get: " + resp.reason, resp.status)
+
+        data = lockbox_failure_schema.load((await resp.json())["errors"], many=True)
+
+    for failure in data:
+        yield LockboxFailure(failure["_id"], failure["kind"], failure["message"], failure["time_logged"])
 
 async def clear_error(for_: User, error_id: str):
     """
     Clear an error from a specific user
+
+    Raises ValueError if the user has no lockbox token or the error id is invalid.
     """
 
-    pass
+    if for_.lockbox_token is None:
+        raise ValueError("No lockbox token")
+
+    async with _lockbox_sess().delete(f"http://lockbox/user/error/{error_id}", headers=_headers_for_user(for_)) as resp:
+        if resp.status == 400:
+            raise ValueError("Bad error id")
+        if not resp.ok:
+            raise LockboxError("failed to delete: " + resp.reason, resp.status)
 
 async def update_lockbox_identity(user: User, payload: dict):
     """
