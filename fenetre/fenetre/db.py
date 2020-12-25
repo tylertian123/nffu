@@ -60,6 +60,9 @@ def init_app(app: Quart):
         _shared_instance.set_db(shared_db())
         _private_instance.set_db(private_db())
 
+        await User.ensure_indexes()
+        await SignupProvider.ensure_indexes()
+
     @app.cli.command()
     def build_indexes():
         init_db_in_cli_context()

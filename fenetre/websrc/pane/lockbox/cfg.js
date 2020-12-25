@@ -236,6 +236,62 @@ function CourseListEntry(props) {
 	</ListGroup.Item>
 }
 
+function GradeChanger() {
+	const eui = React.useContext(ExtraUserInfoContext);
+	
+	if (eui === null) return null;
+
+	const schema = yup.object({
+		grade: yup.number().integer().min(9).max(12)
+	});
+
+	const formik = useFormik({
+		validationSchema: schema,
+		initialValues: {grade: eui.lockbox_grade},
+		onSubmit: async (values, {setStatus, setFieldError}) => {
+			try {
+				const response = await fetch('/api/v1/me/lockbox', {
+					method: "PATCH",
+					headers: {"Content-Type": "application/json"},
+					body: JSON.stringify({
+						grade: values.grade
+					})
+				});
+				if (!response.ok) {
+					const data = await response.json();
+
+					if (data.error == "invalid request" && "extra" in data) {
+						if ("grade" in data.extra) setFieldError("grade", data.extra["grade"]);
+					}
+					else {
+						setStatus(data.error);
+					}
+				}
+				else {
+					eui.invalidate();
+				}
+			}
+			catch (err) {
+				setStatus(err);
+			}
+		}
+	});
+
+	return <>
+		{eui.lockbox_grade === null && <Alert variant="warning">We couldn't detect your grade automatically, please set it here instead.</Alert>}
+		<Form noValidate onSubmit={formik.handleSubmit}>
+			<Form.Group>
+				<Form.Label>School grade</Form.Label>
+				<Form.Control type="number" {...formik.getFieldProps("grade")} name="grade" isInvalid={!!formik.errors.grade && formik.touched.grade} />
+				<Form.Control.Feedback type="invalid">
+					{formik.errors.grade}
+				</Form.Control.Feedback>
+			</Form.Group>
+			<Button type="submit" disabled={formik.isSubmitting || eui === null}>{formik.isSubmitting ? (<Spinner className="mb-1" animation="border" size="sm" variant="light" />) : "Update"}</Button>
+		</Form>
+	</>;
+}
+
 function CfgMain() {
 	const eui = React.useContext(ExtraUserInfoContext);
 
@@ -251,6 +307,9 @@ function CfgMain() {
 				<h2>Form-filling configuration</h2>
 				{eui !== null &&
 					<Enabler />}
+				<h2>Override settings</h2>
+				{eui !== null && eui.lockbox_credentials_present && 
+					<GradeChanger />}
 			</Col>
 		</Row>
 		{eui !== null && eui.lockbox_credentials_present && (<Row>
