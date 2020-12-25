@@ -97,11 +97,12 @@ async def get_lockbox_status_for(user: User) -> LockboxUserStatus:
                 data["grade"]
         )
 
-LockboxFillResult = collections.namedtuple("LockboxFillResult", "result time_logged form_sid confirm_sid")
+LockboxFillResult = collections.namedtuple("LockboxFillResult", "result time_logged course form_sid confirm_sid")
 
 class LastFillFormResultSchema(Schema):
     result = ma_fields.Str(required=True)
     time_logged = ma_fields.DateTime()
+    course = ObjectIdField(missing=None, allow_none=True)
     form_screenshot_id = ObjectIdField(missing=None)
     confirmation_screenshot_id = ObjectIdField(missing=None)
 
@@ -131,6 +132,7 @@ async def get_form_fill_result(user: User) -> LockboxUserStatus:
         return LockboxFillResult(  # todo
             data["result"],
             data["time_logged"],
+            data["course"],
             data["form_screenshot_id"],
             data["confirmation_screenshot_id"]
         )
