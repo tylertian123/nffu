@@ -183,7 +183,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
                     logger.warning(f"Fill form: Failed to delete previous result conformation page screenshot for user {owner.pk}: No file")
         owner.last_fill_form_result = None
 
-    async def set_last_result_error():
+    async def set_last_result_error(course: bson.ObjectId = None):
         """
         Set the last fill form result of this user to error.
 
@@ -192,7 +192,10 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         Note that this does NOT commit the owner document.
         """
         await clear_last_result()
-        owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.FAILURE.value, time_logged=datetime.datetime.utcnow())
+        result = db.FillFormResultImpl(result=FillFormResultType.FAILURE.value, time_logged=datetime.datetime.utcnow())
+        if course is not None:
+            result.course = course
+        owner.last_fill_form_result = result
 
     try:
         # Make sure password can be decrypted
@@ -348,7 +351,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             return next_run_time(FILL_FORM_RUN_TIME)
         if db_course.form_url is None or db_course.form_config is None:
             logger.warning(f"Fill form: Course missing form config: {db_course.course_code}")
-            await set_last_result_error()
+            await set_last_result_error(course=db_course.pk)
             await report_failure(LockboxFailureType.CONFIG, f"Course missing form config: {db_course.course_code}. Will not retry.")
             return next_run_time(FILL_FORM_RUN_TIME)
         ghoster_credentials = ghoster.GhosterCredentials(owner.email, owner.login, password)
@@ -362,7 +365,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             except Exception as e: # pylint: disable=broad-except
                 logger.error(f"Fill form: Field value formatting error: {e}")
                 message = f"Field value formatting error: {e}."
-                await set_last_result_error()
+                await set_last_result_error(course=db_course.pk)
                 if retries < FILL_FORM_RETRY_LIMIT:
                     await report_failure(LockboxFailureType.INTERNAL, message + " Will retry later.")
                     raise scheduler.TaskError(message, FILL_FORM_RETRY_IN)
@@ -387,7 +390,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
                 screenshot_id = await db.shared_gridfs().upload_from_stream("confirmation.png", screenshot)
                 await clear_last_result()
                 owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.POSSIBLE_FAILURE.value,
-                    time_logged=datetime.datetime.utcnow(), confirmation_screenshot_id=screenshot_id)
+                    time_logged=datetime.datetime.utcnow(), confirmation_screenshot_id=screenshot_id, course=db_course.pk)
                 await report_failure(LockboxFailureType.FORM_FILLING, f"Possible form filling failure (Not retrying): {message}")
                 return next_run_time(FILL_FORM_RUN_TIME)
             if isinstance(result, ghoster.GhosterAuthFailed):
@@ -397,7 +400,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             else:
                 fail_type = "Unknown failure"
             logger.error(f"Fill form: {fail_type} for user {owner.pk}: {result}")
-            await set_last_result_error()
+            await set_last_result_error(course=db_course.pk)
             if retries < FILL_FORM_RETRY_LIMIT:
                 await report_failure(LockboxFailureType.FORM_FILLING, f"{fail_type} (will retry later): {result}")
                 raise scheduler.TaskError(f"{fail_type}: {result}", FILL_FORM_RETRY_IN)
@@ -410,7 +413,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         fid = await db.shared_gridfs().upload_from_stream("form.png", fss)
         cid = await db.shared_gridfs().upload_from_stream("confirmation.png", css)
         await clear_last_result()
-        owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.SUCCESS.value,
+        owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.SUCCESS.value, course=db_course.pk,
             time_logged=datetime.datetime.utcnow(), form_screenshot_id=fid, confirmation_screenshot_id=cid)
         await owner.commit()
         logger.info(f"Fill form: Finished for user {owner.pk}")
@@ -419,6 +422,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         logger.critical(f"Fill form: Unexpected exception: {type(e).__name__}: {e}")
         print(traceback.format_exc())
         message = f"Critical internal error: {type(e).__name__}: '{e}'; Please contact an admin."
+        await set_last_result_error(course=locals().get("db_course"))
         if retries < FILL_FORM_RETRY_LIMIT:
             await report_failure(LockboxFailureType.INTERNAL, message + " Will retry later.")
             raise scheduler.TaskError(f"Unexpected exception: {type(e).__name__}: {e}", FILL_FORM_RETRY_IN)

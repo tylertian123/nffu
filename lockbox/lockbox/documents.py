@@ -76,6 +76,7 @@ class FillFormResult(EmbeddedDocument): # pylint: disable=abstract-method
 
     result = fields.StrField(required=True, validate=validate.OneOf([x.value for x in FillFormResultType]))
     time_logged = fields.DateTimeField(required=True)
+    course = fields.ObjectIdField(required=False, allow_none=True)
     form_screenshot_id = fields.ObjectIdField(required=False, allow_none=True)
     confirmation_screenshot_id = fields.ObjectIdField(required=False, allow_none=True)
 
