@@ -126,7 +126,7 @@ async def get_form_fill_result(user: User) -> LockboxUserStatus:
         if not data["last_fill_form_result"]:
             return None
 
-        data = last_fill_form_result_schema.load(data)
+        data = last_fill_form_result_schema.load(data["last_fill_form_result"])
 
         return LockboxFillResult(  # todo
             data["result"],
