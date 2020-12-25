@@ -7,6 +7,7 @@ import asyncio
 import base64
 import bson
 import datetime
+import gridfs
 import logging
 import os
 import secrets
@@ -276,7 +277,18 @@ class LockboxDB:
         user = await self.UserImpl.find_one({"token": token})
         if user is None:
             raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
-        # TODO: Delete screenshots
+        # Delete screenshots
+        if user.last_fill_form_result is not None:
+            if user.last_fill_form_result.form_screenshot_id is not None:
+                try:
+                    await self._shared_gridfs.delete(user.last_fill_form_result.form_screenshot_id)
+                except gridfs.NoFile:
+                    logger.warning(f"Fill form: Failed to delete previous result form screenshot for user {user.pk}: No file")
+            if user.last_fill_form_result.confirmation_screenshot_id is not None:
+                try:
+                    await self._shared_gridfs.delete(user.last_fill_form_result.confirmation_screenshot_id)
+                except gridfs.NoFile:
+                    logger.warning(f"Fill form: Failed to delete previous result conformation page screenshot for user {user.pk}: No file")
         await user.remove()
 
     async def delete_user_error(self, token: str, eid: str) -> None:

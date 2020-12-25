@@ -233,7 +233,7 @@ async def get_lockbox_form_fill_status():
 
     else:
         return {
-            "status": data.status,
+            "status": data.result,
             "last_filled_at": data.time_logged.isoformat()
         }
 
