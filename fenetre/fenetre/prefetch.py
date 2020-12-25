@@ -10,11 +10,12 @@ _prefetchers = Map([
     Rule("/authcfg/signup_provider", endpoint=("signuplist",)),
     Rule("/lockbox/cfg", endpoint=("me", "usercourses",)),
     Rule("/lockbox/cfg/<idx>", endpoint=("me", "speccourse_withthumb")),
+    Rule("/lockbox/status", endpoint=("me", "usererrors", "userformstatus")),
     # we don't do the option for setup since it shouldn't be accessed by url anyways
     Rule("/forms/form/<idx>", endpoint=("specform",)),
     Rule("/forms/form", endpoint=("formlist",)),
     Rule("/forms/course", endpoint=("courselist",)),
-    Rule("/forms/course/<idx>", endpoint=("speccourse",))
+    Rule("/forms/course/<idx>", endpoint=("speccourse",)),
 ], redirect_defaults=False).bind("", "/")
 
 # preloaders
@@ -37,6 +38,16 @@ async def _usercourses(params):
     usr = await current_user.user
     if usr.lockbox_token:
         yield ("/api/v1/me/lockbox/courses", "fetch")
+
+async def _usererrors(params):
+    usr = await current_user.user
+    if usr.lockbox_token:
+        yield ("/api/v1/me/lockbox/errors", "fetch")
+
+async def _userformstatus(params):
+    usr = await current_user.user
+    if usr.lockbox_token:
+        yield ("/api/v1/me/lockbox/form_status", "fetch")
 
 async def _speccourse_withthumb(params):
     yield ("/api/v1/course/" + params["idx"], "fetch")
