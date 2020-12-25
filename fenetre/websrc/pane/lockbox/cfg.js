@@ -236,6 +236,32 @@ function CourseListEntry(props) {
 	</ListGroup.Item>
 }
 
+function GradeChanger() {
+	const eui = React.useContext(ExtraUserInfoContext);
+	
+	const schema = yup.object({
+		grade: yup.number().integer().min(9).max(12)
+	});
+
+	const formik = useFormik({
+		validationSchema: schema,
+		initialValues: {grade: eui.lockbox_grade},
+		onSubmit: async (values) => {
+		}
+	});
+
+	return <Form noValidate onSubmit={formik.onSubmit}>
+		<Form.Group>
+			<Form.Label>School grade</Form.Label>
+			<Form.Control type="number" {...formik.getFieldProps("grade")} name="grade" isInvalid={!!formik.errors.grade && formik.touched.grade} />
+			<Form.Control.Feedback type="invalid">
+				{formik.errors.grade}
+			</Form.Control.Feedback>
+		</Form.Group>
+		<Button type="submit" disabled={formik.isSubmitting || eui === null}>{formik.isSubmitting ? (<Spinner className="mb-1" animation="border" size="sm" variant="light" />) : "Update"}</Button>
+	</Form>
+}
+
 function CfgMain() {
 	const eui = React.useContext(ExtraUserInfoContext);
 
@@ -251,6 +277,9 @@ function CfgMain() {
 				<h2>Form-filling configuration</h2>
 				{eui !== null &&
 					<Enabler />}
+				<h2>Override settings</h2>
+				{eui !== null &&
+					<GradeChanger />}
 			</Col>
 		</Row>
 		{eui !== null && eui.lockbox_credentials_present && (<Row>
