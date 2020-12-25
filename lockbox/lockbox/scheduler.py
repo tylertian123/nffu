@@ -120,9 +120,9 @@ class Scheduler:
                     timeout = None
                 else:
                     timeout = (task.next_run_at - datetime.datetime.utcnow()).total_seconds()
-                    # Only if the task is late by more than 10ms
+                    # Only if the task is late by more than 100ms
                     # Since we don't want warnings for tasks that were scheduled to run immediately
-                    if -timeout > 0.01:
+                    if -timeout > 0.1:
                         logger.warning(f"Late task: {self._format_task(task)} (late {-timeout}s).")
                     timeout = max(timeout, 0)
                 try:
@@ -150,11 +150,12 @@ class Scheduler:
         asyncio.create_task(self._run())
 
     async def create_task(self, kind: TaskType, run_at: typing.Optional[datetime.datetime] = None,
-                       owner: typing.Optional[typing.Any] = None):
+                          owner: typing.Optional[typing.Any] = None) -> typing.Any:
         """
         Create a new task.
 
         If run_at is not specified or None, the task will be scheduled immediately.
+        Returns the created task document.
         """
         run_at = run_at or datetime.datetime.utcnow()
         task = self._db.TaskImpl(kind=kind.value, next_run_at=run_at)
@@ -162,3 +163,4 @@ class Scheduler:
             task.owner = owner
         await task.commit()
         self.update()
+        return task

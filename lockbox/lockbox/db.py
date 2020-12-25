@@ -102,16 +102,7 @@ class LockboxDB:
 
         # Re-schedule the check day task if current day is not checked
         if self.current_day is None:
-            check_task = await self.TaskImpl.find_one({"kind": documents.TaskType.CHECK_DAY.value})
-            if check_task is None:
-                # Create check task if it does not exist
-                await self._scheduler.create_task(kind=documents.TaskType.CHECK_DAY)
-            # Check if the task will run later today
-            # If the check task is set to run on a different date then make it run now
-            elif check_task.next_run_at.replace(tzinfo=datetime.timezone.utc).astimezone(tasks.LOCAL_TZ).date() > datetime.datetime.today().date():
-                check_task.next_run_at = datetime.datetime.utcnow()
-                await check_task.commit()
-                self._scheduler.update()
+            await self._reschedule_check_day()
 
     def private_db(self) -> AsyncIOMotorDatabase:
         """
@@ -130,6 +121,24 @@ class LockboxDB:
         Get a reference to the shared GridFS bucket.
         """
         return self._shared_gridfs
+    
+    async def _reschedule_check_day(self) -> None:
+        """
+        Reschedule the check day task.
+
+        If the task is set to run later today, no action will be taken.
+        If the task will not run today or does not exist, it will be scheduled immediately.
+        """
+        check_task = await self.TaskImpl.find_one({"kind": documents.TaskType.CHECK_DAY.value})
+        if check_task is None:
+            # Create check task if it does not exist
+            await self._scheduler.create_task(kind=documents.TaskType.CHECK_DAY)
+        # Check if the task will run later today
+        # If the check task is set to run on a different date then make it run now
+        elif check_task.next_run_at.replace(tzinfo=datetime.timezone.utc).astimezone(tasks.LOCAL_TZ).date() > datetime.datetime.today().date():
+            check_task.next_run_at = datetime.datetime.utcnow()
+            await check_task.commit()
+            self._scheduler.update()
 
     async def _get_geometry(self, url: str, geom, user, password: str, grab_screenshot: bool):
         """
@@ -165,11 +174,18 @@ class LockboxDB:
                 pass
         asyncio.create_task(_delete_geom())
 
-    async def populate_user_courses(self, user, courses: typing.List[TimetableItem]) -> None:
+    async def populate_user_courses(self, user, courses: typing.List[TimetableItem], clear_previous: bool = True) -> None:
         """
         Populate a user's courses, creating new Course documents if new courses are encountered.
+        
+        If clear_previous is True, all previous courses will be cleared.
+        However, the Course documents in the shared database will not be touched, since they might
+        also be referred to by other users.
         """
-        user.courses = []
+        if clear_previous:
+            user.courses = []
+        else:
+            user.courses = user.courses or []
         # Populate courses collection
         for course in courses:
             db_course = await self.CourseImpl.find_one({"course_code": course.course_code})
@@ -258,6 +274,29 @@ class LockboxDB:
                 await self._scheduler.create_task(kind=documents.TaskType.POPULATE_COURSES, owner=user)
             else:
                 await user.commit()
+            
+            # If user is active and has complete set of credentials, make a fill form task for them
+            if user.active and user.login is not None and user.password is not None:
+                task = await self.TaskImpl.find_one({"kind": documents.TaskType.FILL_FORM.value, "owner": user})
+                if task is None:
+                    logger.info(f"Creating new fill form task for user {user.pk}")
+                    # Calculate next run time
+                    # This time will always be in the next day, so check if it's possible to do it today
+                    run_at = tasks.next_run_time(tasks.FILL_FORM_RUN_TIME)
+                    if (run_at - datetime.timedelta(days=1)).replace(tzinfo=None) >= datetime.datetime.utcnow():
+                        run_at -= datetime.timedelta(days=1)
+                    task = await self._scheduler.create_task(kind=documents.TaskType.FILL_FORM, run_at=run_at, owner=user)
+                    # Reschedule the check day task as well
+                    # The task might not exist if this is the first user
+                    await self._reschedule_check_day()
+            # If active is set to false for this user, remove their fill form task
+            elif not active:
+                task = await self.TaskImpl.find_one({"kind": documents.TaskType.FILL_FORM.value, "owner": user})
+                if task is not None:
+                    logger.info(f"Deleting fill form task for user {user.pk}")
+                    await task.remove()
+                    self._scheduler.update()
+                
         except ValidationError as e:
             raise LockboxDBError(f"Invalid field: {e}", LockboxDBError.INVALID_FIELD) from e
 

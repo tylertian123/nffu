@@ -227,7 +227,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             logger.warning(f"User {owner.pk} seems to have multiple async courses today. Missed courses: {missed_courses}")
             await report_failure(LockboxFailureType.BAD_USER_INFO, f"Warning: Multiple async courses detected for today, but only one form will be filled. Missed courses: {missed_courses}")
         # Re-populate courses just in case
-        await db.populate_user_courses(owner, timetable)
+        await db.populate_user_courses(owner, timetable, clear_previous=False)
         # Try to get the course from the database
         db_course = await db.CourseImpl.find_one({"course_code": course.course_code})
         if db_course is None:
