@@ -221,6 +221,63 @@ async def refresh_lockbox_courses():
 
     return '', 204
 
+@blueprint.route("/me/lockbox/form_status")
+@eula_required 
+async def get_lockbox_form_fill_status():
+    user = await current_user.user
+
+    data = await lockbox.get_form_fill_result(user)
+
+    if not data:
+        return {"status": "no-form"}
+
+    else:
+        return {
+            "status": data.status,
+            "last_filled_at": data.time_logged.isoformat()
+        }
+
+@blueprint.route("/me/lockbox/form_status/form_thumb.png")
+@eula_required 
+async def get_lockbox_form_fill_status_form_thumb():
+    user = await current_user.user
+
+    data = await lockbox.get_form_fill_result(user)
+
+    if not data:
+        return {"error": "no form status data"}, 404
+
+    if not data.form_sid:
+        return {"error": "no form status screenshot"}, 404
+
+    try:
+        stream = await gridfs().open_download_stream(data.form_sid)
+    except NoFile:
+        return {"error": "sid not in db"}, 404
+
+    return (await stream.read()), 200, {"Content-Type": "image/png"}
+
+@blueprint.route("/me/lockbox/form_status/confirm_thumb.png")
+@eula_required 
+async def get_lockbox_form_fill_status_conf_thumb():
+    user = await current_user.user
+
+    data = await lockbox.get_form_fill_result(user)
+
+    if not data:
+        return {"error": "no form status data"}, 404
+
+    if not data.confirm_sid:
+        return {"error": "no form status screenshot"}, 404
+
+    try:
+        stream = await gridfs().open_download_stream(data.confirm_sid)
+    except NoFile:
+        return {"error": "sid not in db"}, 404
+
+    return (await stream.read()), 200, {"Content-Type": "image/png"}
+
+
 class SignupSchema(ma.Schema):
     token = ma_fields.String(required=True, validate=ma_validate.Regexp("[0-9a-f]{9}"))
 

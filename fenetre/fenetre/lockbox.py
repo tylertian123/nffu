@@ -8,6 +8,8 @@ import typing
 import aiohttp
 import bson
 from quart import Quart, current_app
+from marshmallow import Schema, fields as ma_fields
+from umongo.marshmallow_bonus import ObjectId as ObjectIdField
 
 class LockboxError(Exception):
     pass
@@ -93,6 +95,44 @@ async def get_lockbox_status_for(user: User) -> LockboxUserStatus:
                 len(data["errors"]) > 0,
                 data["active"],
                 data["grade"]
+        )
+
+LockboxFillResult = collections.namedtuple("LockboxFillResult", "result time_logged form_sid confirm_sid")
+
+class LastFillFormResultSchema(Schema):
+    result = ma_fields.Str(required=True)
+    time_logged = ma_fields.DateTime()
+    form_screenshot_id = ObjectIdField(missing=None)
+    confirmation_screenshot_id = ObjectIdField(missing=None)
+
+last_fill_form_result_schema = LastFillFormResultSchema()
+
+async def get_form_fill_result(user: User) -> LockboxUserStatus:
+    """
+    Get status for the given user in lockbox.
+
+    Return None if the user doesn't have a lockbox identity
+    """
+
+    if user.lockbox_token is None:
+        return None
+
+    async with _lockbox_sess().get("http://lockbox/user", headers=_headers_for_user(user)) as resp:
+        if not resp.ok:
+            raise LockboxError("failed to get: " + resp.reason, resp.status)
+
+        data = await resp.json()
+
+        if not data["last_fill_form_result"]:
+            return None
+
+        data = last_fill_form_result_schema.load(data)
+
+        return LockboxFillResult(  # todo
+            data["result"],
+            data["time_logged"],
+            data["form_screenshot_id"],
+            data["confirmation_screenshot_id"]
         )
 
 LockboxFailure = collections.namedtuple("LockboxFailure", "id kind message time_logged")
