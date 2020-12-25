@@ -72,6 +72,7 @@ class LockboxDB:
         self._shared_gridfs = AsyncIOMotorGridFSBucket(self._shared_db)
 
         self.LockboxFailureImpl = self._private_instance.register(documents.LockboxFailure)
+        self.FillFormResultImpl = self._private_instance.register(documents.FillFormResult)
         self.UserImpl = self._private_instance.register(documents.User)
         self.FormGeometryEntryImpl = self._private_instance.register(documents.FormGeometryEntry)
         self.CachedFormGeometryImpl = self._private_instance.register(documents.CachedFormGeometry)
@@ -112,10 +113,22 @@ class LockboxDB:
                 self._scheduler.update()
 
     def private_db(self) -> AsyncIOMotorDatabase:
+        """
+        Get a reference to the private database.
+        """
         return self._private_db
 
     def shared_db(self) -> AsyncIOMotorDatabase:
+        """
+        Get a reference to the shared database.
+        """
         return self._shared_db
+
+    def shared_gridfs(self) -> AsyncIOMotorGridFSBucket:
+        """
+        Get a reference to the shared GridFS bucket.
+        """
+        return self._shared_gridfs
 
     async def _get_geometry(self, url: str, geom, user, password: str, grab_screenshot: bool):
         """

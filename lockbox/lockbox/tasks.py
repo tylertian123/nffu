@@ -6,6 +6,7 @@ import aiohttp
 import asyncio
 import bson
 import datetime
+import gridfs
 import logging
 import random
 import tdsbconnects
@@ -17,7 +18,7 @@ from . import fieldexpr
 from . import ghoster
 from . import scheduler
 from . import tdsb
-from .documents import LockboxFailureType, TaskType, FormFieldType
+from .documents import LockboxFailureType, TaskType, FormFieldType, FillFormResultType
 
 
 logger = logging.getLogger("task")
@@ -133,6 +134,8 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
     async def report_failure(kind: LockboxFailureType, message: str):
         """
         Report a lockbox failure by adding a document to the user's list of failures.
+
+        This does commit the user document.
         """
         failure = db.LockboxFailureImpl(_id=bson.ObjectId(), time_logged=datetime.datetime.utcnow(),
                                         kind=kind, message=message)
@@ -141,13 +144,46 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             owner.errors = []
         owner.errors.append(failure)
         await owner.commit()
+    
+    async def clear_last_result():
+        """
+        Clear the last fill form result of this user.
 
+        This deletes the previous result and its assets if applicable.
+
+        Note that this does NOT commit the owner document.
+        """
+        if owner.last_fill_form_result is not None:
+            if owner.last_fill_form_result.form_screenshot_id is not None:
+                try:
+                    await db.shared_gridfs().delete(owner.last_fill_form_result.form_screenshot_id)
+                except gridfs.NoFile:
+                    logger.warning(f"Fill form: Failed to delete previous result form screenshot for user {owner.pk}: No file")
+            if owner.last_fill_form_result.confirmation_screenshot_id is not None:
+                try:
+                    await db.shared_gridfs().delete(owner.last_fill_form_result.confirmation_screenshot_id)
+                except gridfs.NoFile:
+                    logger.warning(f"Fill form: Failed to delete previous result conformation page screenshot for user {owner.pk}: No file")
+        owner.last_fill_form_result = None
+    
+    async def set_last_result_error():
+        """
+        Set the last fill form result of this user to error.
+
+        This also deletes the previous result and its assets if applicable.
+
+        Note that this does NOT commit the owner document.
+        """
+        await clear_last_result()
+        owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.FAILURE, time_logged=datetime.datetime.utcnow())
+    
     # Make sure password can be decrypted
     try:
         password = db.fernet.decrypt(owner.password).decode("utf-8")
     except InvalidToken:
         # PANIC!
         logger.critical(f"Fill form: User {owner.pk}'s password cannot be decrypted")
+        await set_last_result_error()
         await report_failure(LockboxFailureType.INTERNAL, "Internal error: Failed to decrypt password")
         return next_run_time(FILL_FORM_RUN_TIME)
     # Ideal case: Use fresh data from TDSB Connects
@@ -157,6 +193,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             info = await session.get_user_info()
             if not info.schools:
                 logger.error(f"Fill form: User {owner.pk} has no schools")
+                await set_last_result_error()
                 await report_failure(LockboxFailureType.BAD_USER_INFO, "TDSB Connects did not return any schools")
                 return next_run_time(FILL_FORM_RUN_TIME)
             school = info.schools[0]
@@ -180,10 +217,12 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         await report_failure(LockboxFailureType.BAD_USER_INFO, f"Warning: Multiple async courses detected for today, but only one form will be filled. Missed courses: {missed_courses}")
     # Re-populate courses just in case
     await db.populate_user_courses(owner, timetable)
+    # Try to get the course from the database
     db_course = await db.CourseImpl.find_one({"course_code": course.course_code})
     if db_course is None:
         logger.error(f"Fill form: User {owner.pk} populate courses failed for {course.course_code}")
         message = f"Internal error: Failed to find course for {course.course_code}."
+        await set_last_result_error()
         if retries < FILL_FORM_RETRY_LIMIT:
             await report_failure(LockboxFailureType.INTERNAL, message + " Will retry later.")
             raise scheduler.TaskError(message, FILL_FORM_RETRY_IN)
@@ -196,6 +235,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         return next_run_time(FILL_FORM_RUN_TIME)
     if db_course.form_url is None or db_course.form_config is None:
         logger.warning(f"Fill form: Course missing form config: {course.course_code}")
+        await set_last_result_error()
         await report_failure(LockboxFailureType.CONFIG, f"Course missing form config: {course.course_code}. Will not retry.")
         return next_run_time(FILL_FORM_RUN_TIME)
     # Figure out the first and last name
@@ -236,6 +276,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         except Exception as e: # pylint: disable=broad-except
             logger.error(f"Fill form: Field value formatting error: {e}")
             message = f"Field value formatting error: {e}."
+            await set_last_result_error()
             if retries < FILL_FORM_RETRY_LIMIT:
                 await report_failure(LockboxFailureType.INTERNAL, message + " Will retry later.")
                 raise scheduler.TaskError(message, FILL_FORM_RETRY_IN)
@@ -254,8 +295,13 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
     result = await asyncio.get_event_loop().run_in_executor(None, _inner)
     if isinstance(result, ghoster.GhosterError):
         if isinstance(result, ghoster.GhosterPossibleFail):
-            message, screenshot = result.args # TODO: Store the screenshot
+            message, screenshot = result.args
             logger.warning(f"Fill form: Possible failure for user {owner.pk}: {message}")
+            # Upload screenshot
+            screenshot_id = await db.shared_gridfs().upload_from_stream("confirmation.png", screenshot)
+            await clear_last_result()
+            owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.POSSIBLE_FAILURE,
+                time_logged=datetime.datetime.utcnow(), confirmation_screenshot_id=screenshot_id)
             await report_failure(LockboxFailureType.FORM_FILLING, f"Possible form filling failure (Not retrying): {message}")
             return next_run_time(FILL_FORM_RUN_TIME)
         if isinstance(result, ghoster.GhosterAuthFailed):
@@ -265,6 +311,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         else:
             fail_type = "Unknown failure"
         logger.error(f"Fill form: {fail_type} for user {owner.pk}: {result}")
+        await set_last_result_error()
         if retries < FILL_FORM_RETRY_LIMIT:
             await report_failure(LockboxFailureType.FORM_FILLING, f"{fail_type} (will retry later): {result}")
             raise scheduler.TaskError(f"{fail_type}: {result}", FILL_FORM_RETRY_IN)
@@ -272,7 +319,14 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             await report_failure(LockboxFailureType.FORM_FILLING, f"{fail_type} (retry limit reached): {result}")
             return next_run_time(FILL_FORM_RUN_TIME)
     # Finally... all is well
-    form_screenshot, confirmation_screenshot = result # TODO: Store these
+    # Upload form and confirmation screenshots
+    fss, css = result
+    fid = await db.shared_gridfs().upload_from_stream("form.png", fss)
+    cid = await db.shared_gridfs().upload_from_stream("confirmation.png", css)
+    await clear_last_result()
+    owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.SUCCESS,
+        time_logged=datetime.datetime.utcnow(), form_screenshot_id=fid, confirmation_screenshot_id=cid)
+    await owner.commit()
     logger.info(f"Fill form: Finished for user {owner.pk}")
     return next_run_time(FILL_FORM_RUN_TIME)
 

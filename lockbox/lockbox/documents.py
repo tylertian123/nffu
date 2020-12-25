@@ -34,6 +34,10 @@ class BinaryField(fields.BaseField, ma_fields.Field):
 
 
 class LockboxFailureType(enum.Enum):
+    """
+    Types of possible lockbox failures.
+    """
+
     UNKNOWN = "unknown"
     INTERNAL = "internal"
     BAD_USER_INFO = "bad-user-info"
@@ -48,10 +52,32 @@ class LockboxFailure(EmbeddedDocument): # pylint: disable=abstract-method
 
     Taken from fenetre/db.py.
     """
+
     _id = fields.ObjectIdField(required=True)
     time_logged = fields.DateTimeField(required=True)
     kind = fields.StrField(required=True, validate=validate.OneOf([x.value for x in LockboxFailureType]))
     message = fields.StrField(required=False, default="")
+
+
+class FillFormResultType(enum.Enum):
+    """
+    Types of possible form filling results.
+    """
+
+    SUCCESS = "success"
+    FAILURE = "failure"
+    POSSIBLE_FAILURE = "possible-failure"
+
+
+class FillFormResult(EmbeddedDocument): # pylint: disable=abstract-method
+    """
+    A document that stores the result of a form-filling task.
+    """
+
+    result = fields.StrField(required=True, validate=validate.OneOf([x.value for x in FillFormResultType]))
+    time_logged = fields.DateTimeField(required=True)
+    form_screenshot_id = fields.ObjectIdField(required=False, allow_none=True)
+    confirmation_screenshot_id = fields.ObjectIdField(required=False, allow_none=True)
 
 
 class User(Document): # pylint: disable=abstract-method
@@ -75,6 +101,7 @@ class User(Document): # pylint: disable=abstract-method
 
     active = fields.BoolField(default=True)
     errors = fields.ListField(fields.EmbeddedField(LockboxFailure), default=[])
+    last_fill_form_result = fields.EmbeddedField(FillFormResult, required=False, allow_none=True)
     grade = fields.IntField(required=False, allow_none=True, default=None)
 
 

@@ -163,9 +163,22 @@ class LockboxServer:
         {
             "login": "...", // Optional, TDSB login (student number) (missing if unconfigured)
             "active": true, // Whether form-filling is active for this user
-            "errors": [], // An array of LockboxFailures listing the errors
+            "errors": [     // An array of LockboxFailures listing the errors
+                {
+                    "_id": "...", // The object ID
+                    "time_logged": "1970-01-01T00:00:00.00Z", // ISO datetime string of the time this error was logged (UTC)
+                    "kind": "unknown", // The type of error, see documents.LockboxFailureType
+                    "message": "...", // Optional, a failure message
+                }
+            ],
             "credentials_set": true, // Whether credentials are set (both student number and password)
             "grade": 12, // Optional, the user's grade (int)
+            "last_fill_form_result": { // Optional, the result of the last form filling operation for this user
+                "result": "success", // Result type, see documents.FillFormResultType
+                "time_logged": "1970-01-01T00:00:00.00Z", // ISO datetime string of the time this result was logged (UTC)
+                "form_screenshot_id": "...", // Optional, file ID of the form's screenshot in GridFS, only present if result was success
+                "confirmation_screenshot_id": "...", // Optional, file ID of the confirmation page's screenshot in GridFS, only present if result was success or possible-failure
+            }
         }
 
         Returns the following JSON on failure:
@@ -354,7 +367,7 @@ class LockboxServer:
                 {
                     "kind": "check-day", // The type of the task, see TaskType enum in documents.py
                     "owner": null, // Reference to the lockbox user that owns this task
-                    "next_run_at": "1970-01-01T00:00:00.00", // ISO datetime string of the next time this task should run
+                    "next_run_at": "1970-01-01T00:00:00.00Z", // ISO datetime string of the next time this task should run (UTC)
                     "is_running": false, // Whether the task is already running
                     "retry_count": 0, // How many times the task has failed
                 }
