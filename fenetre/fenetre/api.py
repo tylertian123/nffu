@@ -234,7 +234,7 @@ async def get_lockbox_form_fill_status():
     else:
         return {
             "status": data.result,
-            "last_filled_at": data.time_logged.isoformat()
+            "last_filled_at": data.time_logged.isoformat() + "Z"
         }
 
 @blueprint.route("/me/lockbox/form_status/form_thumb.png")

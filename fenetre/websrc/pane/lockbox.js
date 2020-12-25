@@ -4,7 +4,9 @@ import {Row, Col, Nav, FormCheck, Form, Button, Alert} from 'react-bootstrap';
 import {LinkContainer} from 'react-router-bootstrap'
 import {Route, Switch} from 'react-router'
 import {ExtraUserInfoProvider} from '../common/userinfo';
+
 import Cfg from './lockbox/cfg';
+import Status from './lockbox/status';
 
 function Lockbox() {
 	return <Row>
@@ -25,6 +27,7 @@ function Lockbox() {
 						<Cfg />
 					</Route>
 					<Route path="/lockbox/status">
+						<Status />
 					</Route>
 				</Switch>
 			</ExtraUserInfoProvider>
