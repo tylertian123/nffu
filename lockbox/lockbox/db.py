@@ -214,6 +214,11 @@ class LockboxDB:
                         await session.login(login, password)
                         info = await session.get_user_info()
                         user.email = info.email
+                        # Try to get user grade
+                        try:
+                            user.grade = int(info._data["SchoolCodeList"][0]["StudentInfo"]["CurrentGradeLevel"]) + 1
+                        except (ValueError, KeyError, IndexError):
+                            pass
                 except aiohttp.ClientResponseError as e:
                     user.email = None
                     logger.info(f"TDSB login error for login {user.login}")
