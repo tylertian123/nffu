@@ -7,7 +7,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
 from typing import List, Tuple
 
 from .documents import FormFieldType
@@ -186,6 +188,19 @@ def _fill_in_field(browser: webdriver.Firefox, element: webdriver.firefox.webele
             options = popup.find_elements_by_class_name("exportOption")
             options[with_value + 1].click()  # + 1 for the "Choose" label
 
+            # use actions to send an escape to close it
+            # press escape to close the dropdown
+            actions = ActionChains(browser)
+            actions.send_keys(Keys.ESCAPE)
+            actions.perform()
+
+            # delay until the thing _no longer_ visible
+            try:
+                WebDriverWait(browser, 4, poll_frequency=0.25).until_not(EC.presence_of_element_located((By.CSS_SELECTOR, "div.exportSelectPopup .quantumWizMenuPaperselectOption")))
+            except TimeoutException:
+                # ignore timeouts
+                pass
+
     else:
         raise NotImplementedError()
 
@@ -246,6 +261,8 @@ def fill_form(form_url: str, credentials: GhosterCredentials, components: List[T
                 raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (invalid expression result type)") from e
             except NotImplementedError as e:
                 raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (kind not implemented)") from e
+            except WebDriverException as e:
+                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (unknown selenium error " + str(e) + ")") from e
 
 
         # record screenshot of filled in page
