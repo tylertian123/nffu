@@ -200,72 +200,140 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             # Get only async courses today
             timetable = [item for item in (await school.timetable(datetime.datetime.today()) or None)
                          if item.course_period.endswith("a")]
-            # We got all we need
-    except aiohttp.ClientError as e:
-        # TODO implement fallback
-        logger.warning(f"Fill form: TDSB Connects failed for user {owner.pk}")
-        return next_run_time(FILL_FORM_RUN_TIME)
-    
-    if not timetable:
-        logger.info(f"Fill form: No school or async courses for user {owner.pk}")
-        return next_run_time(FILL_FORM_RUN_TIME)
-    # We are assuming only one async course per day
-    course = timetable[0]
-    if len(timetable) > 1:
-        missed_courses = ", ".join(f"{course.course_code} in period {course.course_period}" for course in timetable[1:])
-        logger.warning(f"User {owner.pk} seems to have multiple async courses today. Missed courses: {missed_courses}")
-        await report_failure(LockboxFailureType.BAD_USER_INFO, f"Warning: Multiple async courses detected for today, but only one form will be filled. Missed courses: {missed_courses}")
-    # Re-populate courses just in case
-    await db.populate_user_courses(owner, timetable)
-    # Try to get the course from the database
-    db_course = await db.CourseImpl.find_one({"course_code": course.course_code})
-    if db_course is None:
-        logger.error(f"Fill form: User {owner.pk} populate courses failed for {course.course_code}")
-        message = f"Internal error: Failed to find course for {course.course_code}."
-        await set_last_result_error()
-        if retries < FILL_FORM_RETRY_LIMIT:
-            await report_failure(LockboxFailureType.INTERNAL, message + " Will retry later.")
-            raise scheduler.TaskError(message, FILL_FORM_RETRY_IN)
-        else:
-            await report_failure(LockboxFailureType.INTERNAL, message + " Retry limit reached.")
+        # We got all we need, now find the Course document to fill the form for and populate fieldexpr_context
+        if not timetable:
+            logger.info(f"Fill form: No school or async courses for user {owner.pk}")
             return next_run_time(FILL_FORM_RUN_TIME)
+        # We are assuming only one async course per day
+        course = timetable[0]
+        if len(timetable) > 1:
+            missed_courses = ", ".join(f"{course.course_code} in period {course.course_period}" for course in timetable[1:])
+            logger.warning(f"User {owner.pk} seems to have multiple async courses today. Missed courses: {missed_courses}")
+            await report_failure(LockboxFailureType.BAD_USER_INFO, f"Warning: Multiple async courses detected for today, but only one form will be filled. Missed courses: {missed_courses}")
+        # Re-populate courses just in case
+        await db.populate_user_courses(owner, timetable)
+        # Try to get the course from the database
+        db_course = await db.CourseImpl.find_one({"course_code": course.course_code})
+        if db_course is None:
+            logger.error(f"Fill form: User {owner.pk} populate courses failed for {course.course_code}")
+            message = f"Internal error: Failed to find course for {course.course_code}."
+            await set_last_result_error()
+            if retries < FILL_FORM_RETRY_LIMIT:
+                await report_failure(LockboxFailureType.INTERNAL, message + " Will retry later.")
+                raise scheduler.TaskError(message, FILL_FORM_RETRY_IN)
+            else:
+                await report_failure(LockboxFailureType.INTERNAL, message + " Retry limit reached.")
+                return next_run_time(FILL_FORM_RUN_TIME)
+        # Figure out the first and last name
+        try:
+            first_name = info._data["SchoolCodeList"][0]["StudentInfo"]["FirstName"]
+            last_name = info._data["SchoolCodeList"][0]["StudentInfo"]["LastName"]
+            if not first_name or not last_name:
+                raise ValueError()
+        except (ValueError, IndexError, KeyError):
+            try:
+                # Fallback: Get first and last name by splitting the full name
+                i = info.name.index(", ")
+                first_name = info.name[:i]
+                last_name = info.name[i + 2:]
+            except ValueError:
+                # Fallback fallback: Set first and last name to just the full name if there's no comma
+                first_name = last_name = info.name
+        # Populate fieldexpr context
+        fieldexpr_context = {
+            "name": info.name,
+            "first_name": first_name,
+            "last_name": last_name,
+            "student_number": owner.login,
+            "email": info.email,
+            "today": datetime.datetime.now(),
+            "grade": owner.grade if owner.grade is not None else 0,
+            "course_code": course.course_code,
+            "teacher_name": course.course_teacher_name,
+            "teacher_email": course.course_teacher_email,
+            "day_cycle": course.course_cycle_day,
+        }
+
+    except aiohttp.ClientError as e:
+        logger.warning(f"Fill form: TDSB Connects failed for user {owner.pk}: {e}")
+        if db.current_day is None:
+            logger.error("Fill form: Cannot fall back to stored data, don't know what day it is")
+            message = f"Error: TDSB Connects error: '{e}'. Cannot fall back to stored data (don't know what day it is)."
+            await set_last_result_error()
+            if retries < FILL_FORM_RETRY_LIMIT:
+                await report_failure(LockboxFailureType.TDSB_CONNECTS, message + " Will retry later.")
+                raise scheduler.TaskError(message, FILL_FORM_RETRY_IN)
+            else:
+                await report_failure(LockboxFailureType.TDSB_CONNECTS, message + " Retry limit reached.")
+                return next_run_time(FILL_FORM_RUN_TIME)
+        # Should never happen
+        if db.current_day <= 0:
+            logger.warning("Fill form: Stored data indicates no school today. This shouldn't happen.")
+            return next_run_time(FILL_FORM_RUN_TIME)
+        if not owner.courses:
+            logger.info(f"Fill form: No courses configured for user {owner.pk}")
+            return next_run_time(FILL_FORM_RUN_TIME)
+        # Find the course that runs today
+        db_course = None
+        for course_id in owner.courses:
+            course = await db.CourseImpl.find_one({"_id": course_id})
+            if course is None:
+                logger.error(f"Fill form: Broken course reference detected: Course {course_id} for user {owner.pk}.")
+                continue
+            # Check if the course runs this period
+            # This always assumes first period in the morning, should be fine
+            if f"{db.current_day}-1a" in course.known_slots:
+                db_course = course
+                break
+        else:
+            logger.info(f"Fill form: No school or async courses for user {owner.pk}")
+            return next_run_time(FILL_FORM_RUN_TIME)
+        # Worst case: Use the email to figure this out
+        if not owner.first_name or not owner.last_name:
+            logger.warning(f"Fill form: Name not stored for user {owner.pk}, using email to find out")
+            try:
+                addr = owner.email.split("@")[0]
+                first_name, last_name = addr.split(".")
+                # Trim off the number
+                for i, c in enumerate(last_name):
+                    if c.isdigit():
+                        last_name = last_name[:i]
+                        break
+            # Worst worst case, just default to empty :/
+            except IndexError:
+                logger.warning(f"Fill form: Cannot figure out name for user {owner.pk}")
+                first_name = ""
+                last_name = ""
+        else:
+            first_name = owner.first_name
+            last_name = owner.last_name
+        # Populate fieldexpr context
+        fieldexpr_context = {
+            "name": last_name + ", " + first_name,
+            "first_name": first_name,
+            "last_name": last_name,
+            "student_number": owner.login,
+            "email": owner.email,
+            "today": datetime.datetime.now(),
+            "grade": owner.grade if owner.grade is not None else 0,
+            "course_code": db_course.course_code,
+            "teacher_name": db_course.teacher_name,
+            "teacher_email": "", # Can't guess this, since the teacher's name doesn't include the full first name
+            "day_cycle": db.current_day,
+        }
+        await report_failure(LockboxFailureType.TDSB_CONNECTS, f"Warning: TDSB Connects failed with error '{e}'. Falling back to stored data.")
+
+    # All the code above sets db_course, the Course document to fill the form for, and fieldexpr_context
     # Check that the form exists & is set up
     if not db_course.has_attendance_form:
-        logger.info(f"Fill form: No form for course {course.course_code}")
+        logger.info(f"Fill form: No form for course {db_course.course_code}")
         return next_run_time(FILL_FORM_RUN_TIME)
     if db_course.form_url is None or db_course.form_config is None:
-        logger.warning(f"Fill form: Course missing form config: {course.course_code}")
+        logger.warning(f"Fill form: Course missing form config: {db_course.course_code}")
         await set_last_result_error()
-        await report_failure(LockboxFailureType.CONFIG, f"Course missing form config: {course.course_code}. Will not retry.")
+        await report_failure(LockboxFailureType.CONFIG, f"Course missing form config: {db_course.course_code}. Will not retry.")
         return next_run_time(FILL_FORM_RUN_TIME)
-    # Figure out the first and last name
-    try:
-        first_name = info._data["SchoolCodeList"][0]["StudentInfo"]["FirstName"]
-        last_name = info._data["SchoolCodeList"][0]["StudentInfo"]["FirstName"]
-    except (IndexError, KeyError):
-        try:
-            # Fallback: Get first and last name by splitting the full name
-            i = info.name.index(", ")
-            first_name = info.name[:i]
-            last_name = info.name[i + 2:]
-        except ValueError:
-            # Fallback fallback: Set first and last name to just the full name if there's no comma
-            first_name = last_name = info.name
-    # Populate fieldexpr context
-    fieldexpr_context = {
-        "name": info.name,
-        "first_name": first_name,
-        "last_name": last_name,
-        "student_number": owner.login,
-        "email": info.email,
-        "today": datetime.datetime.now(),
-        "grade": owner.grade if owner.grade is not None else 0,
-        "course_code": course.course_code,
-        "teacher_name": course.course_teacher_name,
-        "teacher_email": course.course_teacher_email,
-        "day_cycle": course.course_cycle_day,
-    }
-    ghoster_credentials = ghoster.GhosterCredentials(info.email, owner.login, password)
+    ghoster_credentials = ghoster.GhosterCredentials(owner.email, owner.login, password)
     # Format fields
     fields = []
     form = await db_course.form_config.fetch()
@@ -286,7 +354,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         title = field.expected_label_segment or ""
         kind = FormFieldType(field.kind)
         fields.append((field.index_on_page, title, kind, value))
-    logger.info(f"Fill form: Form filling started for course {course.course_code}")
+    logger.info(f"Fill form: Form filling started for course {db_course.course_code} for user {owner.pk}")
     def _inner():
         try:
             return ghoster.fill_form(db_course.form_url, ghoster_credentials, fields)
