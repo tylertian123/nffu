@@ -103,6 +103,8 @@ class User(Document): # pylint: disable=abstract-method
     errors = fields.ListField(fields.EmbeddedField(LockboxFailure), default=[])
     last_fill_form_result = fields.EmbeddedField(FillFormResult, required=False, allow_none=True)
     grade = fields.IntField(required=False, allow_none=True, default=None)
+    first_name = fields.StrField(required=False, allow_none=True, default=None, validate=lambda s: s is None or len(s))
+    last_name = fields.StrField(required=False, allow_none=True, default=None, validate=lambda s: s is None or len(s))
 
 
 class TaskType(enum.Enum):

@@ -137,6 +137,8 @@ class LockboxServer:
             "password": "...", // Optional, TDSB password
             "active": true, // Optional, whether form-filling is active for this user (default true)
             "grade": 12, // Optional, the user's grade (int)
+            "first_name": "...", // Optional, the user's first name
+            "last_name": "...", // Optional, the user's last name
         }
 
         204 on success.
@@ -174,6 +176,8 @@ class LockboxServer:
             ],
             "credentials_set": true, // Whether credentials are set (both student number and password)
             "grade": 12, // Optional, the user's grade (int)
+            "first_name": "...", // Optional, the user's first name (could be null or not exist)
+            "last_name": "...", // Optional, the user's last name (could be null or not exist)
             "last_fill_form_result": { // Optional, the result of the last form filling operation for this user
                 "result": "success", // Result type, see documents.FillFormResultType
                 "time_logged": "1970-01-01T00:00:00.00Z", // ISO datetime string of the time this result was logged (UTC)

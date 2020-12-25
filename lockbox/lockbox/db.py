@@ -200,7 +200,8 @@ class LockboxDB:
         return token
 
     async def modify_user(self, token: str, login: str = None, password: str = None, # pylint: disable=unused-argument
-                          active: bool = None, grade: int = None, **kwargs) -> None:
+                          active: bool = None, grade: int = None, first_name: str = None,
+                          last_name: str = None, **kwargs) -> None:
         """
         Modify user data.
 
@@ -218,6 +219,10 @@ class LockboxDB:
                 user.active = active
             if grade is not None:
                 user.grade = grade
+            if first_name is not None:
+                user.first_name = first_name
+            if last_name is not None:
+                user.last_name = last_name
             # Verify user credentials if username and password are both present
             # and at least one is being modified
             if user.login is not None and user.password is not None and (login is not None or password is not None):
@@ -227,10 +232,15 @@ class LockboxDB:
                         await session.login(login, password)
                         info = await session.get_user_info()
                         user.email = info.email
-                        # Try to get user grade
+                        # Try to get user grade, first name, and last name
                         try:
                             user.grade = int(info._data["SchoolCodeList"][0]["StudentInfo"]["CurrentGradeLevel"]) + 1
                         except (ValueError, KeyError, IndexError):
+                            pass
+                        try:
+                            user.first_name = info._data["SchoolCodeList"][0]["StudentInfo"]["FirstName"]
+                            user.last_name = info._data["SchoolCodeList"][0]["StudentInfo"]["LastName"]
+                        except (ValidationError, KeyError, IndexError):
                             pass
                 except aiohttp.ClientResponseError as e:
                     user.email = None
