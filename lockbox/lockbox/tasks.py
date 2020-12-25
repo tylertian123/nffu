@@ -3,6 +3,8 @@ Task function definitions for the scheduler.
 """
 
 import aiohttp
+import asyncio
+import bson
 import datetime
 import logging
 import random
@@ -11,18 +13,23 @@ import typing
 from cryptography.fernet import InvalidToken
 from dateutil import tz
 from . import db as db_ # pylint: disable=unused-import
+from . import fieldexpr
+from . import ghoster
 from . import scheduler
 from . import tdsb
-from .documents import TaskType
+from .documents import LockboxFailureType, TaskType, FormFieldType
 
 
 logger = logging.getLogger("task")
 
 
 LOCAL_TZ = tz.gettz()
+# TODO: Read these from env vars
 # In local time
 CHECK_DAY_RUN_TIME = (datetime.time(hour=4, minute=0), datetime.time(hour=4, minute=0))
 FILL_FORM_RUN_TIME = (datetime.time(hour=7, minute=0), datetime.time(hour=9, minute=0))
+FILL_FORM_RETRY_LIMIT = 3
+FILL_FORM_RETRY_IN = 30 * 60 # half an hour
 
 
 def next_run_time(time_range: typing.Tuple[datetime.time, datetime.time]) -> datetime.datetime:
@@ -47,7 +54,7 @@ async def check_day(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
 
     This task should run daily before any forms are filled.
     """
-    logger.info("Starting check day")
+    logger.info("Check day: Starting")
     # Next run may not be exactly 1 day from now because of retries and other delays
     next_run = next_run_time(CHECK_DAY_RUN_TIME)
     day = None
@@ -59,6 +66,7 @@ async def check_day(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         try:
             password = db.fernet.decrypt(user.password).decode("utf-8")
         except InvalidToken:
+            logger.critical(f"User {user.pk}'s password cannot be decrypted")
             continue
         # Attempt login
         session = tdsbconnects.TDSBConnects()
@@ -114,7 +122,158 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
     """
     Fills in the form for a particular user.
     """
-    logger.info("Fill form stub")
+    logger.info(f"Fill form: Starting for user {owner.pk} (login: {owner.login})")
+    # No need to bother with recording errors for these two cases
+    # Assumption: Form filling tasks exist if and only if a user has complete credentials and enabled form filling
+    if not owner.active:
+        raise scheduler.TaskError(f"User {owner.pk} has form filling disabled.")
+    if owner.login is None or owner.password is None:
+        raise scheduler.TaskError(f"User {owner.pk} credentials are incomplete")
+
+    async def report_failure(kind: LockboxFailureType, message: str):
+        """
+        Report a lockbox failure by adding a document to the user's list of failures.
+        """
+        failure = db.LockboxFailureImpl(_id=bson.ObjectId(), time_logged=datetime.datetime.utcnow(),
+                                        kind=kind, message=message)
+        # Make sure it's a new list instance
+        if not owner.errors:
+            owner.errors = []
+        owner.errors.append(failure)
+        await owner.commit()
+
+    # Make sure password can be decrypted
+    try:
+        password = db.fernet.decrypt(owner.password).decode("utf-8")
+    except InvalidToken:
+        # PANIC!
+        logger.critical(f"Fill form: User {owner.pk}'s password cannot be decrypted")
+        await report_failure(LockboxFailureType.INTERNAL, "Internal error: Failed to decrypt password")
+        return next_run_time(FILL_FORM_RUN_TIME)
+    # Ideal case: Use fresh data from TDSB Connects
+    try:
+        async with tdsbconnects.TDSBConnects() as session:
+            await session.login(owner.login, password)
+            info = await session.get_user_info()
+            if not info.schools:
+                logger.error(f"Fill form: User {owner.pk} has no schools")
+                await report_failure(LockboxFailureType.BAD_USER_INFO, "TDSB Connects did not return any schools")
+                return next_run_time(FILL_FORM_RUN_TIME)
+            school = info.schools[0]
+            # Get only async courses today
+            timetable = [item for item in (await school.timetable(datetime.datetime.today()) or None)
+                         if item.course_period.endswith("a")]
+            # We got all we need
+    except aiohttp.ClientError as e:
+        # TODO implement fallback
+        logger.warning(f"Fill form: TDSB Connects failed for user {owner.pk}")
+        return next_run_time(FILL_FORM_RUN_TIME)
+    
+    if not timetable:
+        logger.info(f"Fill form: No school or async courses for user {owner.pk}")
+        return next_run_time(FILL_FORM_RUN_TIME)
+    # We are assuming only one async course per day
+    course = timetable[0]
+    if len(timetable) > 1:
+        missed_courses = ", ".join(f"{course.course_code} in period {course.course_period}" for course in timetable[1:])
+        logger.warning(f"User {owner.pk} seems to have multiple async courses today. Missed courses: {missed_courses}")
+        await report_failure(LockboxFailureType.BAD_USER_INFO, f"Warning: Multiple async courses detected for today, but only one form will be filled. Missed courses: {missed_courses}")
+    # Re-populate courses just in case
+    await db.populate_user_courses(owner, timetable)
+    db_course = await db.CourseImpl.find_one({"course_code": course.course_code})
+    if db_course is None:
+        logger.error(f"Fill form: User {owner.pk} populate courses failed for {course.course_code}")
+        message = f"Internal error: Failed to find course for {course.course_code}."
+        if retries < FILL_FORM_RETRY_LIMIT:
+            await report_failure(LockboxFailureType.INTERNAL, message + " Will retry later.")
+            raise scheduler.TaskError(message, FILL_FORM_RETRY_IN)
+        else:
+            await report_failure(LockboxFailureType.INTERNAL, message + " Retry limit reached.")
+            return next_run_time(FILL_FORM_RUN_TIME)
+    # Check that the form exists & is set up
+    if not db_course.has_attendance_form:
+        logger.info(f"Fill form: No form for course {course.course_code}")
+        return next_run_time(FILL_FORM_RUN_TIME)
+    if db_course.form_url is None or db_course.form_config is None:
+        logger.warning(f"Fill form: Course missing form config: {course.course_code}")
+        await report_failure(LockboxFailureType.CONFIG, f"Course missing form config: {course.course_code}. Will not retry.")
+        return next_run_time(FILL_FORM_RUN_TIME)
+    # Figure out the first and last name
+    try:
+        first_name = info._data["SchoolCodeList"][0]["StudentInfo"]["FirstName"]
+        last_name = info._data["SchoolCodeList"][0]["StudentInfo"]["FirstName"]
+    except (IndexError, KeyError):
+        try:
+            # Fallback: Get first and last name by splitting the full name
+            i = info.name.index(", ")
+            first_name = info.name[:i]
+            last_name = info.name[i + 2:]
+        except ValueError:
+            # Fallback fallback: Set first and last name to just the full name if there's no comma
+            first_name = last_name = info.name
+    # Populate fieldexpr context
+    fieldexpr_context = {
+        "$name": info.name,
+        "$first_name": first_name,
+        "$last_name": last_name,
+        "$student_number": owner.login,
+        "$email": info.email,
+        "$today": datetime.datetime.now(),
+        "$grade": owner.grade if owner.grade is not None else 0,
+        "$course_code": course.course_code,
+        "$teacher_name": course.course_teacher_name,
+        "$teacher_email": course.course_teacher_email,
+        "$day_cycle": course.course_cycle_day,
+    }
+    ghoster_credentials = ghoster.GhosterCredentials(info.email, owner.login, password)
+    # Format fields
+    fields = []
+    form = await db_course.form_config.fetch()
+    for field in form.sub_fields:
+        try:
+            value = fieldexpr.interpret(field.target_value, fieldexpr_context)
+        # eww
+        except Exception as e: # pylint: disable=broad-except
+            logger.error(f"Fill form: Field value formatting error: {e}")
+            message = f"Field value formatting error: {e}."
+            if retries < FILL_FORM_RETRY_LIMIT:
+                await report_failure(LockboxFailureType.INTERNAL, message + " Will retry later.")
+                raise scheduler.TaskError(message, FILL_FORM_RETRY_IN)
+            else:
+                await report_failure(LockboxFailureType.INTERNAL, message + " Retry limit reached.")
+                return next_run_time(FILL_FORM_RUN_TIME)
+        title = field.expected_label_segment or ""
+        kind = FormFieldType(field.kind)
+        fields.append((field.index_on_page, title, kind, value))
+    logger.info(f"Fill form: Form filling started for course {course.course_code}")
+    def _inner():
+        try:
+            return ghoster.fill_form(course.form_url, ghoster_credentials, fields)
+        except ghoster.GhosterError as e:
+            return e
+    result = await asyncio.get_event_loop().run_in_executor(None, _inner)
+    if isinstance(result, ghoster.GhosterError):
+        if isinstance(result, ghoster.GhosterPossibleFail):
+            message, screenshot = result.args # TODO: Store the screenshot
+            logger.warning(f"Fill form: Possible failure for user {owner.pk}: {message}")
+            await report_failure(LockboxFailureType.FORM_FILLING, f"Possible form filling failure (Not retrying): {message}")
+            return next_run_time(FILL_FORM_RUN_TIME)
+        if isinstance(result, ghoster.GhosterAuthFailed):
+            fail_type = "Failed to login"
+        elif isinstance(result, ghoster.GhosterInvalidForm):
+            fail_type = "Invalid form"
+        else:
+            fail_type = "Unknown failure"
+        logger.error(f"Fill form: {fail_type} for user {owner.pk}: {result}")
+        if retries < FILL_FORM_RETRY_LIMIT:
+            await report_failure(LockboxFailureType.FORM_FILLING, f"{fail_type} (will retry later): {result}")
+            raise scheduler.TaskError(f"{fail_type}: {result}", FILL_FORM_RETRY_IN)
+        else:
+            await report_failure(LockboxFailureType.FORM_FILLING, f"{fail_type} (retry limit reached): {result}")
+            return next_run_time(FILL_FORM_RUN_TIME)
+    # Finally... all is well
+    form_screenshot, confirmation_screenshot = result # TODO: Store these
+    logger.info(f"Fill form: Finished for user {owner.pk}")
     return next_run_time(FILL_FORM_RUN_TIME)
 
 
@@ -135,6 +294,7 @@ async def populate_courses(db: "db_.LockboxDB", owner, retries: int) -> typing.O
     try:
         password = db.fernet.decrypt(owner.password).decode("utf-8")
     except InvalidToken as e:
+        logger.critical(f"User {owner.pk}'s password cannot be decrypted")
         raise scheduler.TaskError("Cannot decrypt user password") from e
     try:
         courses = await tdsb.get_async_periods(username=owner.login, password=password, include_all_slots=True)

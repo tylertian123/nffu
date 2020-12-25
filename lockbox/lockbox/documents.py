@@ -33,6 +33,15 @@ class BinaryField(fields.BaseField, ma_fields.Field):
         return bytes(value)
 
 
+class LockboxFailureType(enum.Enum):
+    UNKNOWN = "unknown"
+    INTERNAL = "internal"
+    BAD_USER_INFO = "bad-user-info"
+    TDSB_CONNECTS = "tdsb-connects"
+    CONFIG = "config"
+    FORM_FILLING = "form-filling"
+
+
 class LockboxFailure(EmbeddedDocument): # pylint: disable=abstract-method
     """
     A document used to report lockbox failures to fenetre.
@@ -41,7 +50,7 @@ class LockboxFailure(EmbeddedDocument): # pylint: disable=abstract-method
     """
     _id = fields.ObjectIdField(required=True)
     time_logged = fields.DateTimeField(required=True)
-    kind = fields.StrField(required=True, marshmallow_default="unknown")
+    kind = fields.StrField(required=True, validate=validate.OneOf([x.value for x in LockboxFailureType]))
     message = fields.StrField(required=False, default="")
 
 

@@ -282,6 +282,7 @@ class LockboxDB:
         try:
             self.fernet.decrypt(user.password).decode("utf-8")
         except InvalidToken as e:
+            logger.critical(f"User {user.pk}'s password cannot be decrypted")
             raise LockboxDBError("Internal server error: Cannot decrypt password", LockboxDBError.INTERNAL_ERROR) from e
         # Force courses into pending
         user.courses = None
@@ -301,6 +302,7 @@ class LockboxDB:
         try:
             password = self.fernet.decrypt(user.password).decode("utf-8")
         except InvalidToken as e:
+            logger.critical(f"User {user.pk}'s password cannot be decrypted")
             raise LockboxDBError("Internal server error: Cannot decrypt password", LockboxDBError.INTERNAL_ERROR) from e
         geom = await self.CachedFormGeometryImpl.find_one({"url": url})
         # Check if screenshot requirement is satisfied

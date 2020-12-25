@@ -113,13 +113,22 @@ def _get_input_header(browser: webdriver.Firefox, element: webdriver.firefox.web
     header_element = element.find_element_by_class_name("freebirdFormviewerComponentsQuestionBaseTitle")
     return header_element.text
 
-class GhosterAuthFailed(Exception):
-    pass
+class GhosterError(Exception):
+    """
+    Base ghoster exception.
+    """
 
-class GhosterInvalidForm(Exception):
-    pass
+class GhosterAuthFailed(GhosterError):
+    """
+    Raised when sign-in fails for forms that need auth.
+    """
 
-class GhosterPossibleFail(Exception):
+class GhosterInvalidForm(GhosterError):
+    """
+    Raised when the form has an unexpected format.
+    """
+
+class GhosterPossibleFail(GhosterError):
     """
     Raised when an error _might_ have occurred and re-trying the operation could be dangerous
 
