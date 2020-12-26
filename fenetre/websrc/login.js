@@ -36,8 +36,8 @@ function Login() {
 				<Col lg="6" xs="12">
 					<Form method="post">
 						<Form.Group>
-							<Form.Control required name="username" type="text" placeholder="Enter your username" />
-							<Form.Control required name="password" type="password" placeholder="Enter your password" />
+							<Form.Control required name="username" type="text" placeholder="Enter your NFFU username" />
+							<Form.Control required name="password" type="password" placeholder="Enter your NFFU password" />
 						</Form.Group>
 						<Form.Group>
 							<FormCheck custom type="checkbox" label="Stay logged in?" name="remember_me" id="remember-me" />

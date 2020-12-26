@@ -100,6 +100,9 @@ function SignupBase(props) {
 								isInvalid={!!errors.username}
 								placeholder="Enter a username"
 							/>
+							<Form.Text>
+								This username is <i>only</i> for <code>nffu</code>. You'll be able to setup your TDSB credentials after you sign up.
+							</Form.Text>
 							<Form.Control.Feedback type="invalid">
 								{errors.username}
 							</Form.Control.Feedback>
@@ -114,6 +117,9 @@ function SignupBase(props) {
 								isInvalid={!!errors.password}
 								placeholder="Enter a password"
 							/>
+							<Form.Text>
+								Again, this password is <i>only</i>for <code>nffu</code>.
+							</Form.Text>
 							<Form.Control.Feedback type="invalid">
 								{errors.password}
 							</Form.Control.Feedback>
