@@ -3,7 +3,7 @@ version: "3.2"
 services:
   lockbox:
     build: ./lockbox
-    image: docker-registry.i.mm12.xyz/nffu-lockbox:0.0.0
+    image: docker-registry.i.mm12.xyz/nffu-lockbox:dev
     ports:
       - "8082:80"
     volumes:
@@ -17,7 +17,7 @@ services:
       - LOCKBOX_DEBUG=1
   fenetre:
     build: ./fenetre
-    image: docker-registry.i.mm12.xyz/nffu-fenetre:0.0.0
+    image: docker-registry.i.mm12.xyz/nffu-fenetre:dev
     ports:
       - "8083:8080"
     volumes:
