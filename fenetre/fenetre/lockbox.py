@@ -51,7 +51,7 @@ async def create_new_lockbox_identity(user: User):
 
 def _headers_for_user(user: User):
     if user.lockbox_token is None:
-        raise ValueError("missing lockbox token")
+        raise LockboxError("missing lockbox token", 401)
 
     return {"Authorization": "Bearer " + user.lockbox_token}
 
@@ -170,15 +170,15 @@ async def clear_error(for_: User, error_id: str):
     """
     Clear an error from a specific user
 
-    Raises ValueError if the user has no lockbox token or the error id is invalid.
+    Raises LockboxError if the user has no lockbox token or the error id is invalid.
     """
 
     if for_.lockbox_token is None:
-        raise ValueError("No lockbox token")
+        raise LockboxError("No lockbox token", 401)
 
     async with _lockbox_sess().delete(f"http://lockbox/user/error/{error_id}", headers=_headers_for_user(for_)) as resp:
         if resp.status == 400:
-            raise ValueError("Bad error id")
+            raise LockboxError("Bad error id", 404)
         if not resp.ok:
             raise LockboxError("failed to delete: " + resp.reason, resp.status)
 
@@ -190,7 +190,7 @@ async def update_lockbox_identity(user: User, payload: dict):
     """
 
     if user.lockbox_token is None:
-        raise ValueError("missing token")
+        raise LockboxError("missing token", 401)
 
     async with _lockbox_sess().patch("http://lockbox/user", headers=_headers_for_user(user), json=payload) as resp:
         try:
@@ -212,7 +212,7 @@ async def query_lockbox_enrolled_courses(user: User):
     """
 
     if user.lockbox_token is None:
-        raise ValueError("missing token")
+        raise LockboxError("missing token", 401)
 
     async with _lockbox_sess().get("http://lockbox/user/courses", headers=_headers_for_user(user)) as resp:
         if not resp.ok:
@@ -223,7 +223,7 @@ async def query_lockbox_enrolled_courses(user: User):
         if data["pending"]:
             return None
         elif data["courses"] is None:
-            raise ValueError("missing auth")
+            raise LockboxError("missing auth", 401)
         else:
             return [await Course.find_one({"id": bson.ObjectId(x)}) for x in data["courses"]]
 
@@ -233,7 +233,7 @@ async def update_lockbox_enrolled_courses(user: User):
     """
 
     if user.lockbox_token is None:
-        raise ValueError("missing token")
+        raise LockboxError("missing token", 401)
 
     async with _lockbox_sess().post("http://lockbox/user/courses/update", headers=_headers_for_user(user)) as resp:
         if not resp.ok:
@@ -250,7 +250,7 @@ async def get_form_geometry(user: User, form_url: str, needs_screenshot: bool=Fa
     """
 
     if user.lockbox_token is None:
-        raise ValueError("missing token")
+        raise LockboxError("missing token", 401)
 
     async with _lockbox_sess().post("http://lockbox/form_geometry", headers=_headers_for_user(user), json={
         "url": form_url,
