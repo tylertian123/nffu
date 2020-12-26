@@ -171,17 +171,17 @@ class LockboxServer:
                     "_id": "...", // The object ID
                     "time_logged": "1970-01-01T00:00:00.00Z", // ISO datetime string of the time this error was logged (UTC)
                     "kind": "unknown", // The type of error, see documents.LockboxFailureType
-                    "message": "...", // Optional, a failure message
+                    "message": "...", // A failure message (could be empty, but will never be null or missing)
                 }
             ],
             "credentials_set": true, // Whether credentials are set (both student number and password)
-            "grade": 12, // Optional, the user's grade (int)
-            "first_name": "...", // Optional, the user's first name (could be null or not exist)
-            "last_name": "...", // Optional, the user's last name (could be null or not exist)
-            "last_fill_form_result": { // Optional, the result of the last form filling operation for this user
+            "grade": 12, // The user's grade (int) (null if cannot be determined and not set)
+            "first_name": "...", // The user's first name (null if cannot be determined and not set)
+            "last_name": "...", // The user's last name (null if cannot be determined and not set)
+            "last_fill_form_result": { // The result of the last form filling operation for this user (could be null)
                 "result": "success", // Result type, see documents.FillFormResultType
                 "time_logged": "1970-01-01T00:00:00.00Z", // ISO datetime string of the time this result was logged (UTC)
-                "course": "...", // Optional, the ID of the course document that represents the course filled in
+                "course": "...", // The ID of the course document that represents the course filled in or null if not available
                 "form_screenshot_id": "...", // Optional, file ID of the form's screenshot in GridFS, only present if result was success
                 "confirmation_screenshot_id": "...", // Optional, file ID of the confirmation page's screenshot in GridFS, only present if result was success or possible-failure
             }

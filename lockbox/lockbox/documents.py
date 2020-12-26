@@ -76,7 +76,7 @@ class FillFormResult(EmbeddedDocument): # pylint: disable=abstract-method
 
     result = fields.StrField(required=True, validate=validate.OneOf([x.value for x in FillFormResultType]))
     time_logged = fields.DateTimeField(required=True)
-    course = fields.ObjectIdField(required=False, allow_none=True)
+    course = fields.ObjectIdField(required=False, default=None, allow_none=True)
     form_screenshot_id = fields.ObjectIdField(required=False, allow_none=True)
     confirmation_screenshot_id = fields.ObjectIdField(required=False, allow_none=True)
 
@@ -102,7 +102,7 @@ class User(Document): # pylint: disable=abstract-method
 
     active = fields.BoolField(default=True)
     errors = fields.ListField(fields.EmbeddedField(LockboxFailure), default=[])
-    last_fill_form_result = fields.EmbeddedField(FillFormResult, required=False, allow_none=True)
+    last_fill_form_result = fields.EmbeddedField(FillFormResult, default=None, allow_none=True)
     grade = fields.IntField(required=False, allow_none=True, default=None)
     first_name = fields.StrField(required=False, allow_none=True, default=None, validate=lambda s: s is None or len(s))
     last_name = fields.StrField(required=False, allow_none=True, default=None, validate=lambda s: s is None or len(s))

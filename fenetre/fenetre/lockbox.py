@@ -143,7 +143,7 @@ class LockboxFailureSchema(Schema):
     _id = ObjectIdField(required=True)
     time_logged = ma_fields.DateTime(required=True)
     kind = ma_fields.Str(required=True)
-    message = ma_fields.Str(missing=None, allow_none=True)
+    message = ma_fields.Str(missing="")
 
 lockbox_failure_schema = LockboxFailureSchema()
 
