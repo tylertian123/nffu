@@ -3,6 +3,7 @@ import quart.flask_patch
 from flask_static_digest import FlaskStaticDigest
 from quart import Quart, render_template, url_for, redirect, request, flash, session
 from quart_auth import login_required, Unauthorized, current_user, logout_user
+from datetime import timedelta
 
 from .db import init_app as db_init_app
 from .auth import init_app as auth_init_app, try_login_user, AuthenticationError, verify_signup_code, eula_required, EulaRequired
@@ -22,6 +23,7 @@ def create_app():
     app = Quart(__name__)
     app.config["QUART_AUTH_COOKIE_SECURE"] = False
     app.secret_key = secrets.token_urlsafe()
+    app.send_file_max_age_default = timedelta(days=15)
     if app.debug:
         app.secret_key = "thisisverysecret"
 
