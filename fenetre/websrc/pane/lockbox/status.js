@@ -29,7 +29,7 @@ function FormFillStatus() {
 				return;
 			}
 			else {
-				if (data.related_course !== null) {
+				if (data.related_course) {
 					const course_info = await fetch(`/api/v1/course/${data.related_course}`);
 					const cdata = await course_info.json()
 
