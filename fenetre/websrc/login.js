@@ -45,8 +45,6 @@ function Login() {
 						<Button variant="success" type="submit">Go</Button>
 					</Form>
 					<hr />
-					<p className="text-light">or maybe login with</p>
-					<hr />
 					<p className="text-light">don't have an account? sign up <a href="/signup">here</a></p>
 				</Col>
 			</Row>
