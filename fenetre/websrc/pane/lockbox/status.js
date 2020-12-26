@@ -170,7 +170,15 @@ function ErrorList() {
 }
 
 function Status() {
+	const eui = React.useContext(ExtraUserInfoContext);
+
+	if (eui === null) return <Alert className="d-flex align-items-center" variant="secondary"><Spinner className="mr-2" animation="border" /> loading...</Alert>;
+	if (!eui.lockbox_credentials_present) {
+		return <Alert variant="danger">You haven't set your TDSB credentials yet!</Alert>;
+	}
+
 	return <div>
+		{eui.lockbox_form_active || <Alert variant="info">You've currently turned off form filling, so we won't fill any more forms for you until you turn it back on <Link className="alert-link" to="/lockbox/cfg">here</Link></Alert>}
 		<h1>Form filling status</h1>
 		<FormFillStatus />
 		<h2>Logged errors</h2>
