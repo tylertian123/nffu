@@ -118,7 +118,7 @@ function SignupBase(props) {
 								placeholder="Enter a password"
 							/>
 							<Form.Text>
-								Again, this password is <i>only</i>for <code>nffu</code>.
+								Again, this password is <i>only</i> for <code>nffu</code>.
 							</Form.Text>
 							<Form.Control.Feedback type="invalid">
 								{errors.password}
