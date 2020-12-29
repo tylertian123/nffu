@@ -200,6 +200,9 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             result.course = course
         owner.last_fill_form_result = result
 
+    if not FILL_FORM_SUBMIT_ENABLED:
+        logger.warning("Form submitting is disabled right now, so we're not going to submit this form. Check the env vars if this is unexpected.")
+
     try:
         # Make sure password can be decrypted
         try:

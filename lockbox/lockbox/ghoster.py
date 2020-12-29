@@ -270,8 +270,9 @@ def fill_form(form_url: str, credentials: GhosterCredentials, components: List[T
         # record screenshot of filled in page
         shot_pre = browser.find_element_by_tag_name("html").screenshot_as_png
 
-        # if we're doing a dry run, just return the screenshots
-        return shot_pre, shot_pre
+        if dry_run:
+            # if we're doing a dry run, just return the screenshots
+            return shot_pre, shot_pre
 
         # locate submit button
         submit_button = browser.find_element_by_class_name("freebirdFormviewerViewNavigationSubmitButton")
