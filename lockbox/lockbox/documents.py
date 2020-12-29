@@ -67,6 +67,7 @@ class FillFormResultType(enum.Enum):
     SUCCESS = "success"
     FAILURE = "failure"
     POSSIBLE_FAILURE = "possible-failure"
+    SUBMIT_DISABLED = "submit-disabled"
 
 
 class FillFormResult(EmbeddedDocument): # pylint: disable=abstract-method
