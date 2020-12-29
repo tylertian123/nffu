@@ -35,7 +35,7 @@ services:
         limits:
           cpus: "0.75"
           memory: 64M
-    command: --quiet --wiredTigerCacheSizeGB 0.05
+    command: --quiet --nojournal --wiredTigerCacheSizeGB 0.05 --setParameter diagnosticDataCollectionEnabled=false
     logging:
       driver: none
 
