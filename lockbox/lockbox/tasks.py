@@ -32,6 +32,7 @@ CHECK_DAY_RUN_TIME = (datetime.time(hour=4, minute=0), datetime.time(hour=4, min
 FILL_FORM_RUN_TIME = (datetime.time(hour=7, minute=0), datetime.time(hour=9, minute=0))
 FILL_FORM_RETRY_LIMIT = 3
 FILL_FORM_RETRY_IN = 30 * 60 # half an hour
+FILL_FORM_SUBMIT_ENABLED = True
 
 
 if os.environ.get("LOCKBOX_CHECK_DAY_RUN_TIME"):
@@ -48,6 +49,8 @@ if os.environ.get("LOCKBOX_FILL_FORM_RETRY_LIMIT"):
     FILL_FORM_RETRY_LIMIT = int(os.environ["LOCKBOX_FILL_FORM_RETRY_LIMIT"])
 if os.environ.get("LOCKBOX_FILL_FORM_RETRY_IN"):
     FILL_FORM_RETRY_IN = float(os.environ["LOCKBOX_FILL_FORM_RETRY_IN"])
+if os.environ.get("LOCKBOX_FILL_FORM_SUBMIT_ENABLED"):
+    LOCKBOX_FILL_FORM_SUBMIT_ENABLED = int(os.environ.get("LOCKBOX_FILL_FORM_SUBMIT_ENABLED")) == 1
 
 
 def next_run_time(time_range: typing.Tuple[datetime.time, datetime.time]) -> datetime.datetime:
@@ -378,7 +381,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         logger.info(f"Fill form: Form filling started for course {db_course.course_code} for user {owner.pk}")
         def _inner():
             try:
-                return ghoster.fill_form(db_course.form_url, ghoster_credentials, fields)
+                return ghoster.fill_form(db_course.form_url, ghoster_credentials, fields, dry_run=not FILL_FORM_SUBMIT_ENABLED)
             except ghoster.GhosterError as e:
                 return e
         result = await asyncio.get_event_loop().run_in_executor(None, _inner)
@@ -413,7 +416,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         fid = await db.shared_gridfs().upload_from_stream("form.png", fss)
         cid = await db.shared_gridfs().upload_from_stream("confirmation.png", css)
         await clear_last_result()
-        owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.SUCCESS.value, course=db_course.pk,
+        owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.SUCCESS.value if FILL_FORM_SUBMIT_ENABLED else FillFormResultType.SUBMIT_DISABLED.value, course=db_course.pk,
             time_logged=datetime.datetime.utcnow(), form_screenshot_id=fid, confirmation_screenshot_id=cid)
         await owner.commit()
         logger.info(f"Fill form: Finished for user {owner.pk}")

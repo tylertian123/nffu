@@ -205,7 +205,7 @@ def _fill_in_field(browser: webdriver.Firefox, element: webdriver.firefox.webele
         raise NotImplementedError()
 
 
-def fill_form(form_url: str, credentials: GhosterCredentials, components: List[Tuple[int, str, FormFieldType, object]]):
+def fill_form(form_url: str, credentials: GhosterCredentials, components: List[Tuple[int, str, FormFieldType, object]], dry_run=False):
     """
     Fill in a form. Expects the URL, credentials and a description of what to fill in.
 
@@ -214,6 +214,8 @@ def fill_form(form_url: str, credentials: GhosterCredentials, components: List[T
     ]
 
     Returns two screenshots on success, the first being a picture of the form filled in and the second being a picture of the success screen.
+
+    If dry_run is set to True, the form will not actually be submitted and both screenshots will be identical.
     """
 
     with _create_browser() as browser:
@@ -267,6 +269,9 @@ def fill_form(form_url: str, credentials: GhosterCredentials, components: List[T
 
         # record screenshot of filled in page
         shot_pre = browser.find_element_by_tag_name("html").screenshot_as_png
+
+        # if we're doing a dry run, just return the screenshots
+        return shot_pre, shot_pre
 
         # locate submit button
         submit_button = browser.find_element_by_class_name("freebirdFormviewerViewNavigationSubmitButton")
