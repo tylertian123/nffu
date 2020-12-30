@@ -63,20 +63,8 @@ def init_app(app: Quart):
         await User.ensure_indexes()
         await SignupProvider.ensure_indexes()
 
-    @app.cli.command()
-    def build_indexes():
-        init_db_in_cli_context()
-
-        async def inner():
-            await User.ensure_indexes()
-            await SignupProvider.ensure_indexes()
-
-            await Course.ensure_indexes()
-            await Form.ensure_indexes()
-
-        asyncio.get_event_loop().run_until_complete(inner())
-
-        print("ok")
+        await Course.ensure_indexes()
+        await Form.ensure_indexes()
 
 @_private_instance.register
 class User(Document):
