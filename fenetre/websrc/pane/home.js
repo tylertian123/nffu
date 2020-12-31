@@ -292,6 +292,8 @@ function Home() {
 				</Card>
 			</Col>
 		</Row>
+		<hr />
+		<p><code>nffu</code> version 0.1.2</p>
 	</>);
 }
 
