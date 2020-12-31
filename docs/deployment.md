@@ -45,7 +45,12 @@ After doing that, you should be able to log in and set up the rest of NFFU in a 
 
 ## Gotchas
 
-TODO
+### NFFU only works if used in one school only
+
+The biggest problem you might encounter with NFFU is that it's only designed to work for one school per instance. This is because the only thing that uniquely
+identifies a course in NFFU is its course code; so if you try to use NFFU with students from multiple schools there _will_ be conflicts (there are also some
+additional internal assumptions based on this, like that if there isn't school on a given day for one student all other students can have form-filling delayed
+to save some CPU and network)
 
 ## FAQ
 
