@@ -293,7 +293,7 @@ function Home() {
 			</Col>
 		</Row>
 		<hr />
-		<p><code>nffu</code> version 0.1.2</p>
+		<p><code>nffu</code> version 0.1.3</p>
 	</>);
 }
 
