@@ -50,7 +50,7 @@ if os.environ.get("LOCKBOX_FILL_FORM_RETRY_LIMIT"):
 if os.environ.get("LOCKBOX_FILL_FORM_RETRY_IN"):
     FILL_FORM_RETRY_IN = float(os.environ["LOCKBOX_FILL_FORM_RETRY_IN"])
 if os.environ.get("LOCKBOX_FILL_FORM_SUBMIT_ENABLED"):
-    LOCKBOX_FILL_FORM_SUBMIT_ENABLED = int(os.environ.get("LOCKBOX_FILL_FORM_SUBMIT_ENABLED")) == 1
+    FILL_FORM_SUBMIT_ENABLED = int(os.environ.get("LOCKBOX_FILL_FORM_SUBMIT_ENABLED")) == 1
 
 
 def next_run_time(time_range: typing.Tuple[datetime.time, datetime.time]) -> datetime.datetime:
