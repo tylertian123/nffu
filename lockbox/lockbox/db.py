@@ -248,10 +248,18 @@ class LockboxDB:
                     async with TDSBConnects() as session:
                         await session.login(login, password)
                         info = await session.get_user_info()
+                        if len(info.schools) != 1:
+                            logger.info(f"Login {user.login} has an invalid number of schools.")
+                            raise LockboxDBError("TDSB Connects reported multiple schools; nffu can only deal with 1 school", LockboxDBError.OTHER)
                         user.email = info.email
                         # Try to get user grade, first name, and last name
                         try:
-                            user.grade = int(info._data["SchoolCodeList"][0]["StudentInfo"]["CurrentGradeLevel"]) + 1
+                            user.grade = int(info._data["SchoolCodeList"][0]["StudentInfo"]["CurrentGradeLevel"])
+                            # CurrentGradeLevel increments once per *calendar* year
+                            # So the value is off-by-one during the first half of the school year
+                            # School year is in the form XXXXYYYY, e.g. 20202021
+                            if not info.schools[0].school_year.endswith(str(datetime.datetime.now().year)):
+                                user.grade += 1
                         except (ValueError, KeyError, IndexError):
                             pass
                         try:
@@ -260,7 +268,6 @@ class LockboxDB:
                         except (ValidationError, KeyError, IndexError):
                             pass
                 except aiohttp.ClientResponseError as e:
-                    user.email = None
                     logger.info(f"TDSB login error for login {user.login}")
                     # Invalid credentials, clean up and raise
                     if e.code == 401:
