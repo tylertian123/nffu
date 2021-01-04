@@ -10,6 +10,13 @@ At least one of the following environment variables are REQUIRED to be set:
         Path to a file containing a 32-byte key in raw binary for encrypting
         users' TDSB credentials; not used if LOCKBOX_CREDENTIAL_KEY is set.
 
+The following environment variables are RECOMMENDED to be set but not required:
+    - LOCKBOX_SCHOOL:
+        The school code of the school that all the users should be in. Since
+        nffu is designed to only handle users from one school, setting this
+        will allow lockbox to ensure that no user from another school gets in
+        the system.
+
 The following environment variables MAY be set to customize lockbox's behaviour:
     - LOCKBOX_CHECK_DAY_RUN_TIME:
         A string in the (Python datetime) format "%H:%M:%S-%H:%M:%S" for the
