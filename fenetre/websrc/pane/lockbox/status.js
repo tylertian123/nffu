@@ -58,7 +58,7 @@ function FormFillStatus() {
 			break;
 		case "submit-disabled":
 			el = <Alert variant="success">NFFU is currently in test mode and so we're not submitting forms, but your form was filled in succesfully.</Alert>;
-			show_screenshots = [true, true];
+			show_screenshots = [true, false];
 			break;
 		case "failure":
 			el = <Alert variant="danger">Oh no! Your last form didn't fill in properly. You probably need to do it manually.</Alert>;
