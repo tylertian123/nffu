@@ -32,6 +32,11 @@ The following environment variables MAY be set to customize lockbox's behaviour:
     - LOCKBOX_FILL_FORM_RETRY_IN:
         The number of seconds to wait before retrying for each Fill Form task.
         Defaults to 1800 (30 minutes). This is a float.
+    - LOCKBOX_FILL_FORM_SUBMIT_ENABLED:
+        If set to anything other than 1, form submission will be disabled
+        globally. Lockbox will still fill in the forms and take a screenshot to
+        be reported back, but the form will not actually be submitted. Defaults
+        to true (submit is enabled).
 """
 
 import logging
