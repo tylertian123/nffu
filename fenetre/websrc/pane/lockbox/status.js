@@ -1,16 +1,8 @@
 import React from 'react';
-
-import {Row, Col, FormCheck, Form, Button, Alert, Spinner, ListGroup} from 'react-bootstrap';
-import {LinkContainer} from 'react-router-bootstrap';
-import {ExtraUserInfoContext} from '../../common/userinfo';
-import {useFormik} from 'formik';
-import * as yup from 'yup';
-import {Link, Switch, Route, useParams} from 'react-router-dom';
-import useBackoffEffect from '../../common/pendprovider';
-import CourseWizard from './coursewizard';
-
-import {BsCheckAll, BsCheck, BsExclamationCircle, BsArrowRight, BsArrowLeft, BsArrowClockwise} from 'react-icons/bs';
+import {Alert, Button, Col, ListGroup, Row, Spinner} from 'react-bootstrap';
+import {Link} from 'react-router-dom';
 import {imageHighlight} from '../../common/confirms';
+import {ExtraUserInfoContext} from '../../common/userinfo';
 
 import "regenerator-runtime/runtime";
 
@@ -55,20 +47,25 @@ function FormFillStatus() {
 	}
 
 	let el = null;
+	let show_screenshots = [false, false];
+
 	switch (status.status) {
 		case "no-form":
 			return <Alert variant="info">We haven't yet filled in any forms for you!</Alert>;
 		case "success":
 			el = <Alert variant="success">Your last form was filled succesfully!</Alert>;
+			show_screenshots = [true, true];
 			break;
 		case "submit-disabled":
 			el = <Alert variant="success">NFFU is currently in test mode and so we're not submitting forms, but your form was filled in succesfully.</Alert>;
+			show_screenshots = [true, true];
 			break;
 		case "failure":
 			el = <Alert variant="danger">Oh no! Your last form didn't fill in properly. You probably need to do it manually.</Alert>;
 			break;
 		case "possible-failure":
 			el = <Alert variant="warning">Oh no! Your last form <i>may not have</i> filled in properly. You might need to do it manually.</Alert>;
+			show_screenshots = [true, false];
 			break;
 		default:
 			el = <Alert variant="warning">Unknown status</Alert>;
@@ -81,17 +78,21 @@ function FormFillStatus() {
 			{relatedCourse !== null && <li>Filled in for <code>{relatedCourse.course_code}</code>. <Link className="alert-link" to={`/lockbox/cfg/${relatedCourse.id}`}>View configuration</Link></li>}
 			<li>Last filled in at: {new Date(status.last_filled_at).toLocaleString('en-CA')}</li>
 		</ul>
-		<h2>Screenshots</h2>
-		<Row>
-			<Col lg className="mb-2">
-				<img onClick={() => imageHighlight("/api/v1/me/lockbox/form_status/form_thumb.png")} 
-					className="d-block img-fluid img-thumbnail" src="/api/v1/me/lockbox/form_status/form_thumb.png" />
-			</Col>
-			<Col lg className="mb-2">
-				<img onClick={() => imageHighlight("/api/v1/me/lockbox/form_status/confirm_thumb.png")} 
-					className="d-block img-fluid img-thumbnail" src="/api/v1/me/lockbox/form_status/confirm_thumb.png" />
-			</Col>
-		</Row>
+		{show_screenshots.some((x) => x) && <>
+			<h2>Screenshots</h2>
+			<Row>
+				{show_screenshots[0] && 
+				<Col lg className="mb-2">
+					<img onClick={() => imageHighlight("/api/v1/me/lockbox/form_status/form_thumb.png")} 
+						className="d-block img-fluid img-thumbnail" src="/api/v1/me/lockbox/form_status/form_thumb.png" />
+				</Col>}
+				{show_screenshots[1] && 
+					<Col lg className="mb-2">
+						<img onClick={() => imageHighlight("/api/v1/me/lockbox/form_status/confirm_thumb.png")} 
+							className="d-block img-fluid img-thumbnail" src="/api/v1/me/lockbox/form_status/confirm_thumb.png" />
+					</Col>}
+			</Row>
+		</>}
 	</div>
 }
 
