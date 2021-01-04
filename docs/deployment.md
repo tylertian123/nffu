@@ -50,7 +50,10 @@ After doing that, you should be able to log in and set up the rest of NFFU in a 
 The biggest problem you might encounter with NFFU is that it's only designed to work for one school per instance. This is because the only thing that uniquely
 identifies a course in NFFU is its course code; so if you try to use NFFU with students from multiple schools there _will_ be conflicts (there are also some
 additional internal assumptions based on this, like that if there isn't school on a given day for one student all other students can have form-filling delayed
-to save some CPU and network)
+to save some CPU and network).
+
+If you wish to prevent students from other schools from using the system, you can set the `LOCKBOX_SCHOOL` environment variable for lockbox to the code of
+the school `nffu` is intended for. If this env var is set, `nffu` will block out students from other schools when TDSB credentials are first entered.
 
 ## FAQ
 
@@ -60,7 +63,8 @@ TODO
 
 ### Environment Variables
 
-TODO: there are some env vars for lockbox that control various timing parameters
+There are some env vars that you can set for lockbox to change some settings such as the time it submits forms and does day checks, or disable form submission
+altogether. For the most up-to-date list, see the docstring for `/lockbox/lockbox/__init__.py`.
 
 ### Adjusting the Disclaimers
 

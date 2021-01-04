@@ -10,6 +10,13 @@ At least one of the following environment variables are REQUIRED to be set:
         Path to a file containing a 32-byte key in raw binary for encrypting
         users' TDSB credentials; not used if LOCKBOX_CREDENTIAL_KEY is set.
 
+The following environment variables are RECOMMENDED to be set but not required:
+    - LOCKBOX_SCHOOL:
+        The school code of the school that all the users should be in. Since
+        nffu is designed to only handle users from one school, setting this
+        will allow lockbox to ensure that no user from another school gets in
+        the system.
+
 The following environment variables MAY be set to customize lockbox's behaviour:
     - LOCKBOX_CHECK_DAY_RUN_TIME:
         A string in the (Python datetime) format "%H:%M:%S-%H:%M:%S" for the
@@ -25,6 +32,11 @@ The following environment variables MAY be set to customize lockbox's behaviour:
     - LOCKBOX_FILL_FORM_RETRY_IN:
         The number of seconds to wait before retrying for each Fill Form task.
         Defaults to 1800 (30 minutes). This is a float.
+    - LOCKBOX_FILL_FORM_SUBMIT_ENABLED:
+        If set to anything other than 1, form submission will be disabled
+        globally. Lockbox will still fill in the forms and take a screenshot to
+        be reported back, but the form will not actually be submitted. Defaults
+        to true (submit is enabled).
 """
 
 import logging

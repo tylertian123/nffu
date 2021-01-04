@@ -94,10 +94,15 @@ async def check_day(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         try:
             await session.login(user.login, password)
             # Attempt to grab day
-            schools = (await session.get_user_info()).schools
-            if not schools:
+            # First find the right school
+            for s in (await session.get_user_info()).schools:
+                if s.code == db.school_code:
+                    school = s
+                    break
+            else:
+                # Skip if not in the correct school
                 continue
-            days = await schools[0].day_cycle_names(datetime.datetime.today(), datetime.datetime.today())
+            days = await school.day_cycle_names(datetime.datetime.today(), datetime.datetime.today())
             if not days:
                 continue
             day = days[0]
@@ -218,12 +223,15 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             async with tdsbconnects.TDSBConnects() as session:
                 await session.login(owner.login, password)
                 info = await session.get_user_info()
-                if not info.schools:
-                    logger.error(f"Fill form: User {owner.pk} has no schools")
+                for s in info.schools:
+                    if s.code == db.school_code:
+                        school = s
+                        break
+                else:
+                    logger.error(f"Fill form: User {owner.pk} is not in the right school")
                     await set_last_result_error()
-                    await report_failure(LockboxFailureType.BAD_USER_INFO, "TDSB Connects did not return any schools")
+                    await report_failure(LockboxFailureType.BAD_USER_INFO, f"You don't seem to be in the school nffu was set up for (#{db.school_code})")
                     return next_run_time(FILL_FORM_RUN_TIME)
-                school = info.schools[0]
                 # Get only async courses today
                 timetable = [item for item in (await school.timetable(datetime.datetime.today()) or ())
                             if item.course_period.endswith("a")]
@@ -419,8 +427,8 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         fid = await db.shared_gridfs().upload_from_stream("form.png", fss)
         cid = await db.shared_gridfs().upload_from_stream("confirmation.png", css)
         await clear_last_result()
-        owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.SUCCESS.value if FILL_FORM_SUBMIT_ENABLED else FillFormResultType.SUBMIT_DISABLED.value, course=db_course.pk,
-            time_logged=datetime.datetime.utcnow(), form_screenshot_id=fid, confirmation_screenshot_id=cid)
+        owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.SUCCESS.value if FILL_FORM_SUBMIT_ENABLED else FillFormResultType.SUBMIT_DISABLED.value,
+            course=db_course.pk, time_logged=datetime.datetime.utcnow(), form_screenshot_id=fid, confirmation_screenshot_id=cid)
         await owner.commit()
         logger.info(f"Fill form: Finished for user {owner.pk}")
         return next_run_time(FILL_FORM_RUN_TIME)

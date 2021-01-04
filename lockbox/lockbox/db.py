@@ -65,6 +65,15 @@ class LockboxDB:
         # Should raise ValueError if key is invalid
         self.fernet = Fernet(key)
 
+        if os.environ.get("LOCKBOX_SCHOOL"):
+            try:
+                self.school_code = int(os.environ["LOCKBOX_SCHOOL"])
+            except ValueError as e:
+                logger.error(f"Invalid school code: {e}")
+                self.school_code = None
+        else:
+            self.school_code = None
+
         self.client = AsyncIOMotorClient(host, port)
         self._private_db = self.client["lockbox"]
         self._shared_db = self.client["shared"]
@@ -248,10 +257,29 @@ class LockboxDB:
                     async with TDSBConnects() as session:
                         await session.login(login, password)
                         info = await session.get_user_info()
+                        schools = info.schools
+                        if self.school_code is None:
+                            if len(schools) != 1:
+                                logger.info(f"Login {user.login} has an invalid number of schools.")
+                                raise LockboxDBError(f"TDSB Connects reported {len(schools)} schools; nffu can only handle 1 school", LockboxDBError.OTHER)
+                            school = schools[0]
+                        else:
+                            for s in schools:
+                                if s.code == self.school_code:
+                                    school = s
+                                    break
+                            else:
+                                logger.info(f"Login {user.login} is not in the configured school")
+                                raise LockboxDBError(f"You do not appear to be in the school nffu was set up for (#{self.school_code}); nffu can only handle 1 school", LockboxDBError.OTHER)
                         user.email = info.email
                         # Try to get user grade, first name, and last name
                         try:
-                            user.grade = int(info._data["SchoolCodeList"][0]["StudentInfo"]["CurrentGradeLevel"]) + 1
+                            user.grade = int(info._data["SchoolCodeList"][0]["StudentInfo"]["CurrentGradeLevel"])
+                            # CurrentGradeLevel increments once per *calendar* year
+                            # So the value is off-by-one during the first half of the school year
+                            # School year is in the form XXXXYYYY, e.g. 20202021
+                            if not school.school_year.endswith(str(datetime.datetime.now().year)):
+                                user.grade += 1
                         except (ValueError, KeyError, IndexError):
                             pass
                         try:
@@ -260,7 +288,6 @@ class LockboxDB:
                         except (ValidationError, KeyError, IndexError):
                             pass
                 except aiohttp.ClientResponseError as e:
-                    user.email = None
                     logger.info(f"TDSB login error for login {user.login}")
                     # Invalid credentials, clean up and raise
                     if e.code == 401:
@@ -274,7 +301,7 @@ class LockboxDB:
                 await self._scheduler.create_task(kind=documents.TaskType.POPULATE_COURSES, owner=user)
             else:
                 await user.commit()
-            
+
             # If user is active and has complete set of credentials, make a fill form task for them
             if user.active and user.login is not None and user.password is not None:
                 task = await self.TaskImpl.find_one({"kind": documents.TaskType.FILL_FORM.value, "owner": user})
