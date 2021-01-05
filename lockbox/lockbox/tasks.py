@@ -10,6 +10,7 @@ import gridfs
 import logging
 import os
 import random
+import umongo
 import tdsbconnects
 import traceback
 import typing
@@ -200,7 +201,12 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         Note that this does NOT commit the owner document.
         """
         await clear_last_result()
-        result = db.FillFormResultImpl(result=FillFormResultType.FAILURE.value, time_logged=datetime.datetime.utcnow())
+        result = db.FillFormResultImpl(result=FillFormResultType.FAILURE.value,
+                                       time_logged=datetime.datetime.utcnow())
+        # Ideally this shouldn't be necessary, but just in case
+        if isinstance(course, umongo.Document):
+            logger.warning("'course' argument passed to set_last_result_error() was a Document instead of an ObjectId!")
+            course = course.pk
         if course is not None:
             result.course = course
         owner.last_fill_form_result = result
@@ -432,11 +438,14 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         await owner.commit()
         logger.info(f"Fill form: Finished for user {owner.pk}")
         return next_run_time(FILL_FORM_RUN_TIME)
+    except scheduler.TaskError:
+        raise
+    # Catch-all to make sure this never fails
     except Exception as e: # pylint: disable=broad-except
         logger.critical(f"Fill form: Unexpected exception: {type(e).__name__}: {e}")
         print(traceback.format_exc())
         message = f"Critical internal error: {type(e).__name__}: '{e}'; Please contact an admin."
-        await set_last_result_error(course=locals().get("db_course"))
+        await set_last_result_error(course=locals().get("db_course").pk)
         if retries < FILL_FORM_RETRY_LIMIT:
             await report_failure(LockboxFailureType.INTERNAL, message + " Will retry later.")
             raise scheduler.TaskError(f"Unexpected exception: {type(e).__name__}: {e}", FILL_FORM_RETRY_IN)
