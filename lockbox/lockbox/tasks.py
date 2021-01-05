@@ -396,36 +396,33 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             kind = FormFieldType(field.kind)
             fields.append((field.index_on_page, title, kind, value))
         logger.info(f"Fill form: Form filling started for course {db_course.course_code} for user {owner.pk}")
-        def _inner():
-            try:
-                return ghoster.fill_form(db_course.form_url, ghoster_credentials, fields, dry_run=not FILL_FORM_SUBMIT_ENABLED)
-            except ghoster.GhosterError as e:
-                return e
-        result = await asyncio.get_event_loop().run_in_executor(None, _inner)
-        if isinstance(result, ghoster.GhosterError):
-            if isinstance(result, ghoster.GhosterPossibleFail):
-                message, screenshot = result.args
-                logger.warning(f"Fill form: Possible failure for user {owner.pk}: {message}")
-                # Upload screenshot
-                screenshot_id = await db.shared_gridfs().upload_from_stream("confirmation.png", screenshot)
-                await clear_last_result()
-                owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.POSSIBLE_FAILURE.value,
-                    time_logged=datetime.datetime.utcnow(), confirmation_screenshot_id=screenshot_id, course=db_course.pk)
-                await report_failure(LockboxFailureType.FORM_FILLING, f"Possible form filling failure (Not retrying): {message}")
-                return next_run_time(FILL_FORM_RUN_TIME)
-            if isinstance(result, ghoster.GhosterAuthFailed):
+        try:
+            result = await asyncio.get_event_loop().run_in_executor(None, lambda: ghoster.fill_form(db_course.form_url,
+                ghoster_credentials, fields, dry_run=not FILL_FORM_SUBMIT_ENABLED))
+        except ghoster.GhosterPossibleFail as e:
+            message, screenshot = e.args # pylint: disable=unbalanced-tuple-unpacking
+            logger.warning(f"Fill form: Possible failure for user {owner.pk}: {message}")
+            # Upload screenshot and report error
+            screenshot_id = await db.shared_gridfs().upload_from_stream("confirmation.png", screenshot)
+            await clear_last_result()
+            owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.POSSIBLE_FAILURE.value,
+                time_logged=datetime.datetime.utcnow(), confirmation_screenshot_id=screenshot_id, course=db_course.pk)
+            await report_failure(LockboxFailureType.FORM_FILLING, f"Possible form filling failure (Not retrying): {message}")
+            return next_run_time(FILL_FORM_RUN_TIME)
+        except ghoster.GhosterError as e:
+            if isinstance(e, ghoster.GhosterAuthFailed):
                 fail_type = "Failed to login"
-            elif isinstance(result, ghoster.GhosterInvalidForm):
+            elif isinstance(e, ghoster.GhosterInvalidForm):
                 fail_type = "Invalid form"
             else:
                 fail_type = "Unknown failure"
-            logger.error(f"Fill form: {fail_type} for user {owner.pk}: {result}")
+            logger.error(f"Fill form: {fail_type} for user {owner.pk}: {e}\n{traceback.format_exc()}")
             await set_last_result_error(course=db_course.pk)
             if retries < FILL_FORM_RETRY_LIMIT:
-                await report_failure(LockboxFailureType.FORM_FILLING, f"{fail_type} (will retry later): {result}")
-                raise scheduler.TaskError(f"{fail_type}: {result}", FILL_FORM_RETRY_IN)
+                await report_failure(LockboxFailureType.FORM_FILLING, f"{fail_type} (will retry later): {e}")
+                raise scheduler.TaskError(f"{fail_type}: {e}", FILL_FORM_RETRY_IN)
             else:
-                await report_failure(LockboxFailureType.FORM_FILLING, f"{fail_type} (retry limit reached): {result}")
+                await report_failure(LockboxFailureType.FORM_FILLING, f"{fail_type} (retry limit reached): {e}")
                 return next_run_time(FILL_FORM_RUN_TIME)
         # Finally... all is well
         # Upload form and confirmation screenshots
@@ -442,8 +439,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
         raise
     # Catch-all to make sure this never fails
     except Exception as e: # pylint: disable=broad-except
-        logger.critical(f"Fill form: Unexpected exception: {type(e).__name__}: {e}")
-        print(traceback.format_exc())
+        logger.critical(f"Fill form: Unexpected exception: {type(e).__name__}: {e}\n{traceback.format_exc()}")
         message = f"Critical internal error: {type(e).__name__}: '{e}'; Please contact an admin."
         await set_last_result_error(course=locals().get("db_course").pk)
         if retries < FILL_FORM_RETRY_LIMIT:
