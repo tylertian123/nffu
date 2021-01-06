@@ -401,7 +401,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
                 ghoster_credentials, fields, dry_run=not FILL_FORM_SUBMIT_ENABLED))
         except ghoster.GhosterPossibleFail as e:
             message, screenshot = e.args # pylint: disable=unbalanced-tuple-unpacking
-            logger.warning(f"Fill form: Possible failure for user {owner.pk}: {message}")
+            logger.warning(f"Fill form: Possible failure for user {owner.pk}: {message}\n{traceback.format_exc()}")
             # Upload screenshot and report error
             screenshot_id = await db.shared_gridfs().upload_from_stream("confirmation.png", screenshot)
             await clear_last_result()
