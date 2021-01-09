@@ -96,13 +96,21 @@ async def check_day(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             await session.login(user.login, password)
             # Attempt to grab day
             # First find the right school
-            for s in (await session.get_user_info()).schools:
-                if s.code == db.school_code:
-                    school = s
-                    break
+            schools = (await session.get_user_info()).schools
+            if db.school_code is not None:
+                for s in schools:
+                    if s.code == db.school_code:
+                        school = s
+                        break
+                else:
+                    logger.warning(f"User {user.pk} is not in the correct school")
+                    # Skip if not in the correct school
+                    continue
             else:
-                # Skip if not in the correct school
-                continue
+                if len(schools) != 1:
+                    logger.warning(f"User {user.pk} is in {len(schools)} schools")
+                    continue
+                school = schools[0]
             days = await school.day_cycle_names(datetime.datetime.today(), datetime.datetime.today())
             if not days:
                 continue
@@ -229,15 +237,24 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             async with tdsbconnects.TDSBConnects() as session:
                 await session.login(owner.login, password)
                 info = await session.get_user_info()
-                for s in info.schools:
-                    if s.code == db.school_code:
-                        school = s
-                        break
+                if db.school_code is not None:
+                    for s in info.schools:
+                        if s.code == db.school_code:
+                            school = s
+                            break
+                    else:
+                        logger.error(f"Fill form: User {owner.pk} is not in the right school")
+                        await set_last_result_error()
+                        await report_failure(LockboxFailureType.BAD_USER_INFO, f"You don't seem to be in the school nffu was set up for (#{db.school_code}).")
+                        return next_run_time(FILL_FORM_RUN_TIME)
                 else:
-                    logger.error(f"Fill form: User {owner.pk} is not in the right school")
-                    await set_last_result_error()
-                    await report_failure(LockboxFailureType.BAD_USER_INFO, f"You don't seem to be in the school nffu was set up for (#{db.school_code})")
-                    return next_run_time(FILL_FORM_RUN_TIME)
+                    schools = info.schools
+                    if len(schools) != 1:
+                        logger.error(f"Fill form: User {owner.pk} has an invalid number of schools: {', '.join(f'{s.name} (#{s.code})' for s in schools)}")
+                        await set_last_result_error()
+                        await report_failure(LockboxFailureType.BAD_USER_INFO, f"TDSB reported that you're in {len(schools)} schools. NFFU only works if you have exactly 1 school.")
+                        return next_run_time(FILL_FORM_RUN_TIME)
+                    school = schools[0]
                 # Get only async courses today
                 timetable = [item for item in (await school.timetable(datetime.datetime.today()) or ())
                             if item.course_period.endswith("a")]
