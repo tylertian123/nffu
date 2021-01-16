@@ -1,9 +1,10 @@
-version: "3.2"
+version: "3.7"
 
 services:
   lockbox:
     build: ./lockbox
     image: docker-registry.i.mm12.xyz/nffu-lockbox:dev
+    init: true
     ports:
       - "8082:80"
     volumes:
