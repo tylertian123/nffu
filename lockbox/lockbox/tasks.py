@@ -362,6 +362,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
                     logger.warning(f"Fill form: Cannot figure out name for user {owner.pk}")
                     first_name = ""
                     last_name = ""
+                    await report_failure(LockboxFailureType.BAD_USER_INFO, "Warning: unable to determine your name, defaulting to empty. Please set it in the override pane.")
             else:
                 first_name = owner.first_name
                 last_name = owner.last_name
