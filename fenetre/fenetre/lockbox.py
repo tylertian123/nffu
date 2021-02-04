@@ -276,3 +276,12 @@ async def get_form_geometry(user: User, form_url: str, needs_screenshot: bool=Fa
             sid = bson.ObjectId(payload["screenshot_id"])
         
         return FormGeometry(payload["auth_required"], entries, sid)
+
+async def update_all_user_courses():
+    """
+    Calls /update_all_courses
+    """
+
+    async with _lockbox_sess().post("http://lockbox/update_all_courses") as resp:
+        if not resp.ok:
+            raise LockboxError("failed to update all courses", resp.status)

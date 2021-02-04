@@ -975,3 +975,10 @@ async def update_patch_form(idx):
 
     await form.commit()
     return '', 204
+
+@blueprint.route("/admin/update_user_courses", methods=["POST"])
+@admin_required
+async def update_all_user_courses():
+    await lockbox.update_all_user_courses()
+
+    return '', 204

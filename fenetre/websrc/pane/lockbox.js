@@ -7,6 +7,9 @@ import {ExtraUserInfoProvider} from '../common/userinfo';
 
 import Cfg from './lockbox/cfg';
 import Status from './lockbox/status';
+import LockAdmin from './lockbox/admin';
+
+import {AdminOnly} from '../common/userinfo';
 
 function Lockbox() {
 	return <Row>
@@ -18,6 +21,11 @@ function Lockbox() {
 				<LinkContainer to="/lockbox/status">
 					<Nav.Link>Status</Nav.Link>
 				</LinkContainer>
+				<AdminOnly>
+					<LinkContainer to="/lockbox/admin">
+						<Nav.Link>Lockbox Admin</Nav.Link>
+					</LinkContainer>
+				</AdminOnly>
 			</Nav>
 		</Col>
 		<Col md="8" lg="10">
@@ -29,6 +37,11 @@ function Lockbox() {
 					<Route path="/lockbox/status">
 						<Status />
 					</Route>
+					<AdminOnly>
+						<Route path="/lockbox/admin">
+							<LockAdmin />
+						</Route>
+					</AdminOnly>
 				</Switch>
 			</ExtraUserInfoProvider>
 		</Col>
