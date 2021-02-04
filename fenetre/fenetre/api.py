@@ -986,6 +986,11 @@ async def update_all_user_courses():
 @blueprint.route("/admin/debug/tasks")
 @admin_required
 async def get_active_tasks():
+    tasks = await lockbox.get_debug_tasks()
+
+    for i in tasks:
+        i["next_run_at"] += "Z"
+
     return {
-        "tasks": await lockbox.get_debug_tasks()
+        "tasks": tasks
     }
