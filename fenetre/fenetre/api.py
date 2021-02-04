@@ -982,3 +982,10 @@ async def update_all_user_courses():
     await lockbox.update_all_user_courses()
 
     return '', 204
+
+@blueprint.route("/admin/debug/tasks")
+@admin_required
+async def get_active_tasks():
+    return {
+        "tasks": await lockbox.get_debug_tasks()
+    }

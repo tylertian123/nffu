@@ -285,3 +285,16 @@ async def update_all_user_courses():
     async with _lockbox_sess().post("http://lockbox/update_all_courses") as resp:
         if not resp.ok:
             raise LockboxError("failed to update all courses", resp.status)
+        
+async def get_debug_tasks():
+    """
+    Calls /update_all_courses
+    """
+
+    async with _lockbox_sess().get("http://lockbox/debug/tasks") as resp:
+        payload = await resp.json()
+
+        if not resp.ok:
+            raise LockboxError(payload.get("error", ""), resp.status)
+
+        return payload["tasks"]
