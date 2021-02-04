@@ -5,7 +5,7 @@ with open("requirements.txt", "r") as fh:
 
 setup(
     name="lockbox",
-    version="0.1.8",
+    version="0.1.9",
     description="",
     packages=["lockbox"],
     install_requires=install_requires,
