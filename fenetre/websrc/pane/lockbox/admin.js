@@ -50,7 +50,7 @@ function TaskViewer() {
 		<ListGroup className="bg-light">
 			{tasks.map((x) => <TaskEntry task={x} />)}
 		</ListGroup>
-		<Button className="mt-3" onClick={() => setVersion(version + 1)} disabled={pending}>
+		<Button className="mt-2" onClick={() => setVersion(version + 1)} disabled={pending}>
 			{pending ? <Spinner size="sm" animation="border" /> : null} {version == 0 ? " Load" : " Reload"}
 		</Button>
 	</div>
@@ -69,9 +69,8 @@ function LockAdmin() {
 	};
 
 	return <div>
-		<h1>Actions</h1>
-		<Button variant="success" onClick={onUpdateCourses}>Update all user courses</Button>
-		<h1>Debug</h1>
+		<h2>Actions</h2>
+		<Button className="mb-3" variant="success" onClick={onUpdateCourses}>Update all user courses</Button>
 		<h2>Task View</h2>
 		<TaskViewer />
 	</div>;
