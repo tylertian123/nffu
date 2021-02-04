@@ -294,8 +294,6 @@ class LockboxDB:
                         raise LockboxDBError("Incorrect TDSB credentials", LockboxDBError.INVALID_FIELD) from e
                     raise LockboxDBError(f"HTTP error while logging into TDSB Connects: {str(e)}") from e
                 # Now we know credentials are valid
-                # Set user courses to None to mark as pending
-                user.courses = None
                 await user.commit()
                 logger.info(f"Credentials good for login {user.login}")
                 await self._scheduler.create_task(kind=documents.TaskType.POPULATE_COURSES, owner=user)
@@ -386,10 +384,38 @@ class LockboxDB:
         except InvalidToken as e:
             logger.critical(f"User {user.pk}'s password cannot be decrypted")
             raise LockboxDBError("Internal server error: Cannot decrypt password", LockboxDBError.INTERNAL_ERROR) from e
-        # Force courses into pending
-        user.courses = None
-        await user.commit()
         await self._scheduler.create_task(kind=documents.TaskType.POPULATE_COURSES, owner=user)
+
+    async def update_all_courses(self) -> None:
+        """
+        Refresh the detected courses for ALL users.
+        """
+        batch_size = 3
+        if os.environ.get("LOCKBOX_UPDATE_COURSES_BATCH_SIZE"):
+            try:
+                b = int(os.environ["LOCKBOX_UPDATE_COURSES_BATCH_SIZE"])
+                if b < 1:
+                    raise ValueError("Batch size cannot be less than 1")
+                batch_size = b
+            except ValueError as e:
+                logger.error(f"Update all courses: Invalid batch size specified by env var (defaulted to {batch_size}): {e}")
+        interval = 60
+        if os.environ.get("LOCKBOX_UPDATE_COURSES_INTERVAL"):
+            try:
+                i = int(os.environ["LOCKBOX_UPDATE_COURSES_INTERVAL"])
+                if i < 0:
+                    raise ValueError("Interval cannot be less than 0")
+                interval = i
+            except ValueError as e:
+                logger.error(f"Update all courses: Invalid interval specified by env var (defaulted to {interval}s): {e}")
+        run_at = datetime.datetime.utcnow()
+        batch = 0
+        async for user in self.UserImpl.find({"login": {"$ne": None}, "password": {"$ne": None}}):
+            await self._scheduler.create_task(documents.TaskType.POPULATE_COURSES, run_at, user)
+            batch += 1
+            if batch >= batch_size:
+                batch = 0
+                run_at += datetime.timedelta(seconds=interval)
 
     async def get_form_geometry(self, token: str, url: str, override_limit: bool, grab_screenshot: bool) -> dict:
         """

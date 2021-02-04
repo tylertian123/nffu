@@ -37,7 +37,20 @@ The following environment variables MAY be set to customize lockbox's behaviour:
         globally. Lockbox will still fill in the forms and take a screenshot to
         be reported back, but the form will not actually be submitted. Defaults
         to true (submit is enabled).
+    - LOCKBOX_UPDATE_COURSES_BATCH_SIZE:
+        The batch size (number of update operations to run at once) for
+        updating all users' courses (typically run during a quad switch). Since
+        the number of users can be large, users are divided into batches of
+        this size, which are then run in sequence with the specified interval
+        (see LOCKBOX_UPDATE_COURSES_INTERVAL). Defaults to 3.
+    - LOCKBOX_UPDATE_COURSES_INTERVAL:
+        The interval in seconds (amount of time to wait between batches) for
+        updating all users' courses (typically run during a quad switch). See
+        above for details. Note that this is the interval between the *start*
+        of two batches, not between the end of one batch and the start of the
+        next. Defaults to 60.
 """
+
 
 import logging
 from .server import LockboxServer

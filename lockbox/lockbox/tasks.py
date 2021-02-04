@@ -471,15 +471,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
 async def populate_courses(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional[datetime.datetime]: # pylint: disable=unused-argument
     """
     Get courses from TDSB connects for a user and populate the DB.
-
-    Important: owner.courses should be set to None BEFORE this task runs.
-    If courses is not None, this task will exit immediately to prevent doing unnecessary work.
-    Current behaviour if TDSB Connects fails is to simply retry in 10 minutes with a limit of 12 retries.
-    If a new populate courses task is started and succeeds after the previous one fails,
-    owner.courses will be non-None, so the retry will just exit without doing extra work.
     """
-    if owner.courses is not None:
-        return None
     if owner.login is None or owner.password is None:
         raise scheduler.TaskError("User credentials are incomplete")
     try:
@@ -487,12 +479,18 @@ async def populate_courses(db: "db_.LockboxDB", owner, retries: int) -> typing.O
     except InvalidToken as e:
         logger.critical(f"User {owner.pk}'s password cannot be decrypted")
         raise scheduler.TaskError("Cannot decrypt user password") from e
+    # Force owner courses into pending
+    # NOTE: This action used to be required *before* the task is run, so that in the event of a failure,
+    # if the user tried to update before the retry attempt, the retry won't need to do any extra work
+    # However to facilitate refreshing all users' courses (for quad changes) this was removed
+    owner.courses = None
+    await owner.commit()
     try:
         courses = await tdsb.get_async_periods(username=owner.login, password=password, include_all_slots=True)
     except aiohttp.ClientError as e:
         # TODO: Improve this error handling
         raise scheduler.TaskError(f"TDSB Connects error: {e}", retry_in=600 if retries < 12 else None)
-    await db.populate_user_courses(owner, courses)
+    await db.populate_user_courses(owner, courses, clear_previous=True)
 
 
 def set_task_handlers(sched: "scheduler.Scheduler"):

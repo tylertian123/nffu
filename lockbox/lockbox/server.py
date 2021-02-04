@@ -85,6 +85,7 @@ class LockboxServer:
             web.get("/user/courses", self._get_user_courses),
             web.post("/user/courses/update", self._post_user_courses_update),
             web.post("/form_geometry", self._post_form_geometry),
+            web.post("/update_all_courses", self._post_update_all_courses),
             web.get("/debug/tasks", self._get_debug_tasks),
             web.post("/debug/tasks/update", self._post_debug_tasks_update),
         ])
@@ -361,6 +362,21 @@ class LockboxServer:
             return web.json_response(result, status=status)
         else:
             return web.json_response(result, status=200)
+    
+    @_handle_db_errors
+    async def _post_update_all_courses(self, request: web.Request): # pylint: disable=unused-argument
+        """
+        Handle a POST to /update_all_courses. Equivalent to POSTing to /user/courses/update for ALL users.
+
+        Returns the following JSON on failure:
+        {
+            "error": "...", // Reason for error, e.g. "Bad token", etc.
+        }
+
+        204 on success.
+        """
+        await self.db.update_all_courses()
+        return web.Response(status=204)
 
     @_handle_db_errors
     async def _get_debug_tasks(self, request: web.Request): # pylint: disable=unused-argument

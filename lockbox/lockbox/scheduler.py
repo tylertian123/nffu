@@ -155,6 +155,8 @@ class Scheduler:
         Create a new task.
 
         If run_at is not specified or None, the task will be scheduled immediately.
+        Note that run_at is in *UTC*.
+
         Returns the created task document.
         """
         run_at = run_at or datetime.datetime.utcnow()
