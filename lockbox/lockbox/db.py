@@ -481,4 +481,4 @@ class LockboxDB:
         """
         Get a list of serialized tasks.
         """
-        return [task.dump() async for task in self.TaskImpl.find()]
+        return [task.dump() async for task in self.TaskImpl.find().sort("next_run_at", 1).sort("retry_count", -1).sort("is_running", -1)]
