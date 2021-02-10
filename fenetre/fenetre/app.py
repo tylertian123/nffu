@@ -23,9 +23,11 @@ def create_app():
     app = Quart(__name__)
     app.config["QUART_AUTH_COOKIE_SECURE"] = False
     app.secret_key = secrets.token_urlsafe()
-    app.send_file_max_age_default = timedelta(days=15)
     if app.debug:
         app.secret_key = "thisisverysecret"
+    else:
+        app.send_file_max_age_default = timedelta(weeks=52)
+
 
     static_digest.init_app(app)
 
