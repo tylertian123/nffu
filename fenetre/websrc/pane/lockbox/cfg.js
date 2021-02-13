@@ -172,7 +172,7 @@ function CourseDetector() {
 		let alertstr = null;
 
 		if (courses !== null) {
-			if (courses.every((x) => !x.configuration_locked && (x.form_config || !x.has_attendance_form))) {
+			if (courses.every((x) => (x.form_config || !x.has_attendance_form)) && courses.some((x) => !x.configuration_locked)) {
 				alertstr = <Alert variant="warning">All of your courses have valid configurations, however some of them have not been verified yet. You might want to check them (and possibly amend them) yourself.</Alert>;
 			}
 			else if (courses.some((x) => !x.configuration_locked)) {
