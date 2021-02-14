@@ -5,7 +5,7 @@ with open("requirements.txt", "r") as fh:
 
 setup(
     name="fenetre",
-    version="0.1.9",
+    version="0.1.10",
     description="",
     packages=["fenetre"],
     install_requires=install_requires,
