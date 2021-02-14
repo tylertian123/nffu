@@ -31,7 +31,7 @@ FROM debian:buster-slim AS py-compile
 # install python deps
 RUN apt-get update \
   && apt-get install -y --no-install-recommends --no-install-suggests \
-	python3 python3-venv python3-pip python3-dev build-essential gcc
+	python3 python3-venv python3-pip python3-dev build-essential gcc rustc cargo libssl-dev 
 
 # create a venv 
 RUN python3 -m venv /opt/venv

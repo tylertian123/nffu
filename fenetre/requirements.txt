@@ -1,5 +1,5 @@
 quart~=0.13.0
-flask-static-digest
-quart-auth
+flask-static-digest==0.2.1
+quart-auth==0.4.0
 umongo[motor]~=3.0
-aiohttp
+aiohttp==3.7.*

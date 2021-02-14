@@ -1,7 +1,7 @@
-aiohttp
-python-dateutil
-cryptography
+aiohttp==3.7.*
+python-dateutil==2.8.*
+cryptography==3.4.5
 pytdsbconnects
 umongo[motor]~=3.0
-lark-parser
-selenium
+lark-parser==0.11.*
+selenium~=3.141
