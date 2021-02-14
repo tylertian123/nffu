@@ -116,6 +116,10 @@ def create_app():
     async def handle_eula(*_: EulaRequired):
         return redirect(url_for("eula_confirmation"))
 
+    @app.route("/favicon.ico")
+    async def forward_favicon():
+        return redirect(static_digest.static_url_for("static", filename="favicon.ico"))
+
     # setup static digest commands
     setup_digest(app)
 
