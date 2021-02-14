@@ -3,8 +3,8 @@
 # shamelessly ripped off from the geckdriver image; not extended to avoid having to replicate all the purging crap
 FROM debian:buster-slim AS firefox
 
-ARG firefox_ver=84.0.1
-ARG geckodriver_ver=0.28.0
+ARG firefox_ver=85.0.2
+ARG geckodriver_ver=0.29.0
 
 ADD https://ftp.mozilla.org/pub/firefox/releases/${firefox_ver}/linux-x86_64/en-GB/firefox-${firefox_ver}.tar.bz2 /tmp/firefox.tar.bz2
 ADD https://github.com/mozilla/geckodriver/releases/download/v${geckodriver_ver}/geckodriver-v${geckodriver_ver}-linux64.tar.gz /tmp/geckodriver.tar.gz
