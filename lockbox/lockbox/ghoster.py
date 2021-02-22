@@ -145,11 +145,16 @@ def _fill_in_field(browser: webdriver.Firefox, element: webdriver.firefox.webele
     Fill in a field
     """
 
+    waiter = WebDriverWait(browser, 4, poll_frequency=0.25)
+
     if kind in [FormFieldType.TEXT, FormFieldType.LONG_TEXT]:
         text_field = element.find_element_by_css_selector("input.quantumWizTextinputPaperinputInput" if kind == FormFieldType.TEXT else "textarea.quantumWizTextinputPapertextareaInput")
 
         if not isinstance(with_value, str):
             raise TypeError()
+
+        # wait for the element to be interactable
+        waiter.until(EC.visibility_of(text_field))
 
         text_field.send_keys(with_value)
 
@@ -163,6 +168,9 @@ def _fill_in_field(browser: webdriver.Firefox, element: webdriver.firefox.webele
         day   = [x for x in components if x.get_attribute("max") == '31'][0]
         year  = [x for x in components if int(x.get_attribute("min")) >= 1000][0]
 
+        for i in [month, day, year]:
+            waiter.until(EC.visibility_of(i))
+
         month.send_keys(str(with_value.month))
         day.send_keys(str(with_value.day))
         year.send_keys(str(with_value.year))
@@ -173,18 +181,21 @@ def _fill_in_field(browser: webdriver.Firefox, element: webdriver.firefox.webele
 
         if kind == FormFieldType.MULTIPLE_CHOICE:
             options = element.find_elements_by_class_name("docssharedWizToggleLabeledLabelWrapper")
+            waiter.until(EC.visibility_of(options[with_value]))
             options[with_value].click()
 
         elif kind == FormFieldType.CHECKBOX:
             options = element.find_elements_by_class_name("quantumWizTogglePapercheckboxInnerBox")
+            waiter.until(EC.visibility_of(options[with_value]))
             options[with_value].click()
 
         elif kind == FormFieldType.DROPDOWN:
             opener = element.find_element_by_class_name("quantumWizMenuPaperselectDropDown")
+            waiter.until(EC.visibility_of(opener))
             opener.click()
 
             popup = element.find_element_by_class_name("exportSelectPopup")
-            WebDriverWait(browser, 4, poll_frequency=0.25).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.exportSelectPopup .quantumWizMenuPaperselectOption")))
+            waiter.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.exportSelectPopup .quantumWizMenuPaperselectOption")))
             options = popup.find_elements_by_class_name("exportOption")
             options[with_value + 1].click()  # + 1 for the "Choose" label
 
@@ -196,7 +207,7 @@ def _fill_in_field(browser: webdriver.Firefox, element: webdriver.firefox.webele
 
             # delay until the thing _no longer_ visible
             try:
-                WebDriverWait(browser, 4, poll_frequency=0.25).until_not(EC.presence_of_element_located((By.CSS_SELECTOR, "div.exportSelectPopup .quantumWizMenuPaperselectOption")))
+                waiter.until_not(EC.presence_of_element_located((By.CSS_SELECTOR, "div.exportSelectPopup .quantumWizMenuPaperselectOption")))
             except TimeoutException:
                 # ignore timeouts
                 pass
