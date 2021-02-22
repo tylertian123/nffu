@@ -708,9 +708,8 @@ async def _test_fill_form_inner(db: "db_.LockboxDB", owner, context) -> bool:
     # Upload form and confirmation screenshots
     fss, css = result
     fid = await db.shared_gridfs().upload_from_stream("form.png", fss)
-    cid = await db.shared_gridfs().upload_from_stream("confirmation.png", css)
     context.fill_result = db.FillFormResultImplShared(result=FillFormResultType.SUCCESS.value if FILL_FORM_SUBMIT_ENABLED else FillFormResultType.SUBMIT_DISABLED.value,
-            course=db_course.pk, time_logged=datetime.datetime.utcnow(), form_screenshot_id=fid, confirmation_screenshot_id=cid)
+            course=db_course.pk, time_logged=datetime.datetime.utcnow(), form_screenshot_id=fid, confirmation_screenshot_id=fid)
     await context.commit()
     logger.info(f"Test fill form: Finished for user {owner.pk}")
 
@@ -765,11 +764,6 @@ async def remove_old_test_result(db: "db_.LockboxDB", owner, retries: int, argum
                 await db.shared_gridfs().delete(context.fill_result.form_screenshot_id)
             except gridfs.NoFile:
                 logger.warning(f"Test fill form cleanup: Failed to delete previous result form screenshot for user {context.pk}: No file")
-        if context.fill_result.confirmation_screenshot_id is not None:
-            try:
-                await db.shared_gridfs().delete(context.fill_result.confirmation_screenshot_id)
-            except gridfs.NoFile:
-                logger.warning(f"Test fill form cleanup: Failed to delete previous result conformation page screenshot for user {context.pk}: No file")
 
     await context.remove()
     logger.info(f"Test fill form cleanup: removed {argument}")
