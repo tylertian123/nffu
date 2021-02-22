@@ -251,7 +251,7 @@ class CachedFormGeometry(Document): # pylint: disable=abstract-method
     response_status = fields.IntField(required=False)
     error = fields.StrField(required=False)
 
-class FormFillingTest(Document):
+class FormFillingTest(Document): # pylint: disable=abstract-method
     """
     Represents finished/inprogress tests of form filling
     """

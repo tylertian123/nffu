@@ -367,7 +367,7 @@ class LockboxServer:
     @_handle_db_errors
     @_json_payload
     @_extract_token
-    async def _post_test_form(self, request: web.Request, token: str, payload: dict):
+    async def _post_test_form(self, request: web.Request, token: str, payload: dict): # pylint: disable=unused-argument
         """
         Handle a POST to /test_form.
 
@@ -385,9 +385,6 @@ class LockboxServer:
         - 401: Invalid token
         - 409: Setup already tested / in progress
         """
-
-        # verify creds
-        await self.db.get_user(token)
 
         if "test_setup_id" not in payload:
             return web.json_response({"error": "Missing field: 'test_setup_id'"}, status=400)

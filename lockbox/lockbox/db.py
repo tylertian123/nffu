@@ -495,5 +495,7 @@ class LockboxDB:
         """
 
         user = await self.UserImpl.find_one({"token": token})
+        if user is None:
+            raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
         await self._scheduler.create_task(kind=documents.TaskType.TEST_FILL_FORM, owner=user, argument=oid)
         await self._scheduler.create_task(run_at=datetime.datetime.utcnow() + datetime.timedelta(hours=6), kind=documents.TaskType.REMOVE_OLD_TEST_RESULTS, argument=oid)
