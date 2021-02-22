@@ -536,7 +536,7 @@ async def _test_fill_form_inner(db: "db_.LockboxDB", owner, context) -> bool:
         message = f"Internal error: Failed to find course by id in test setup."
         await set_last_result_error()
         await report_failure(LockboxFailureType.INTERNAL, message)
-        return
+        return False
 
     # construct fieldexpr config
 
@@ -685,7 +685,6 @@ async def _test_fill_form_inner(db: "db_.LockboxDB", owner, context) -> bool:
         logger.warning(f"Test fill form: Possible failure for user {owner.pk}: {message}\n{traceback.format_exc()}")
         # Upload screenshot and report error
         screenshot_id = await db.shared_gridfs().upload_from_stream("confirmation.png", screenshot)
-        await clear_last_result()
         owner.last_fill_form_result = db.FillFormResultImplShared(result=FillFormResultType.POSSIBLE_FAILURE.value,
             time_logged=datetime.datetime.utcnow(), confirmation_screenshot_id=screenshot_id, course=db_course.pk)
         await report_failure(LockboxFailureType.FORM_FILLING, f"Possible form filling failure (Not retrying): {message}")
