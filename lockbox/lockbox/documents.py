@@ -117,6 +117,8 @@ class TaskType(enum.Enum):
     FILL_FORM = "fill-form"
     CHECK_DAY = "check-day"
     POPULATE_COURSES = "populate-courses"
+    TEST_FILL_FORM = "test-fill-form"
+    REMOVE_OLD_TEST_RESULTS = "remove-old-test-result"
 
 
 class Task(Document): # pylint: disable=abstract-method
@@ -248,3 +250,21 @@ class CachedFormGeometry(Document): # pylint: disable=abstract-method
 
     response_status = fields.IntField(required=False)
     error = fields.StrField(required=False)
+
+class FormFillingTest(Document):
+    """
+    Represents finished/inprogress tests of form filling
+    """
+
+    # config to test
+    course_config = fields.ObjectIdField(required=True)
+    # with information from this user
+    requested_by = fields.StrField(required=True)  # holds which user is using this
+    time_executed = fields.DateTimeField(required=False, allow_none=True)
+
+    # status
+    is_finished = fields.BoolField(default=False)
+
+    # results
+    errors = fields.ListField(fields.EmbeddedField(LockboxFailure), default=[])
+    fill_result = fields.EmbeddedField(FillFormResult, default=None, allow_none=True)

@@ -493,6 +493,263 @@ async def populate_courses(db: "db_.LockboxDB", owner, retries: int, argument: s
     await db.populate_user_courses(owner, courses, clear_previous=True)
 
 
+async def _test_fill_form_inner(db: "db_.LockboxDB", owner, context) -> bool:
+    """
+    Try to fill in a form with mostly correct data, and save the results. Returns true if form was (at least somewhat) filled, returns false otherwise
+    """
+
+    # TODO: get context from argument
+
+    async def report_failure(kind: LockboxFailureType, message: str):
+        """
+        Report a lockbox failure by adding a document to this tests's list of failures.
+
+        This does commit the context document.
+        """
+        failure = db.LockboxFailureImpl(_id=bson.ObjectId(), time_logged=datetime.datetime.utcnow(),
+                                        kind=kind.value, message=message)
+        # Make sure it's a new list instance
+        if not context.errors:
+            context.errors = []
+        context.errors.append(failure)
+        await context.commit()
+
+    async def set_last_result_error(course: bson.ObjectId = None, error_kind: str = FillFormResultType.FAILURE.value):
+        """
+        Set the result of this test to error.
+        """
+
+        result = db.FillFormResultImpl(result=error_kind,
+                                       time_logged=datetime.datetime.utcnow())
+        # Ideally this shouldn't be necessary, but just in case
+        if isinstance(course, umongo.Document):
+            logger.warning("'course' argument passed to set_last_result_error() was a Document instead of an ObjectId!")
+            course = course.pk
+        if course is not None:
+            result.course = course
+        context.fill_result = result
+        await context.commit()
+
+    db_course = context.course_config
+
+    # construct fieldexpr config
+
+    # grab password
+    try:
+        password = db.fernet.decrypt(owner.password).decode("utf-8")
+    except InvalidToken:
+        # PANIC!
+        logger.critical(f"Test fill form: User {owner.pk}'s password cannot be decrypted")
+        await set_last_result_error()
+        await report_failure(LockboxFailureType.INTERNAL, "Internal error: Failed to decrypt password")
+
+        return False
+
+    # try tdsbconnects
+    try:
+        async with tdsbconnects.TDSBConnects() as session:
+            await session.login(owner.login, password)
+            info = await session.get_user_info()
+            if db.school_code is not None:
+                for s in info.schools:
+                    if s.code == db.school_code:
+                        school = s
+                        break
+                else:
+                    logger.error(f"Test fill form: User {owner.pk} is not in the right school")
+                    await set_last_result_error()
+                    await report_failure(LockboxFailureType.BAD_USER_INFO, f"You don't seem to be in the school nffu was set up for (#{db.school_code}).")
+
+                    return False
+            else:
+                schools = info.schools
+                if len(schools) != 1:
+                    logger.error(f"Test fill form: User {owner.pk} has an invalid number of schools: {', '.join(f'{s.name} (#{s.code})' for s in schools)}")
+                    await set_last_result_error()
+                    await report_failure(LockboxFailureType.BAD_USER_INFO, f"TDSB reported that you're in {len(schools)} schools. NFFU only works if you have exactly 1 school.")
+
+                    return False
+
+                school = schools[0]
+
+        # Figure out the first and last name
+        try:
+            first_name = info._data["SchoolCodeList"][0]["StudentInfo"]["FirstName"]
+            last_name = info._data["SchoolCodeList"][0]["StudentInfo"]["LastName"]
+            if not first_name or not last_name:
+                raise ValueError()
+        except (ValueError, IndexError, KeyError):
+            try:
+                # Fallback: Get first and last name by splitting the full name
+                i = info.name.index(", ")
+                first_name = info.name[:i]
+                last_name = info.name[i + 2:]
+            except ValueError:
+                # Fallback fallback: Set first and last name to just the full name if there's no comma
+                first_name = last_name = info.name
+        # Populate fieldexpr context
+        fieldexpr_context = {
+            "name": info.name,
+            "first_name": first_name,
+            "last_name": last_name,
+            "student_number": owner.login,
+            "email": info.email,
+            "today": datetime.datetime.now(),
+            "grade": owner.grade if owner.grade is not None else 0,
+            "course_code": db_course.course_code,
+            "teacher_name": db_course.teacher_name,
+            "teacher_email": "test@test.xyz",
+            "day_cycle": db.current_day if db.current_day is not None else 1,
+        }
+
+    except aiohttp.ClientError as e:
+        logger.warning(f"Test fill form: TDSB Connects failed for user {owner.pk}: {e}")
+
+        # fallback on data in database
+        if not owner.first_name or not owner.last_name:
+            logger.warning(f"Test fill form: Name not stored for user {owner.pk}, using email to find out")
+            try:
+                addr = owner.email.split("@")[0]
+                first_name, last_name = addr.split(".")
+                # Trim off the number
+                for i, c in enumerate(last_name):
+                    if c.isdigit():
+                        last_name = last_name[:i]
+                        break
+            # Worst worst case, just default to empty :/
+            except IndexError:
+                logger.warning(f"Test fill form: Cannot figure out name for user {owner.pk}")
+                first_name = ""
+                last_name = ""
+                await report_failure(LockboxFailureType.BAD_USER_INFO, "Warning: unable to determine your name, defaulting to empty. Please set it in the override pane.")
+        else:
+            first_name = owner.first_name
+            last_name = owner.last_name
+        # Populate fieldexpr context
+        fieldexpr_context = {
+            "name": last_name + ", " + first_name,
+            "first_name": first_name,
+            "last_name": last_name,
+            "student_number": owner.login,
+            "email": owner.email,
+            "today": datetime.date.today(),
+            "grade": owner.grade if owner.grade is not None else 0,
+            "course_code": db_course.course_code,
+            "teacher_name": db_course.teacher_name,
+            "teacher_email": "test@test.xyz",
+            "day_cycle": db.current_day if db.current_day is not None else 1,
+        }
+        await report_failure(LockboxFailureType.TDSB_CONNECTS, f"Warning: TDSB Connects failed with error '{e}'. Falling back to stored data.")
+
+    # Check that the form exists & is set up
+    if not db_course.has_attendance_form:
+        logger.info(f"Test fill form: No form for course {db_course.course_code}")
+
+        return False
+    if db_course.form_url is None or db_course.form_config is None:
+        logger.warning(f"Test fill form: Course missing form config: {db_course.course_code}")
+        await set_last_result_error(course=db_course.pk)
+        await report_failure(LockboxFailureType.CONFIG, f"Course missing form config: {db_course.course_code}. Will not retry.")
+
+        return False
+    ghoster_credentials = ghoster.GhosterCredentials(owner.email, owner.login, password)
+    # Format fields
+    fields = []
+    form = await db_course.form_config.fetch()
+    for field in form.sub_fields:
+        try:
+            value = fieldexpr.interpret(field.target_value, fieldexpr_context)
+        # eww
+        except Exception as e: # pylint: disable=broad-except
+            logger.error(f"Test fill form: Field value formatting error: {e}")
+            message = f"Field value formatting error: {e}."
+            await set_last_result_error(course=db_course.pk)
+            await report_failure(LockboxFailureType.INTERNAL, message + " Would've retried later.")
+
+            return False
+        title = field.expected_label_segment or ""
+        kind = FormFieldType(field.kind)
+        fields.append((field.index_on_page, title, kind, value))
+    logger.info(f"Test fill form: Form filling started for course {db_course.course_code} for user {owner.pk}")
+    try:
+        result = await asyncio.get_event_loop().run_in_executor(None, lambda: ghoster.fill_form(db_course.form_url,
+            ghoster_credentials, fields, dry_run=True))
+    except ghoster.GhosterPossibleFail as e:
+        message, screenshot = e.args # pylint: disable=unbalanced-tuple-unpacking
+        logger.warning(f"Test fill form: Possible failure for user {owner.pk}: {message}\n{traceback.format_exc()}")
+        # Upload screenshot and report error
+        screenshot_id = await db.shared_gridfs().upload_from_stream("confirmation.png", screenshot)
+        await clear_last_result()
+        owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.POSSIBLE_FAILURE.value,
+            time_logged=datetime.datetime.utcnow(), confirmation_screenshot_id=screenshot_id, course=db_course.pk)
+        await report_failure(LockboxFailureType.FORM_FILLING, f"Possible form filling failure (Not retrying): {message}")
+
+        return True
+    except ghoster.GhosterError as e:
+        if isinstance(e, ghoster.GhosterAuthFailed):
+            fail_type = "Failed to login"
+        elif isinstance(e, ghoster.GhosterInvalidForm):
+            fail_type = "Invalid form"
+        else:
+            fail_type = "Unknown failure"
+        logger.error(f"Test fill form: {fail_type} for user {owner.pk}: {e}\n{traceback.format_exc()}")
+        await set_last_result_error(course=db_course.pk)
+        await report_failure(LockboxFailureType.FORM_FILLING, f"{fail_type} (would've retried later): {e}")
+
+        return False
+
+    # Finally... all is well
+    # Upload form and confirmation screenshots
+    fss, css = result
+    fid = await db.shared_gridfs().upload_from_stream("form.png", fss)
+    cid = await db.shared_gridfs().upload_from_stream("confirmation.png", css)
+    context.fill_result = db.FillFormResultImpl(result=FillFormResultType.SUCCESS.value if FILL_FORM_SUBMIT_ENABLED else FillFormResultType.SUBMIT_DISABLED.value,
+            course=db_course.pk, time_logged=datetime.datetime.utcnow(), form_screenshot_id=fid, confirmation_screenshot_id=cid)
+    await context.commit()
+    logger.info(f"Test fill form: Finished for user {owner.pk}")
+
+    return True
+
+async def test_fill_form(db: "db_.LockboxDB", owner, retries: int, argument: str):
+    """
+    Test filling in a form for a user for a specific course.
+    """
+
+    # try to find a context
+    context = await db.FormFillingTestImpl.find_one({"_id": bson.ObjectId(argument)})
+
+    if context is None:
+        logger.error(f"Test fill form: unable to find context for {argument}")
+
+        return
+
+    context.time_executed = datetime.datetime.utcnow()
+
+    # try to fill in form
+    try:
+        await _test_fill_form_inner(db, owner, context)
+    finally:
+        context.is_finished = True
+        await context.commit()
+
+async def remove_old_test_result(db: "db_.LockboxDB", owner, retries: int, argument: str):
+    """
+    Remove an old result
+
+    TODO: use a partial or something to reuse this code for other 'delete' tasks
+    """
+
+    # try to find a context
+    context = await db.FormFillingTestImpl.find_one({"_id": bson.ObjectId(argument)})
+
+    if context is None:
+        logger.warning(f"Test fill form cleanup: unable to find context for {argument}")
+
+        return
+
+    await context.remove()
+    logger.info(f"Test fill form cleanup: removed {argument}")
+
 def set_task_handlers(sched: "scheduler.Scheduler"):
     """
     Set the task handlers entries for the scheduler.
@@ -500,3 +757,5 @@ def set_task_handlers(sched: "scheduler.Scheduler"):
     sched.TASK_FUNCS[TaskType.CHECK_DAY] = check_day
     sched.TASK_FUNCS[TaskType.FILL_FORM] = fill_form
     sched.TASK_FUNCS[TaskType.POPULATE_COURSES] = populate_courses
+    sched.TASK_FUNCS[TaskType.TEST_FILL_FORM] = test_fill_form
+    sched.TASK_FUNCS[TaskType.REMOVE_OLD_TEST_RESULTS] = remove_old_test_result
