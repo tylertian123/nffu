@@ -72,7 +72,7 @@ async def destroy_lockbox_identity(user: User):
     user.lockbox_token = None
     await user.commit()
 
-LockboxUserStatus = collections.namedtuple("LockboxUserStatus", "has_credentials has_errors active grade")
+LockboxUserStatus = collections.namedtuple("LockboxUserStatus", "has_credentials has_errors active grade first_name last_name")
 
 async def get_lockbox_status_for(user: User) -> LockboxUserStatus:
     """
@@ -94,7 +94,9 @@ async def get_lockbox_status_for(user: User) -> LockboxUserStatus:
                 data["credentials_set"],
                 len(data["errors"]) > 0,
                 data["active"],
-                data["grade"]
+                data["grade"],
+                data["first_name"],
+                data["last_name"]
         )
 
 LockboxFillResult = collections.namedtuple("LockboxFillResult", "result time_logged course form_sid confirm_sid")
