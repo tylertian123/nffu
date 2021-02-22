@@ -6,45 +6,24 @@ import {ExtraUserInfoContext} from '../../common/userinfo';
 
 import "regenerator-runtime/runtime";
 
-function FormFillStatus() {
-	const [status, setStatus] = React.useState(null);
+function FormFillStatusInner(props) {
 	const [relatedCourse, setRelatedCourse] = React.useState(null);
-	const [ error, setError ] = React.useState('');
+	const status = props.status;
+	const base_url = props.baseUrl === undefined ? "/api/v1/me/lockbox/form_status" : props.baseUrl;
+	const only_one = props.onlyOne === undefined ? false : props.onlyOne;
 
 	React.useEffect(() => {
 		(async () => {
-			const resp = await fetch("/api/v1/me/lockbox/form_status");
-			const data = await resp.json();
+			if (status.related_course) {
+				const course_info = await fetch(`/api/v1/course/${status.related_course}`);
+				const cdata = await course_info.json()
 
-			if (!resp.ok) {
-				setError(data.error);
-				return;
-			}
-			else {
-				if (data.related_course) {
-					const course_info = await fetch(`/api/v1/course/${data.related_course}`);
-					const cdata = await course_info.json()
-
-					if (course_info.ok) {
-						setRelatedCourse(cdata.course);
-					}
-					setStatus(data);
-				}
-				else {
-					setStatus(data)
+				if (course_info.ok) {
+					setRelatedCourse(cdata.course);
 				}
 			}
 		})();
 	}, []);
-
-	if (status === null) {
-		if (error) {
-			return <Alert variant="danger">failed: {error}</Alert>;
-		}
-		else {
-			return <Alert className="d-flex align-items-center" variant="secondary"><Spinner className="mr-2" animation="border" /> loading...</Alert>;
-		}
-	}
 
 	let el = null;
 	let show_screenshots = [false, false];
@@ -75,25 +54,56 @@ function FormFillStatus() {
 	return <div>
 		{el}
 		<ul>
-			{relatedCourse !== null && <li>Filled in for <code>{relatedCourse.course_code}</code>. <Link className="alert-link" to={`/lockbox/cfg/${relatedCourse.id}`}>View configuration</Link></li>}
 			<li>Last filled in at: {new Date(status.last_filled_at).toLocaleString('en-CA')}</li>
+			{relatedCourse !== null && <li>Filled in for <code>{relatedCourse.course_code}</code>. <Link className="alert-link" to={`/lockbox/cfg/${relatedCourse.id}`}>View configuration</Link></li>}
 		</ul>
 		{show_screenshots.some((x) => x) && <>
 			<h2>Screenshots</h2>
 			<Row>
 				{show_screenshots[0] && 
 				<Col lg className="mb-2">
-					<img onClick={() => imageHighlight("/api/v1/me/lockbox/form_status/form_thumb.png")} 
-						className="d-block img-fluid img-thumbnail" src="/api/v1/me/lockbox/form_status/form_thumb.png" />
+					<img onClick={() => imageHighlight(`${base_url}/form_thumb.png`)} 
+						className="d-block img-fluid img-thumbnail" src={`${base_url}/form_thumb.png`} />
 				</Col>}
-				{show_screenshots[1] && 
+				{show_screenshots[1] && !only_one && 
 					<Col lg className="mb-2">
-						<img onClick={() => imageHighlight("/api/v1/me/lockbox/form_status/confirm_thumb.png")} 
-							className="d-block img-fluid img-thumbnail" src="/api/v1/me/lockbox/form_status/confirm_thumb.png" />
+						<img onClick={() => imageHighlight(`${base_url}/confirm_thumb.png`)} 
+							className="d-block img-fluid img-thumbnail" src={`${base_url}/confirm_thumb.png`} />
 					</Col>}
 			</Row>
 		</>}
 	</div>
+}
+
+function FormFillStatus() {
+	const [status, setStatus] = React.useState(null);
+	const [ error, setError ] = React.useState('');
+
+	React.useEffect(() => {
+		(async () => {
+			const resp = await fetch("/api/v1/me/lockbox/form_status");
+			const data = await resp.json();
+
+			if (!resp.ok) {
+				setError(data.error);
+				return;
+			}
+			else {
+				setStatus(data)
+			}
+		})();
+	}, []);
+
+	if (status === null) {
+		if (error) {
+			return <Alert variant="danger">failed: {error}</Alert>;
+		}
+		else {
+			return <Alert className="d-flex align-items-center" variant="secondary"><Spinner className="mr-2" animation="border" /> loading...</Alert>;
+		}
+	}
+	
+	return <FormFillStatusInner status={status} />;
 }
 
 function IndividualError(props) {
@@ -131,7 +141,7 @@ function IndividualError(props) {
 		</div>
 		<div className="d-flex justify-content-md-between w-100 flex-wrap flex-md-nowrap">
 			<p className="w-100">{errorData.message}</p>
-			<Button onClick={doDelete} disabled={isDeleting} className="mt-1">{isDeleting ? <Spinner size="sm" animation="border" /> : 'Clear'}</Button>
+			{props.dismissable && <Button onClick={doDelete} disabled={isDeleting} className="mt-1">{isDeleting ? <Spinner size="sm" animation="border" /> : 'Clear'}</Button>}
 		</div>
 	</ListGroup.Item>
 }
@@ -169,7 +179,7 @@ function ErrorList() {
 	}
 
 	return <ListGroup className="bg-light">
-		{errors.map((x) => <IndividualError key={x.id} errorData={x} />)}
+		{errors.map((x) => <IndividualError key={x.id} dismissable errorData={x} />)}
 	</ListGroup>;
 }
 
@@ -190,4 +200,5 @@ function Status() {
 	</div>;
 }
 
+export {IndividualError, FormFillStatusInner};
 export default Status;
