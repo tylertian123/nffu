@@ -161,3 +161,48 @@ class Course(Document):
 
     # Teacher name
     teacher_name = fields.StrField(default="")
+
+# test result structures
+@_shared_instance.register
+class TestFillFormResult(EmbeddedDocument): # pylint: disable=abstract-method
+    """
+    A document that stores the result of a form-filling task.
+    """
+
+    result = fields.StrField(required=True) # validation disabled here because we treat these as readonly
+    time_logged = fields.DateTimeField(required=True)
+    course = fields.ObjectIdField(required=False, default=None, allow_none=True)
+    form_screenshot_id = fields.ObjectIdField(required=False, allow_none=True)
+    confirmation_screenshot_id = fields.ObjectIdField(required=False, allow_none=True)
+
+@_shared_instance.register
+class TestFillLockboxFailure(EmbeddedDocument): # pylint: disable=abstract-method
+    """
+    A document used to report lockbox failures to fenetre.
+    """
+
+    _id = fields.ObjectIdField(required=True)
+    time_logged = fields.DateTimeField(required=True)
+    kind = fields.StrField(required=True) # same as above
+    message = fields.StrField(required=False, default="")
+
+@_shared_instance.register
+class FormFillingTest(Document):
+    """
+    Represents finished/inprogress tests of form filling
+    """
+
+    # config to test
+    course_config = fields.ObjectIdField(required=True)
+    # with information from this user
+    requested_by = fields.ObjectIdField(required=False)  # holds which user (fenetre) can see this
+
+    time_executed = fields.DateTimeField(required=False, allow_none=True)
+
+    # status
+    is_finished = fields.BoolField(default=False)
+    in_progress = fields.BoolField(default=False)
+
+    # results
+    errors = fields.ListField(fields.EmbeddedField(TestFillLockboxFailure), default=[])
+    fill_result = fields.EmbeddedField(TestFillFormResult, default=None, allow_none=True)

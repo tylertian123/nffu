@@ -2,7 +2,7 @@
 Handles talking to lockbox
 """
 
-from .db import User, Course, FormFieldType
+from .db import User, Course, FormFieldType, FormFillingTest
 import collections
 import typing
 import aiohttp
@@ -276,6 +276,27 @@ async def get_form_geometry(user: User, form_url: str, needs_screenshot: bool=Fa
             sid = bson.ObjectId(payload["screenshot_id"])
         
         return FormGeometry(payload["auth_required"], entries, sid)
+
+async def start_form_test(user: User, test_configuration: FormFillingTest):
+    """
+    Calls /test_form
+    """
+
+    if user.lockbox_token is None:
+        raise LockboxError("missing token", 401)
+
+    async with _lockbox_sess().post("http://lockbox/test_form", headers=_headers_for_user(user), json={
+        "test_setup_id": str(test_configuration.pk)
+    }) as resp:
+        try:
+            error_data = await resp.json()
+        except:
+            if resp.ok:
+                return
+            raise
+
+        if not resp.ok:
+            raise LockboxError(error_data["error"], resp.status)
 
 async def update_all_user_courses():
     """

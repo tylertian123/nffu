@@ -8,6 +8,7 @@ import FormList from './forms/formlist';
 import FormEditor from './forms/formeditor';
 import AdmCourseList from './forms/courselist';
 import CourseEditor from './forms/courseedit';
+import {CourseTester, CourseTestViewer} from './forms/coursetester';
 
 function Forms() {
 	return <Row>
@@ -28,6 +29,12 @@ function Forms() {
 				</Route>
 				<Route path="/forms/form">
 					<FormList />
+				</Route>
+				<Route path="/forms/course/:idx/test/:testidx">
+					<CourseTestViewer />
+				</Route>
+				<Route path="/forms/course/:idx/test">
+					<CourseTester />
 				</Route>
 				<Route path="/forms/course/:idx">
 					<CourseEditor />

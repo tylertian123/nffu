@@ -235,6 +235,7 @@ function CourseEditor() {
 					{!course.form_config && (<li>
 						<i>awaiting form style setup</i>
 					</li>)}
+					{form && <li>Test configuration <Link className="alert-link" to={`/forms/course/${course.id}/test`}>here</Link></li>}
 				</ul>
 			</Col>
 			{form && (<Col lg>

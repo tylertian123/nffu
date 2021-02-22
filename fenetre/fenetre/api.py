@@ -4,7 +4,7 @@ from .auth import admin_required, eula_required
 from . import auth, lockbox
 from quart_auth import login_required, current_user, logout_user
 import quart_auth
-from .db import User, SignupProvider, Course, Form, gridfs, FormField
+from .db import User, SignupProvider, Course, Form, gridfs, FormField, FormFillingTest, TestFillFormResult
 from umongo.marshmallow_bonus import ObjectId as ObjectIdField
 from gridfs.errors import NoFile
 from .formutil import form_geometry_compatible, create_default_fields_from_geometry
@@ -18,6 +18,7 @@ import random
 import time
 import asyncio
 import itsdangerous
+import datetime
 
 blueprint = Blueprint("api", __name__, url_prefix="/api/v1")
 
@@ -775,6 +776,105 @@ async def configure_course_user(idx):
 
     return '', 204
 
+
+class TestFillFormResultDump(TestFillFormResult.schema.as_marshmallow_schema()):
+    screenshot_present = ma_fields.Function(lambda x: bool(x.form_screenshot_id))
+
+    class Meta:
+        exclude = ['confirmation_screenshot_id', 'form_screenshot_id']
+
+class FormFillingTestDump(FormFillingTest.schema.as_marshmallow_schema()):
+    fill_result = ma_fields.Nested(TestFillFormResultDump)
+
+    @ma.post_dump()
+    def cleanup_tz(self, data, **kwargs):
+        if data["time_executed"]: data["time_executed"] += "Z"
+        if data["fill_result"]: data["fill_result"]["time_logged"] += "Z"
+        for i in data["errors"]:
+            i["time_logged"] += "Z"
+        return data
+
+    class Meta:
+        exclude = ['requested_by']
+
+form_filling_test_dump_schema = FormFillingTestDump()
+
+@blueprint.route("/course/<idx>/test")
+@admin_required
+async def list_course_form_tests(idx):
+    user = await current_user.user
+
+    tests = FormFillingTest.find({"course_config": bson.ObjectId(idx), "requested_by": user.pk})
+
+    return {
+        "tests": [form_filling_test_dump_schema.dump(x) async for x in tests]
+    }
+
+@blueprint.route("/course/<idx>/test", methods=["POST"])
+@admin_required
+async def start_new_course_form_test(idx):
+    user = await current_user.user
+
+    course = await Course.find_one({"_id": bson.ObjectId(idx)})
+    if course is None:
+        return {"error": "invalid course"}, 404
+
+    test = FormFillingTest()
+    test.course_config = course.pk
+    test.requested_by = user.pk
+    test.time_executed = datetime.datetime.now() # this is updated later too
+    await test.commit()
+
+    await lockbox.start_form_test(user, test)
+
+    return {
+        "test": form_filling_test_dump_schema.dump(test)
+    }
+
+@blueprint.route("/course/<idx>/test/<test_idx>")
+@admin_required
+async def get_test_results(idx, test_idx):
+    user = await current_user.user
+
+    course = await Course.find_one({"_id": bson.ObjectId(idx)})
+    if course is None:
+        return {"error": "invalid course"}, 404
+
+    test = await FormFillingTest.find_one({"_id": bson.ObjectId(test_idx)})
+    if test is None or test.course_config != course.pk:
+        return {"error": "invalid test"}, 404
+
+    if test.requested_by != user.pk:
+        return {"error": "unauthorized to view those results"}, 403
+
+    return {
+        "test": form_filling_test_dump_schema.dump(test)
+    }
+
+@blueprint.route("/course/<idx>/test/<test_idx>/form_thumb.png")
+@admin_required 
+async def get_test_fill_form_thumb(idx, test_idx):
+    user = await current_user.user
+
+    course = await Course.find_one({"_id": bson.ObjectId(idx)})
+    if course is None:
+        return {"error": "invalid course"}, 404
+
+    test = await FormFillingTest.find_one({"_id": bson.ObjectId(test_idx)})
+    if test is None or test.course_config != course.pk:
+        return {"error": "invalid test"}, 404
+
+    if test.requested_by != user.pk:
+        return {"error": "unauthorized to view those results"}, 403
+
+    try:
+        stream = await gridfs().open_download_stream(test.fill_result.form_screenshot_id)
+    except NoFile:
+        return {"error": "sid not in db"}, 404
+
+    return (await stream.read()), 200, {"Content-Type": "image/png"}
+
+
 class CondensedFormDump(Form.schema.as_marshmallow_schema()):
     class Meta:
         exclude = ['sub_fields']
@@ -947,7 +1047,6 @@ class FormUpdateLoad(ma.Schema):
 
 form_update_load_schema = FormUpdateLoad()
 
-
 @blueprint.route("/form/<idx>", methods=["PATCH"])
 @admin_required 
 async def update_patch_form(idx):
@@ -969,6 +1068,7 @@ async def update_patch_form(idx):
 
     await form.commit()
     return '', 204
+
 
 @blueprint.route("/admin/update_user_courses", methods=["POST"])
 @admin_required
