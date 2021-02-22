@@ -82,7 +82,9 @@ async def userinfo():
         "lockbox_credentials_present": lockbox_status is not None and lockbox_status.has_credentials,
         "lockbox_form_active": lockbox_status is not None and lockbox_status.active,
         "unconfigured_courses_present": unconfigured_courses_present,
-        "lockbox_grade": lockbox_status.grade
+        "lockbox_grade": lockbox_status.grade,
+        "lockbox_first_name": lockbox_status.first_name,
+        "lockbox_last_name": lockbox_status.last_name
     }
 
 class LockboxFailureDump(ma.Schema):
@@ -173,6 +175,8 @@ class LockboxUpdateSchema(ma.Schema):
     password = ma_fields.String()
     active   = ma_fields.Bool()
     grade    = ma_fields.Int(validate=ma_validate.Range(9, 12))
+    first_name = ma_fields.String()
+    last_name = ma_fields.String()
 
 lockbox_update_schema = LockboxUpdateSchema()
 
