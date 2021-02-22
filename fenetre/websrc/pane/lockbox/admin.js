@@ -26,6 +26,7 @@ function TaskEntry(props) {
 			{task.is_running && <li>Currently running</li>}
 			{task.retry_count > 0 && <li>Retried <span class="text-info">{task.retry_count}</span> times so far</li>}
 			<li>scheduled for {new Date(task.next_run_at).toLocaleString('en-CA')}</li>
+			{task.argument && <li>Has argument <code>{task.argument}</code></li>}
 		</ul>
 	</ListGroup.Item>
 }
