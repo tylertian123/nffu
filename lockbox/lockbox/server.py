@@ -399,6 +399,8 @@ class LockboxServer:
         else:
             # start a task
             await self.db.start_form_test(payload["test_setup_id"], token)
+            context.in_progress = True
+            await context.commit()
 
             return web.Response(status=204)
     
