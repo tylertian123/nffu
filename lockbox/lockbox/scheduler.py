@@ -84,7 +84,7 @@ class Scheduler:
         logger.info(f"Starting task {self._format_task(task)}")
         # Run task
         try:
-            next_run = await self.TASK_FUNCS[TaskType(task.kind)](self._db, owner, task.retry_count)
+            next_run = await self.TASK_FUNCS[TaskType(task.kind)](self._db, owner, task.retry_count, task.argument)
             # Task success, reset retries
             task.retry_count = 0
         except TaskError as e:
@@ -150,7 +150,7 @@ class Scheduler:
         asyncio.create_task(self._run())
 
     async def create_task(self, kind: TaskType, run_at: typing.Optional[datetime.datetime] = None,
-                          owner: typing.Optional[typing.Any] = None) -> typing.Any:
+                owner: typing.Optional[typing.Any] = None, argument: typing.Optional[str] = None) -> typing.Any:
         """
         Create a new task.
 
@@ -163,6 +163,8 @@ class Scheduler:
         task = self._db.TaskImpl(kind=kind.value, next_run_at=run_at)
         if owner is not None:
             task.owner = owner
+        if argument is not None:
+            task.argument = argument
         await task.commit()
         self.update()
         return task

@@ -69,7 +69,7 @@ def next_run_time(time_range: typing.Tuple[datetime.time, datetime.time]) -> dat
         + datetime.timedelta(seconds=offset)).astimezone(datetime.timezone.utc)
 
 
-async def check_day(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional[datetime.datetime]: # pylint: disable=unused-argument
+async def check_day(db: "db_.LockboxDB", owner, retries: int, argument: str) -> typing.Optional[datetime.datetime]: # pylint: disable=unused-argument
     """
     Checks if the current day is a school day.
     If not, postpones the run time of all tasks with type FILL_FORM by 1 day.
@@ -153,7 +153,7 @@ async def check_day(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
     return next_run
 
 
-async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional[datetime.datetime]: # pylint: disable=unused-argument
+async def fill_form(db: "db_.LockboxDB", owner, retries: int, argument: str) -> typing.Optional[datetime.datetime]: # pylint: disable=unused-argument
     """
     Fills in the form for a particular user.
     """
@@ -468,7 +468,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional
             return next_run_time(FILL_FORM_RUN_TIME)
 
 
-async def populate_courses(db: "db_.LockboxDB", owner, retries: int) -> typing.Optional[datetime.datetime]: # pylint: disable=unused-argument
+async def populate_courses(db: "db_.LockboxDB", owner, retries: int, argument: str) -> typing.Optional[datetime.datetime]: # pylint: disable=unused-argument
     """
     Get courses from TDSB connects for a user and populate the DB.
     """
