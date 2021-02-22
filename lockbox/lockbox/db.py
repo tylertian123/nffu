@@ -496,4 +496,4 @@ class LockboxDB:
 
         user = await self.UserImpl.find_one({"token": token})
         await self._scheduler.create_task(kind=documents.TaskType.TEST_FILL_FORM, owner=user, argument=oid)
-        await self._scheduler.create_task(run_at=datetime.datetime.now() + datetime.timedelta(hours=6), kind=documents.TaskType.REMOVE_OLD_TEST_RESULTS, argument=oid)
+        await self._scheduler.create_task(run_at=datetime.datetime.utcnow() + datetime.timedelta(hours=6), kind=documents.TaskType.REMOVE_OLD_TEST_RESULTS, argument=oid)
