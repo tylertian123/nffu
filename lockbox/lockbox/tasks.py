@@ -506,7 +506,7 @@ async def _test_fill_form_inner(db: "db_.LockboxDB", owner, context) -> bool:
 
         This does commit the context document.
         """
-        failure = db.LockboxFailureImpl(_id=bson.ObjectId(), time_logged=datetime.datetime.utcnow(),
+        failure = db.LockboxFailureImplShared(_id=bson.ObjectId(), time_logged=datetime.datetime.utcnow(),
                                         kind=kind.value, message=message)
         # Make sure it's a new list instance
         if not context.errors:
@@ -519,7 +519,7 @@ async def _test_fill_form_inner(db: "db_.LockboxDB", owner, context) -> bool:
         Set the result of this test to error.
         """
 
-        result = db.FillFormResultImpl(result=error_kind,
+        result = db.FillFormResultImplShared(result=error_kind,
                                        time_logged=datetime.datetime.utcnow())
         # Ideally this shouldn't be necessary, but just in case
         if isinstance(course, umongo.Document):
@@ -530,7 +530,13 @@ async def _test_fill_form_inner(db: "db_.LockboxDB", owner, context) -> bool:
         context.fill_result = result
         await context.commit()
 
-    db_course = context.course_config
+    db_course = await db.CourseImpl.find_one({"_id": context.course_config})
+    if db_course is None:
+        logger.error(f"Test fill form: Context has invalid course")
+        message = f"Internal error: Failed to find course by id in test setup."
+        await set_last_result_error()
+        await report_failure(LockboxFailureType.INTERNAL, message)
+        return
 
     # construct fieldexpr config
 
@@ -680,7 +686,7 @@ async def _test_fill_form_inner(db: "db_.LockboxDB", owner, context) -> bool:
         # Upload screenshot and report error
         screenshot_id = await db.shared_gridfs().upload_from_stream("confirmation.png", screenshot)
         await clear_last_result()
-        owner.last_fill_form_result = db.FillFormResultImpl(result=FillFormResultType.POSSIBLE_FAILURE.value,
+        owner.last_fill_form_result = db.FillFormResultImplShared(result=FillFormResultType.POSSIBLE_FAILURE.value,
             time_logged=datetime.datetime.utcnow(), confirmation_screenshot_id=screenshot_id, course=db_course.pk)
         await report_failure(LockboxFailureType.FORM_FILLING, f"Possible form filling failure (Not retrying): {message}")
 
@@ -703,7 +709,7 @@ async def _test_fill_form_inner(db: "db_.LockboxDB", owner, context) -> bool:
     fss, css = result
     fid = await db.shared_gridfs().upload_from_stream("form.png", fss)
     cid = await db.shared_gridfs().upload_from_stream("confirmation.png", css)
-    context.fill_result = db.FillFormResultImpl(result=FillFormResultType.SUCCESS.value if FILL_FORM_SUBMIT_ENABLED else FillFormResultType.SUBMIT_DISABLED.value,
+    context.fill_result = db.FillFormResultImplShared(result=FillFormResultType.SUCCESS.value if FILL_FORM_SUBMIT_ENABLED else FillFormResultType.SUBMIT_DISABLED.value,
             course=db_course.pk, time_logged=datetime.datetime.utcnow(), form_screenshot_id=fid, confirmation_screenshot_id=cid)
     await context.commit()
     logger.info(f"Test fill form: Finished for user {owner.pk}")
@@ -716,7 +722,7 @@ async def test_fill_form(db: "db_.LockboxDB", owner, retries: int, argument: str
     """
 
     # try to find a context
-    context = await db.FormFillingTestImpl.find_one({"_id": bson.ObjectId(argument)})
+    context = await db.find_form_test_context(argument)
 
     if context is None:
         logger.error(f"Test fill form: unable to find context for {argument}")
@@ -734,6 +740,7 @@ async def test_fill_form(db: "db_.LockboxDB", owner, retries: int, argument: str
         await _test_fill_form_inner(db, owner, context)
     finally:
         context.is_finished = True
+        context.in_progress = False
         await context.commit()
 
 async def remove_old_test_result(db: "db_.LockboxDB", owner, retries: int, argument: str):
@@ -744,12 +751,25 @@ async def remove_old_test_result(db: "db_.LockboxDB", owner, retries: int, argum
     """
 
     # try to find a context
-    context = await db.FormFillingTestImpl.find_one({"_id": bson.ObjectId(argument)})
+    context = await db.find_form_test_context(argument)
 
     if context is None:
         logger.warning(f"Test fill form cleanup: unable to find context for {argument}")
 
         return
+
+    # cleanup screenshots if present
+    if context.fill_result is not None:
+        if context.fill_result.form_screenshot_id is not None:
+            try:
+                await db.shared_gridfs().delete(context.fill_result.form_screenshot_id)
+            except gridfs.NoFile:
+                logger.warning(f"Test fill form cleanup: Failed to delete previous result form screenshot for user {context.pk}: No file")
+        if context.fill_result.confirmation_screenshot_id is not None:
+            try:
+                await db.shared_gridfs().delete(context.fill_result.confirmation_screenshot_id)
+            except gridfs.NoFile:
+                logger.warning(f"Test fill form cleanup: Failed to delete previous result conformation page screenshot for user {context.pk}: No file")
 
     await context.remove()
     logger.info(f"Test fill form cleanup: removed {argument}")

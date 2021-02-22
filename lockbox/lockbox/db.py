@@ -92,6 +92,8 @@ class LockboxDB:
         self.FormImpl = self._shared_instance.register(documents.Form)
         self.CourseImpl = self._shared_instance.register(documents.Course)
         self.FormFillingTestImpl = self._shared_instance.register(documents.FormFillingTest)
+        self.LockboxFailureImplShared = self._shared_instance.register(documents.LockboxFailure)
+        self.FillFormResultImplShared = self._shared_instance.register(documents.FillFormResult)
 
         self._scheduler = scheduler.Scheduler(self)
         tasks.set_task_handlers(self._scheduler)
@@ -483,3 +485,15 @@ class LockboxDB:
         Get a list of serialized tasks.
         """
         return [task.dump() async for task in self.TaskImpl.find().sort("next_run_at", 1).sort("retry_count", -1).sort("is_running", -1)]
+
+    async def find_form_test_context(self, oid: str):
+        return await self.FormFillingTestImpl.find_one({"_id": bson.ObjectId(oid)})
+
+    async def start_form_test(self, oid: str, token: str):
+        """
+        Start filling in a test form
+        """
+
+        user = await self.UserImpl.find_one({"token": token})
+        await self._scheduler.create_task(kind=documents.TaskType.TEST_FILL_FORM, owner=user, argument=oid)
+        await self._scheduler.create_task(run_at=datetime.datetime.now() + datetime.timedelta(hours=6), kind=documents.TaskType.REMOVE_OLD_TEST_RESULTS, argument=oid)

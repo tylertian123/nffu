@@ -88,6 +88,7 @@ class LockboxServer:
             web.post("/update_all_courses", self._post_update_all_courses),
             web.get("/debug/tasks", self._get_debug_tasks),
             web.post("/debug/tasks/update", self._post_debug_tasks_update),
+            web.post("/test_form", self._post_test_form)
         ])
 
         self.db = LockboxDB("db", 27017)
@@ -362,6 +363,44 @@ class LockboxServer:
             return web.json_response(result, status=status)
         else:
             return web.json_response(result, status=200)
+
+    @_handle_db_errors
+    @_json_payload
+    @_extract_token
+    async def _post_test_form(self, request: web.Request, token: str, payload: dict):
+        """
+        Handle a POST to /test_form.
+
+        The request should use bearer auth with a token given on user creation.
+
+        JSON payload should have the following format:
+        {
+            "test_setup_id": "..." // The ID of a TestFillFormResults object in the shared database to use as the configuration for this test.
+        }
+
+        Returns a 204 on success, indicating that the setup was started. To check if the request is finished, ping the database directly.
+
+        Possible error response codes:
+        - 400: Invalid field, invalid form
+        - 401: Invalid token
+        - 409: Setup already tested / in progress
+        """
+
+        # verify creds
+        await self.db.get_user(token)
+
+        if "test_setup_id" not in payload:
+            return web.json_response({"error": "Missing field: 'test_setup_id'"}, status=400)
+
+        # Check if the request was already finished
+        context = await self.db.find_form_test_context(payload["test_setup_id"])
+        if context.is_finished or context.in_progress:
+            return web.json_response({"error": "already in progress or already finished"}, status=409)
+        else:
+            # start a task
+            await self.db.start_form_test(payload["test_setup_id"], token)
+
+            return web.Response(status=204)
     
     @_handle_db_errors
     async def _post_update_all_courses(self, request: web.Request): # pylint: disable=unused-argument
