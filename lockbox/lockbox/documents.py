@@ -259,7 +259,8 @@ class FormFillingTest(Document):
     # config to test
     course_config = fields.ObjectIdField(required=True)
     # with information from this user
-    requested_by = fields.StrField(required=True)  # holds which user is using this
+    requested_by = fields.ObjectIdField(required=False)  # holds which user (fenetre) can see this
+
     time_executed = fields.DateTimeField(required=False, allow_none=True)
 
     # status

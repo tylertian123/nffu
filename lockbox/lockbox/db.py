@@ -87,11 +87,11 @@ class LockboxDB:
         self.FormGeometryEntryImpl = self._private_instance.register(documents.FormGeometryEntry)
         self.CachedFormGeometryImpl = self._private_instance.register(documents.CachedFormGeometry)
         self.TaskImpl = self._private_instance.register(documents.Task)
-        self.FormFillingTestImpl = self._private_instance.register(documents.FormFillingTest)
 
         self.FormFieldImpl = self._shared_instance.register(documents.FormField)
         self.FormImpl = self._shared_instance.register(documents.Form)
         self.CourseImpl = self._shared_instance.register(documents.Course)
+        self.FormFillingTestImpl = self._shared_instance.register(documents.FormFillingTest)
 
         self._scheduler = scheduler.Scheduler(self)
         tasks.set_task_handlers(self._scheduler)
