@@ -720,8 +720,12 @@ async def test_fill_form(db: "db_.LockboxDB", owner, retries: int, argument: str
 
     if context is None:
         logger.error(f"Test fill form: unable to find context for {argument}")
-
-        return
+        
+        # allow this to retry for race conditions
+        if retries > 2:
+            return
+        else:
+            raise scheduler.TaskError("Missing context, waiting", retry_in=5)
 
     context.time_executed = datetime.datetime.utcnow()
 
