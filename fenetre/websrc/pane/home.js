@@ -69,7 +69,7 @@ function UsernameChanger() {
 	const userInfo = React.useContext(UserInfoContext);
 
 	const schema = yup.object({
-		username: yup.string().required().min(6)
+		username: yup.string().required().min(6).max(64).matches(/^\w+$/)
 	});
 
 	const [success, setSuccess] = React.useState(false);

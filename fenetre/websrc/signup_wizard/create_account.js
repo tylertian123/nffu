@@ -15,7 +15,7 @@ import "regenerator-runtime/runtime";
 
 function SignupBase(props) {
 	const schema = yup.object({
-		username: yup.string().required().min(6),
+		username: yup.string().required().min(6).max(64).matches(/^\w+$/),
 		password: yup.string().required().min(8),
 		passwordConfirm: yup.string().test(
 			'is-same',
