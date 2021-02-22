@@ -68,7 +68,7 @@ def init_app(app: Quart):
 
 @_private_instance.register
 class User(Document):
-    username = fields.StrField(required=True, unique=True, validate=validate.Length(min=6), error_messages={"unique": "Username already taken"})
+    username = fields.StrField(required=True, unique=True, validate=[validate.Length(min=6, max=64), validate.Regexp(r'^\w+$')] , error_messages={"unique": "Username already taken"})
     passhash = BinaryField(required=True)
     passsalt = BinaryField(required=True)
 
