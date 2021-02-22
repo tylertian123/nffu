@@ -107,7 +107,6 @@ function CourseTestViewer() {
 	const [ course, setCourse ] = React.useState(null);
 	const [ test, setTest ] = React.useState(null);
 	const [ error, setError ] = React.useState('');
-	const [ deleting, setDeleting ] = React.useState(false);
 
 	React.useEffect(() => {
 		(async () => {
@@ -163,7 +162,7 @@ function CourseTestViewer() {
 			status: test.fill_result.result,
 			related_course: test.fill_result.course,
 			last_filled_at: test.fill_result.time_logged
-		}} onlyOne baseUrl={`/api/v1/course/${idx}/test/${testidx}`} /> : <p>waiting</p>}
+		}} onlyOne baseUrl={`/api/v1/course/${idx}/test/${testidx}`} /> : <Alert className="d-flex align-items-center" variant="secondary"><Spinner className="mr-2" animation="border" /> waiting...</Alert>}
 		<h2>Logged errors</h2>
 		{test.errors.length > 0 ? <ListGroup className="bg-light">
 			{test.errors.map((x) => <IndividualError key={x.id} errorData={x} />)}
