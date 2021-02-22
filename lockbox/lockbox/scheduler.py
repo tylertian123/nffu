@@ -11,6 +11,8 @@ import datetime
 import logging
 import typing
 import pymongo
+import traceback
+import sys
 from . import db # pylint: disable=unused-import # For type hinting
 from .documents import TaskType
 
@@ -97,6 +99,13 @@ class Scheduler:
                 logger.warning(f"Task {self._format_task(task)} failed, not retrying: {e}")
                 # If no retry time given, task is deleted
                 next_run = None
+        except Exception:
+            logger.critical(f"Task {self._format_task(task)} threw an unhandled error. Removing it from the database.")
+            await task.remove()
+            # print stracktrace
+            traceback.print_exc(file=sys.stderr)
+            return
+
         # Update task if next run time is provided
         if next_run is not None:
             task.next_run_at = next_run
