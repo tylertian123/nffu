@@ -808,7 +808,7 @@ form_filling_test_dump_schema = FormFillingTestDump()
 async def list_course_form_tests(idx):
     user = await current_user.user
 
-    tests = FormFillingTest.find({"course_config": bson.ObjectId(idx), "requested_by": user.pk})
+    tests = FormFillingTest.find({"course_config": bson.ObjectId(idx), "requested_by": user.pk}).sort("time_executed", -1)
 
     return {
         "tests": [form_filling_test_dump_schema.dump(x) async for x in tests]

@@ -92,7 +92,7 @@ function ChooseFormConfigQuestion(props) {
 		else {
 			if (data.status == "pending") return true;
 			const options = data.options;
-			if (!options) {
+			if (options.length == 0) {
 				props.onNoOptions();
 			}
 			else {
