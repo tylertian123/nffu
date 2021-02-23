@@ -342,7 +342,6 @@ async def _do_fill_form(db: "db_.LockboxDB", user, course, password: str, fe_con
     fill_result = ResultImpl(result=FillFormResultType.SUCCESS.value if FILL_FORM_SUBMIT_ENABLED else FillFormResultType.SUBMIT_DISABLED.value,
         course=course.pk, time_logged=datetime.datetime.utcnow(), form_screenshot_id=fid)
     fill_result.confirmation_screenshot_id = await db.shared_gridfs().upload_from_stream("confirmation.png", css) if not test else fid
-    logger.info(f"{log_prefix}: Finished for user {user.pk}")
     return fill_result
 
 
