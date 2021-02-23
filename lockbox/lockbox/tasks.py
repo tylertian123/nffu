@@ -650,6 +650,8 @@ async def test_fill_form(db: "db_.LockboxDB", owner, retries: int, argument: str
 
     # try to find a context
     context = await db.find_form_test_context(argument)
+    context.in_progress = True
+    await context.commit()
 
     if context is None:
         logger.error(f"Test fill form: unable to find context for {argument}")
@@ -667,6 +669,7 @@ async def test_fill_form(db: "db_.LockboxDB", owner, retries: int, argument: str
         await _test_fill_form_inner(db, owner, context)
     finally:
         context.is_finished = True
+        context.is_scheduled = False
         context.in_progress = False
         await context.commit()
 

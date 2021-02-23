@@ -202,6 +202,7 @@ class FormFillingTest(Document):
     # status
     is_finished = fields.BoolField(default=False)
     in_progress = fields.BoolField(default=False)
+    is_scheduled = fields.BoolFiled(default=False)
 
     # results
     errors = fields.ListField(fields.EmbeddedField(TestFillLockboxFailure), default=[])

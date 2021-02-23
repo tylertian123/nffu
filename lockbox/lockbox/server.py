@@ -391,12 +391,12 @@ class LockboxServer:
 
         # Check if the request was already finished
         context = await self.db.find_form_test_context(payload["test_setup_id"])
-        if context.is_finished or context.in_progress:
+        if context.is_finished or context.is_scheduled:
             return web.json_response({"error": "already in progress or already finished"}, status=409)
         else:
             # start a task
             await self.db.start_form_test(payload["test_setup_id"], token)
-            context.in_progress = True
+            context.is_scheduled = True
             await context.commit()
 
             return web.Response(status=204)
