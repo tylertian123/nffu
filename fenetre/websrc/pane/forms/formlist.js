@@ -37,7 +37,7 @@ function NewFormDialog() {
 						values.initialize_from = undefined;
 					}
 					let tries = 0;
-					while (tries < 10) {
+					while (tries < 20) {
 						try {
 							const resp = await fetch("/api/v1/form", {
 								method: "POST",
