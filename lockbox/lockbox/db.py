@@ -3,7 +3,6 @@ Classes for storing and performing db operations.
 """
 
 import aiohttp
-import asyncio
 import base64
 import bson
 import datetime
@@ -15,10 +14,9 @@ import typing
 from cryptography.fernet import Fernet, InvalidToken
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase, AsyncIOMotorGridFSBucket
 from tdsbconnects import TDSBConnects, TimetableItem
-from umongo import ValidationError, DeleteError
+from umongo import ValidationError
 from umongo.frameworks import MotorAsyncIOInstance
 from . import documents
-from . import ghoster
 from . import scheduler
 from . import tasks
 
@@ -133,7 +131,7 @@ class LockboxDB:
         Get a reference to the shared GridFS bucket.
         """
         return self._shared_gridfs
-    
+
     async def _reschedule_check_day(self) -> None:
         """
         Reschedule the check day task.
@@ -155,7 +153,7 @@ class LockboxDB:
     async def populate_user_courses(self, user, courses: typing.List[TimetableItem], clear_previous: bool = True) -> None:
         """
         Populate a user's courses, creating new Course documents if new courses are encountered.
-        
+
         If clear_previous is True, all previous courses will be cleared.
         However, the Course documents in the shared database will not be touched, since they might
         also be referred to by other users.

@@ -371,13 +371,13 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int, argument: str) -> 
             owner.errors = []
         owner.errors.append(failure)
         await owner.commit()
-    
+
     async def set_last_result(result):
         """
         Set the last fill form result field of the user.
 
         Clears the old result and deletes any images.
-        
+
         Does NOT commit the user document.
         """
         if owner.last_fill_form_result is not None:
@@ -503,7 +503,7 @@ async def fill_form(db: "db_.LockboxDB", owner, retries: int, argument: str) -> 
         if db_course.form_url is None or db_course.form_config is None:
             logger.warning(f"Fill form: Course missing form config: {db_course.course_code}")
             return await handle_error(LockboxFailureType.CONFIG, f"Course missing form config: {db_course.course_code}")
-        
+
         # Start filling the form
         try:
             result = await _do_fill_form(db, owner, db_course, password, fe_context, not FILL_FORM_SUBMIT_ENABLED, False, report_failure, "Fill form")
@@ -657,7 +657,7 @@ async def test_fill_form(db: "db_.LockboxDB", owner, retries: int, argument: str
 
     if context is None:
         logger.error(f"Test fill form: unable to find context for {argument}")
-        
+
         # allow this to retry for race conditions
         if retries > 2:
             return

@@ -401,7 +401,7 @@ class LockboxServer:
             await context.commit()
 
             return web.Response(status=204)
-    
+
     @_handle_db_errors
     async def _post_update_all_courses(self, request: web.Request): # pylint: disable=unused-argument
         """

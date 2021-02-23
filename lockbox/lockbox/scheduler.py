@@ -41,7 +41,7 @@ class TaskTypeGroup:
 
     __slots__ = ("name", "limit", "count")
 
-    GROUPS_MAP = {} # type: typing.Dict[TaskType, typing.List[TaskTypeGroup]]
+    GROUPS_MAP = {} # type: typing.Dict[TaskType, typing.List["TaskTypeGroup"]]
 
     def __init__(self, name: str, types: typing.Tuple[TaskType], limit: int):
         self.name = name
