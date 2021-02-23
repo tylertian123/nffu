@@ -5,17 +5,17 @@
 
 	<!-- the red strip -->
 	<path
-		d="M0 0 h16 L128 112 v16 h-16 L0 16 Z" fill="#ee3545" stroke="none"
+		d="M0 0 h8 L128 120 v8 h-8 L0 8 Z" fill="#ee3545" stroke="none"
 	/>
 
 	<!-- left side blue blobbo -->
 	<path
-		d="M0 24.1 v80 q0 24, 24 24 h79.9 Z" fill="#0042d7" stroke="none"
+		d="M0 24 v80 q0 24, 24 24 h80 L72 96 h-16 v-16 L40 64 h-8 v-8 Z" fill="#0042d7" stroke="none"
 	/>
 
 	<!-- right side red? blobby -->
 	<path
-		d="M24.1 0 h80 q24 0, 24 24 v79.9 Z" fill="#60151c" stroke="none"
+		d="M24 0 h80 q24 0, 24 24 v80 L96 72 v-16 h-16 l-8 -8 v-16 h-16 Z" fill="#60151c" stroke="none"
 	/>
 
 	<!-- unchopped white -->
