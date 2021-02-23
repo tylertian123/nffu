@@ -38,7 +38,8 @@ module.exports = (env, options) => {
 			new MiniCssExtractPlugin(),
 			new CopyPlugin({
 				patterns: [
-					{ from: './websrc/favicon.ico' }
+					{ from: './websrc/favicon.ico' },
+					{ from: './websrc/logo.svg' }
 				]
 			})
 		],

@@ -1,0 +1,43 @@
+<svg version="1.1"
+     baseProfile="full"
+     width="128" height="128"
+     xmlns="http://www.w3.org/2000/svg">
+
+	<!-- the red strip -->
+	<path
+		d="M0 0 h16 L128 112 v16 h-16 L0 16 Z" fill="#ee3545" stroke="none"
+	/>
+
+	<!-- left side blue blobbo -->
+	<path
+		d="M0 24.1 v80 q0 24, 24 24 h79.9 Z" fill="#0042d7" stroke="none"
+	/>
+
+	<!-- right side red? blobby -->
+	<path
+		d="M24.1 0 h80 q24 0, 24 24 v79.9 Z" fill="#60151c" stroke="none"
+	/>
+
+	<!-- unchopped white -->
+	<rect
+		y="80" x="24" width="16" height="16" fill="white" stroke="none"
+	/>
+
+	<!-- chopped square -->
+	<path
+		d="M24 56 h8 l8 8 v8 h-16 Z" fill="white" stroke="none"
+	/>
+
+	<path
+		d="M48 80 h8 l16 16 h-24 Z" fill="white" stroke="none"
+	/>
+
+	<!-- opposing -->
+	<path
+		d="M80 56 h24 v16 h-8 Z" fill="white" stroke="none"
+	/>
+
+	<path 
+		d="M56 32 h48 v16 h-32 Z" fill="white" stroke="none"
+	/>
+</svg>

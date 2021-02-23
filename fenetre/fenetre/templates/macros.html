@@ -21,6 +21,14 @@
 	</script>
 {% endmacro %}
 
+{% macro logoprovider() %}
+	<link rel="preload" href="{{ static_url_for('static', filename='logo.svg') }}" as="img" />
+
+	<script type="text/javascript">
+		window.logourl = "{{ static_url_for('static', filename='logo.svg') }}";
+	</script>
+{% endmacro %}
+
 {% macro headerplate(chunk) %}
 	<link rel="shortcut icon" href="{{ static_url_for('static', filename='favicon.ico') }}">
 	<meta charset="utf-8">
