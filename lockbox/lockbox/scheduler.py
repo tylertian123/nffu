@@ -73,8 +73,7 @@ class Scheduler:
         self._update_event = asyncio.Event()
 
         # Initialize groups
-        # TODO: Add the form geometry task type
-        TaskTypeGroup("firefox", (TaskType.FILL_FORM, TaskType.TEST_FILL_FORM), 3)
+        TaskTypeGroup("firefox", (TaskType.FILL_FORM, TaskType.TEST_FILL_FORM, TaskType.GET_FORM_GEOMETRY), 3)
         TaskTypeGroup("tdsb_connects", (TaskType.FILL_FORM, TaskType.CHECK_DAY, TaskType.POPULATE_COURSES, TaskType.TEST_FILL_FORM), 7)
         TaskTypeGroup("global", tuple(iter(TaskType)), 10)
 
@@ -166,7 +165,7 @@ class Scheduler:
                 if task is None:
                     timeout = None
                 else:
-                    # Calculate time to wait from the scheduled time fo thet ask
+                    # Calculate time to wait from the scheduled time of the task
                     timeout = (task.next_run_at - datetime.datetime.utcnow()).total_seconds()
                     # Only if the task is late by more than 100ms
                     # Since we don't want warnings for tasks that were scheduled to run immediately

@@ -320,6 +320,7 @@ class LockboxServer:
         JSON payload should have the following format:
         {
             "url": "...",             // The URL of the form to process
+                                      // Note: Not in use at the moment. This parameter will be ignored.
             "override_limit": false,  // Optional, whether to ignore the one request per user at a time limit, default false
             "grab_screenshot": false, // Optional, whether or not to take a screenshot and put it in the database
         }
@@ -350,12 +351,12 @@ class LockboxServer:
         - 400: Invalid field, invalid form
         - 401: Invalid token
         - 403: Form auth error
-        - 429: Concurrent request limit exceeded
+        - 429: Concurrent request limit exceeded # Not in use at the moment
         - 409: Cannot sign into form due to missing credentials
         """
         if "url" not in payload:
             return web.json_response({"error": "Missing field: 'url'"}, status=400)
-        result = await self.db.get_form_geometry(token, payload["url"], payload.get("override_limit", False), payload.get("grab_screenshot", False))
+        result = await self.db.get_form_geometry(token, payload["url"], payload.get("grab_screenshot", False))
         result["pending"] = result["geometry"] is None
         if "status" in result:
             status = result.pop("status")

@@ -16,6 +16,7 @@ import traceback
 import typing
 from cryptography.fernet import InvalidToken
 from dateutil import tz
+from umongo.exceptions import DeleteError
 from . import db as db_ # pylint: disable=unused-import
 from . import fieldexpr
 from . import ghoster
@@ -643,6 +644,7 @@ async def _test_fill_form_inner(db: "db_.LockboxDB", owner, context) -> bool:
 
     return True
 
+
 async def test_fill_form(db: "db_.LockboxDB", owner, retries: int, argument: str):
     """
     Test filling in a form for a user for a specific course.
@@ -673,6 +675,7 @@ async def test_fill_form(db: "db_.LockboxDB", owner, retries: int, argument: str
         context.in_progress = False
         await context.commit()
 
+
 async def remove_old_test_result(db: "db_.LockboxDB", owner, retries: int, argument: str): # pylint: disable=unused-argument
     """
     Remove an old result
@@ -698,6 +701,76 @@ async def remove_old_test_result(db: "db_.LockboxDB", owner, retries: int, argum
     await context.remove()
     logger.info(f"Test fill form cleanup: removed {argument}")
 
+
+async def get_form_geometry(db: "db_.LockboxDB", owner, retries: int, argument: str): # pylint: disable=unused-argument
+    """
+    Gets a form geometry and puts it in the document associated with this task.
+    """
+    geom = await db.CachedFormGeometryImpl.find_one({"_id": bson.ObjectId(argument)})
+    if not geom:
+        logger.error(f"Get form geometry: Request by user {owner.pk} cannot find document")
+        return None
+    # Verify username and password
+    if owner.login is None or owner.password is None:
+        logger.error(f"Get form geometry: Missing credentials for url {geom.url}")
+        geom.error = "Cannot sign into form: Missing credentials"
+        geom.response_status = 400
+        await geom.commit()
+        return None
+    # Attempt to get the password
+    try:
+        password = db.fernet.decrypt(owner.password).decode("utf-8")
+    except InvalidToken:
+        logger.critical(f"User {owner.pk}'s password cannot be decrypted")
+        geom.error = "Internal server error: Cannot decrypt password"
+        geom.response_status = 500
+        await geom.commit()
+        return None
+    def _inner():
+        auth_required, form_geom, screenshot_data = ghoster.get_form_geometry(geom.url, ghoster.GhosterCredentials(owner.email, owner.login, password))
+        geom.auth_required = auth_required
+        geom.geometry = [{"index": entry[0], "title": entry[1], "kind": str(entry[2].value)} for entry in form_geom]
+        return screenshot_data
+
+    logger.info(f"Get form geometry: Getting form geometry for {geom.url}")
+    try:
+        screenshot_data = await asyncio.get_event_loop().run_in_executor(None, _inner)
+        if geom.grab_screenshot:
+            if screenshot_data is None:
+                logger.error("Get form geometry: Captured screenshot is None")
+                geom.error = "Internal server error: Cannot grab screenshot"
+                geom.response_status = 500
+            else:
+                geom.screenshot_file_id = await db._shared_gridfs.upload_from_stream("form-thumb.png", screenshot_data)
+                logger.info(f"Get form geometry: Success for url {geom.url}")
+        await geom.commit()
+        return None
+    except ghoster.GhosterAuthFailed as e:
+        geom.error = str(e)
+        geom.response_status = 403
+    except ghoster.GhosterInvalidForm as e:
+        geom.error = str(e)
+        geom.response_status = 400
+    logger.error(f"Get form geometry: Failed with error {geom.error}")
+    await geom.commit()
+
+
+async def remove_old_form_geometry(db: "db_.LockboxDB", owner, retries: int, argument: str): # pylint: disable=unused-argument
+    """
+    Deletes the form geometry passed in as an argument.
+    """
+    geom = await db.CachedFormGeometryImpl.find_one({"_id": bson.ObjectId(argument)})
+    if not geom:
+        logger.error(f"Clean form geometry: Cannot find document {argument}")
+        return None
+    url = geom.url
+    try:
+        await geom.remove()
+        logger.info(f"Form geometry deleted for url {url}")
+    except DeleteError as e:
+        logger.error(f"Clean form geometry: Delete error for url {url}: {e}")
+
+
 def set_task_handlers(sched: "scheduler.Scheduler"):
     """
     Set the task handlers entries for the scheduler.
@@ -707,3 +780,5 @@ def set_task_handlers(sched: "scheduler.Scheduler"):
     sched.TASK_FUNCS[TaskType.POPULATE_COURSES] = populate_courses
     sched.TASK_FUNCS[TaskType.TEST_FILL_FORM] = test_fill_form
     sched.TASK_FUNCS[TaskType.REMOVE_OLD_TEST_RESULTS] = remove_old_test_result
+    sched.TASK_FUNCS[TaskType.GET_FORM_GEOMETRY] = get_form_geometry
+    sched.TASK_FUNCS[TaskType.REMOVE_OLD_FORM_GEOMETRY] = remove_old_form_geometry

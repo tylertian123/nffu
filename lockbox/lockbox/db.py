@@ -152,40 +152,6 @@ class LockboxDB:
             await check_task.commit()
             self._scheduler.update()
 
-    async def _get_geometry(self, url: str, geom, user, password: str, grab_screenshot: bool):
-        """
-        Fill in form geometry. Also starts a task for deletion.
-        """
-        def _inner():
-            try:
-                auth_required, form_geom, screenshot_data = ghoster.get_form_geometry(url, ghoster.GhosterCredentials(user.email, user.login, password))
-                geom.auth_required = auth_required
-                geom.geometry = [{"index": entry[0], "title": entry[1], "kind": str(entry[2].value)} for entry in form_geom]
-                return screenshot_data
-            except ghoster.GhosterAuthFailed as e:
-                geom.error = str(e)
-                geom.response_status = 403
-            except ghoster.GhosterInvalidForm as e:
-                geom.error = str(e)
-                geom.response_status = 400
-        logger.info(f"Getting form geometry for {url}")
-        screenshot_data = await asyncio.get_event_loop().run_in_executor(None, _inner)
-        if grab_screenshot and screenshot_data is not None:
-            geom.screenshot_file_id = await self._shared_gridfs.upload_from_stream("form-thumb.png", screenshot_data)
-        await geom.commit()
-        logger.info(f"Done getting form geometry for {url}")
-        async def _delete_geom():
-            try:
-                await asyncio.sleep(15 * 60) # 15 mins
-                try:
-                    await geom.remove()
-                    logger.info(f"Form geometry deleted for {url}")
-                except DeleteError:
-                    pass
-            except asyncio.TimeoutError:
-                pass
-        asyncio.create_task(_delete_geom())
-
     async def populate_user_courses(self, user, courses: typing.List[TimetableItem], clear_previous: bool = True) -> None:
         """
         Populate a user's courses, creating new Course documents if new courses are encountered.
@@ -324,7 +290,6 @@ class LockboxDB:
                     logger.info(f"Deleting fill form task for user {user.pk}")
                     await task.remove()
                     self._scheduler.update()
-                
         except ValidationError as e:
             raise LockboxDBError(f"Invalid field: {e}", LockboxDBError.INVALID_FIELD) from e
 
@@ -420,7 +385,7 @@ class LockboxDB:
                 batch = 0
                 run_at += datetime.timedelta(seconds=interval)
 
-    async def get_form_geometry(self, token: str, url: str, override_limit: bool, grab_screenshot: bool) -> dict:
+    async def get_form_geometry(self, token: str, url: str, grab_screenshot: bool) -> dict:
         """
         Get the form geometry for a given form URL.
         """
@@ -429,12 +394,6 @@ class LockboxDB:
             raise LockboxDBError("Bad token", LockboxDBError.BAD_TOKEN)
         if user.login is None or user.password is None:
             raise LockboxDBError("Cannot sign into form: Missing credentials", LockboxDBError.STATE_CONFLICT)
-        # Attempt to decrypt the password here
-        try:
-            password = self.fernet.decrypt(user.password).decode("utf-8")
-        except InvalidToken as e:
-            logger.critical(f"User {user.pk}'s password cannot be decrypted")
-            raise LockboxDBError("Internal server error: Cannot decrypt password", LockboxDBError.INTERNAL_ERROR) from e
         geom = await self.CachedFormGeometryImpl.find_one({"url": url})
         # Check if screenshot requirement is satisfied
         if geom is not None and grab_screenshot:
@@ -450,21 +409,19 @@ class LockboxDB:
         # If this form was never requested before,
         # or the screenshot requirement is not satisfied AND the operation is not already pending
         if geom is None or (not screenshot_valid and geom.geometry is not None):
-            existing = await self.CachedFormGeometryImpl.count_documents({"requested_by": token, "geometry": None})
-            # Admin limit: 5
-            if (override_limit and existing >= 5) or existing:
-                raise LockboxDBError("Max number of requests at a time exceeded", LockboxDBError.RATE_LIMIT_EXCEEDED)
-
             # If this is a re-run, clear the old result
             if geom is not None:
                 await geom.remove()
-
+            # Re-make the geometry
             try:
-                geom = self.CachedFormGeometryImpl(url=url, requested_by=token, geometry=None)
+                geom = self.CachedFormGeometryImpl(url=url, requested_by=token, geometry=None, grab_screenshot=grab_screenshot)
             except ValidationError as e:
                 raise LockboxDBError(f"Invalid field: {e}", LockboxDBError.INVALID_FIELD) from e
             await geom.commit()
-            asyncio.create_task(self._get_geometry(url, geom, user, password, grab_screenshot))
+            # Create tasks to get form geometry and clean up
+            await self._scheduler.create_task(documents.TaskType.GET_FORM_GEOMETRY, owner=user, argument=str(geom.pk))
+            await self._scheduler.create_task(documents.TaskType.REMOVE_OLD_FORM_GEOMETRY,
+                datetime.datetime.utcnow() + datetime.timedelta(minutes=15), owner=user, argument=str(geom.pk))
             return {"geometry": None, "auth_required": None, "screenshot_id": None}
         # Result pending
         if geom.geometry is None and geom.response_status is None:

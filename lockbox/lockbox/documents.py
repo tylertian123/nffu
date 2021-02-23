@@ -119,6 +119,8 @@ class TaskType(enum.Enum):
     POPULATE_COURSES = "populate-courses"
     TEST_FILL_FORM = "test-fill-form"
     REMOVE_OLD_TEST_RESULTS = "remove-old-test-result"
+    GET_FORM_GEOMETRY = "get-form-geometry"
+    REMOVE_OLD_FORM_GEOMETRY = "remove-old-form-geometry"
 
 
 class Task(Document): # pylint: disable=abstract-method
@@ -247,6 +249,7 @@ class CachedFormGeometry(Document): # pylint: disable=abstract-method
     geometry = fields.ListField(fields.EmbeddedField(FormGeometryEntry), required=False, allow_none=True)
     auth_required = fields.BoolField(required=False, allow_none=True)
     screenshot_file_id = fields.ObjectIdField(required=False, allow_none=True)
+    grab_screenshot = fields.BoolField(default=False)
 
     response_status = fields.IntField(required=False)
     error = fields.StrField(required=False)
