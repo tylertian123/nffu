@@ -16,6 +16,8 @@ _prefetchers = Map([
     Rule("/forms/form", endpoint=("formlist",)),
     Rule("/forms/course", endpoint=("courselist",)),
     Rule("/forms/course/<idx>", endpoint=("speccourse",)),
+    Rule("/forms/course/<idx>/test", endpoint=("speccourse","coursetest")),
+    Rule("/forms/course/<idx>/test/<testidx>", endpoint=("speccourse","coursespectest"))
 ], redirect_defaults=False).bind("", "/")
 
 # preloaders
@@ -90,6 +92,18 @@ async def _courselist(params):
     if not usr or not usr.admin:
         raise Unauthorized()
     yield ("/api/v1/course", "fetch")
+
+async def _coursetest(params):
+    usr = await current_user.user
+    if not usr or not usr.admin:
+        raise Unauthorized()
+    yield ("/api/v1/course/" + params["idx"] + "/test", "fetch")
+
+async def _coursespectest(params):
+    usr = await current_user.user
+    if not usr or not usr.admin:
+        raise Unauthorized()
+    yield ("/api/v1/course/" + params["idx"] + "/test/" + params["testidx"], "fetch")
 
 async def resolve_preloads_for(path):
     try:
