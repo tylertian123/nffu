@@ -116,6 +116,9 @@ class FormField(EmbeddedDocument):
     # Type of field
     kind = fields.StrField(required=True, validate=validate.OneOf([x.value for x in FormFieldType]))
 
+    # Is this field critical? as in; if we don't fill it in do we still submit the form?
+    critical = fields.BoolField(default=True)
+
 def _validate_form_fields(x):
     if len(set(y.index_on_page for y in x)) != len(x):
         raise ValidationError("duplicate index_on_page")

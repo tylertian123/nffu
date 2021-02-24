@@ -216,12 +216,12 @@ def _fill_in_field(browser: webdriver.Firefox, element: webdriver.firefox.webele
         raise NotImplementedError()
 
 
-def fill_form(form_url: str, credentials: GhosterCredentials, components: List[Tuple[int, str, FormFieldType, object]], dry_run=False):
+def fill_form(form_url: str, credentials: GhosterCredentials, components: List[Tuple[int, str, FormFieldType, object, bool]], dry_run=False):
     """
     Fill in a form. Expects the URL, credentials and a description of what to fill in.
 
     The components array is structured as [
-        (index, title, kind, value)...
+        (index, title, kind, value, critical)...
     ]
 
     Returns two screenshots on success, the first being a picture of the form filled in and the second being a picture of the success screen.

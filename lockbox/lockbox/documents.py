@@ -172,6 +172,9 @@ class FormField(EmbeddedDocument): # pylint: disable=abstract-method
     # Type of field
     kind = fields.StrField(required=True, validate=validate.OneOf([x.value for x in FormFieldType]))
 
+    # Is this field critical? as in; if we don't fill it in do we still submit the form?
+    critical = fields.BoolField(default=True)
+
 
 class Form(Document): # pylint: disable=abstract-method
     """
