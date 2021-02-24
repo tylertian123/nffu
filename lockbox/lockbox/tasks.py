@@ -313,7 +313,7 @@ async def _do_fill_form(db: "db_.LockboxDB", user, course, password: str, fe_con
             raise LockboxTaskFailure(LockboxFailureType.INTERNAL, f"Fill form: Field value formatting error: {e}", True) from e
         title = field.expected_label_segment or ""
         kind = FormFieldType(field.kind)
-        fields.append((field.index_on_page, title, kind, value))
+        fields.append((field.index_on_page, title, kind, value, field.critical))
     logger.info(f"{log_prefix}: Form filling started for course {course.course_code} for user {user.pk}")
     try:
         result = await asyncio.get_event_loop().run_in_executor(None, lambda: ghoster.fill_form(course.form_url,

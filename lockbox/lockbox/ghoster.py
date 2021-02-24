@@ -255,27 +255,34 @@ def fill_form(form_url: str, credentials: GhosterCredentials, components: List[T
         # get all elements on the page
         sub_elems = browser.find_elements_by_css_selector(".freebirdFormviewerViewItemList .freebirdFormviewerViewNumberedItemContainer")
 
-        for (index, expected_title, kind, value) in components:
-            if index >= len(sub_elems):
-                raise GhosterInvalidForm("Requested component (" + expected_title + ") is out of range")
-
-            if expected_title not in _get_input_header(browser, sub_elems[index]):
-                raise GhosterInvalidForm("Requested component (" + expected_title + ") is not present at index (" + str(index) + ")")
-
+        for (index, expected_title, kind, value, critical) in components:
             try:
-                _fill_in_field(browser, sub_elems[index], value, kind)
-            except NoSuchElementException as e:
-                raise GhosterInvalidForm("Requested component (" + expected_title + ") is of the wrong type (missing element)") from e
-            except TimeoutException as e:
-                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (timed out waiting for select)") from e
-            except IndexError as e:
-                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (option out of range)") from e
-            except TypeError as e:
-                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (invalid expression result type)") from e
-            except NotImplementedError as e:
-                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (kind not implemented)") from e
-            except WebDriverException as e:
-                raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (unknown selenium error " + str(e) + ")") from e
+                if index >= len(sub_elems):
+                    raise GhosterInvalidForm("Requested component (" + expected_title + ") is out of range")
+
+                if expected_title not in _get_input_header(browser, sub_elems[index]):
+                    raise GhosterInvalidForm("Requested component (" + expected_title + ") is not present at index (" + str(index) + ")")
+
+                try:
+                    _fill_in_field(browser, sub_elems[index], value, kind)
+                except NoSuchElementException as e:
+                    raise GhosterInvalidForm("Requested component (" + expected_title + ") is of the wrong type (missing element)") from e
+                except TimeoutException as e:
+                    raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (timed out waiting for select)") from e
+                except IndexError as e:
+                    raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (option out of range)") from e
+                except TypeError as e:
+                    raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (invalid expression result type)") from e
+                except NotImplementedError as e:
+                    raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (kind not implemented)") from e
+                except WebDriverException as e:
+                    raise GhosterInvalidForm("Requested component (" + expected_title + ") failed to fill in (unknown selenium error " + str(e) + ")") from e
+            except GhosterInvalidForm as e:
+                if critical:
+                    raise
+                else:
+                    # TODO: log this back into the caller, but for now we _sliently ignore it_
+                    pass
 
 
         # record screenshot of filled in page
