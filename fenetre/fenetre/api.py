@@ -452,7 +452,7 @@ async def delete_user(idx):
 @blueprint.route("/course")
 @admin_required
 async def list_all_courses():
-    courses = Course.find({})
+    courses = Course.find({}).sort("_id", -1)
 
     results_high_prio = []
     results = []

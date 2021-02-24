@@ -12,7 +12,6 @@ import logging
 import typing
 import pymongo
 import traceback
-import sys
 from . import db # pylint: disable=unused-import # For type hinting
 from .documents import TaskType
 
@@ -33,6 +32,32 @@ class TaskError(Exception):
         self.retry_in = retry_in
 
 
+class TaskTypeGroup:
+    """
+    A group of similar tasks sharing 1 rate limiting counter.
+
+    One task may be in multiple of these.
+    """
+
+    __slots__ = ("name", "limit", "count")
+
+    GROUPS_MAP = {} # type: typing.Dict[TaskType, typing.List["TaskTypeGroup"]]
+
+    def __init__(self, name: str, types: typing.Tuple[TaskType], limit: int):
+        self.name = name
+        self.limit = limit
+        self.count = 0
+        for ttype in types:
+            try:
+                self.GROUPS_MAP[ttype].append(self)
+            except KeyError:
+                self.GROUPS_MAP[ttype] = [self]
+    
+    @classmethod
+    def get_groups(cls, kind: TaskType) -> typing.Iterable["TaskTypeGroup"]:
+        return cls.GROUPS_MAP.get(kind, ())
+
+
 class Scheduler:
     """
     Task scheduler.
@@ -46,6 +71,11 @@ class Scheduler:
     def __init__(self, db: "db.LockboxDB"): # pylint: disable=redefined-outer-name
         self._db = db
         self._update_event = asyncio.Event()
+
+        # Initialize groups
+        TaskTypeGroup("firefox", (TaskType.FILL_FORM, TaskType.TEST_FILL_FORM, TaskType.GET_FORM_GEOMETRY), 3)
+        TaskTypeGroup("tdsb_connects", (TaskType.FILL_FORM, TaskType.CHECK_DAY, TaskType.POPULATE_COURSES, TaskType.TEST_FILL_FORM), 7)
+        TaskTypeGroup("global", tuple(iter(TaskType)), 10)
 
     def update(self):
         """
@@ -99,13 +129,18 @@ class Scheduler:
                 logger.warning(f"Task {self._format_task(task)} failed, not retrying: {e}")
                 # If no retry time given, task is deleted
                 next_run = None
-        except Exception:
+        except Exception: # pylint: disable=broad-except
             logger.critical(f"Task {self._format_task(task)} threw an unhandled error. Removing it from the database.")
             await task.remove()
-            # print stracktrace
-            traceback.print_exc(file=sys.stderr)
+            # log stracktrace
+            logger.error("Exception traceback:\n" + traceback.format_exc())
             return
-
+        # Update rate limiting counters
+        for group in TaskTypeGroup.get_groups(TaskType(task.kind)):
+            if group.count > 0:
+                group.count -= 1
+            else:
+                logger.error(f"Inconsistent rate limiting count detected for group {group.name} ({self._format_task(task)})")
         # Update task if next run time is provided
         if next_run is not None:
             task.next_run_at = next_run
@@ -125,9 +160,12 @@ class Scheduler:
             while True:
                 # Find earliest scheduled task
                 task = await self._db.TaskImpl.find_one({"is_running": False}, sort=[("next_run_at", pymongo.ASCENDING)])
+                # Calculate the amount of time to wait until the next task should execute
+                # If no next task exists, wait forever
                 if task is None:
                     timeout = None
                 else:
+                    # Calculate time to wait from the scheduled time of the task
                     timeout = (task.next_run_at - datetime.datetime.utcnow()).total_seconds()
                     # Only if the task is late by more than 100ms
                     # Since we don't want warnings for tasks that were scheduled to run immediately
@@ -136,13 +174,26 @@ class Scheduler:
                     timeout = max(timeout, 0)
                 try:
                     await asyncio.wait_for(self._update_event.wait(), timeout)
+                    # If wait_for() did not time out, then the update event must be set so check again for a new task
                     self._update_event.clear()
                     continue
                 except asyncio.TimeoutError:
-                    # Mark as running since create_task() doesn't force context switch
-                    task.is_running = True
-                    await task.commit()
-                    asyncio.create_task(self._run_task(task))
+                    # If wait_for() timed out then we've waited the right amount of time to schedule the task
+                    # Check rate limiting counters first
+                    for group in TaskTypeGroup.get_groups(TaskType(task.kind)):
+                        if group.count >= group.limit:
+                            task.next_run_at += datetime.timedelta(seconds=30)
+                            logger.warning(f"Task {self._format_task(task)} pushed back 30s because the rate limit for group {group.name} was reached ({group.limit})")
+                            await task.commit()
+                            break
+                    # If didn't break, then all groups' requirements were met
+                    else:
+                        # Increase rate limiting counters and mark as running here since create_task() doesn't force context switch
+                        for group in TaskTypeGroup.get_groups(TaskType(task.kind)):
+                            group.count += 1
+                        task.is_running = True
+                        await task.commit()
+                        asyncio.create_task(self._run_task(task))
         except asyncio.CancelledError:
             pass
 

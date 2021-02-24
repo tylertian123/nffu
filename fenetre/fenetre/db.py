@@ -123,9 +123,6 @@ def _validate_form_fields(x):
     if len(set(y.index_on_page for y in x)) != len(x):
         raise ValidationError("duplicate index_on_page")
 
-    if any(x.expected_label_segment in y.expected_label_segment for x, y in itertools.combinations(x, 2)):
-        raise ValidationError("ambiguous expected_label_segment")
-
 @_shared_instance.register
 class Form(Document):
     sub_fields = fields.ListField(fields.EmbeddedField(FormField), default=list, validate=_validate_form_fields)
@@ -205,6 +202,7 @@ class FormFillingTest(Document):
     # status
     is_finished = fields.BoolField(default=False)
     in_progress = fields.BoolField(default=False)
+    is_scheduled = fields.BoolField(default=False)
 
     # results
     errors = fields.ListField(fields.EmbeddedField(TestFillLockboxFailure), default=[])

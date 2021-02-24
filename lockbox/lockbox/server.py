@@ -320,6 +320,7 @@ class LockboxServer:
         JSON payload should have the following format:
         {
             "url": "...",             // The URL of the form to process
+                                      // Note: Not in use at the moment. This parameter will be ignored.
             "override_limit": false,  // Optional, whether to ignore the one request per user at a time limit, default false
             "grab_screenshot": false, // Optional, whether or not to take a screenshot and put it in the database
         }
@@ -350,12 +351,12 @@ class LockboxServer:
         - 400: Invalid field, invalid form
         - 401: Invalid token
         - 403: Form auth error
-        - 429: Concurrent request limit exceeded
+        - 429: Concurrent request limit exceeded # Not in use at the moment
         - 409: Cannot sign into form due to missing credentials
         """
         if "url" not in payload:
             return web.json_response({"error": "Missing field: 'url'"}, status=400)
-        result = await self.db.get_form_geometry(token, payload["url"], payload.get("override_limit", False), payload.get("grab_screenshot", False))
+        result = await self.db.get_form_geometry(token, payload["url"], payload.get("grab_screenshot", False))
         result["pending"] = result["geometry"] is None
         if "status" in result:
             status = result.pop("status")
@@ -367,7 +368,7 @@ class LockboxServer:
     @_handle_db_errors
     @_json_payload
     @_extract_token
-    async def _post_test_form(self, request: web.Request, token: str, payload: dict):
+    async def _post_test_form(self, request: web.Request, token: str, payload: dict): # pylint: disable=unused-argument
         """
         Handle a POST to /test_form.
 
@@ -386,24 +387,21 @@ class LockboxServer:
         - 409: Setup already tested / in progress
         """
 
-        # verify creds
-        await self.db.get_user(token)
-
         if "test_setup_id" not in payload:
             return web.json_response({"error": "Missing field: 'test_setup_id'"}, status=400)
 
         # Check if the request was already finished
         context = await self.db.find_form_test_context(payload["test_setup_id"])
-        if context.is_finished or context.in_progress:
+        if context.is_finished or context.is_scheduled:
             return web.json_response({"error": "already in progress or already finished"}, status=409)
         else:
             # start a task
             await self.db.start_form_test(payload["test_setup_id"], token)
-            context.in_progress = True
+            context.is_scheduled = True
             await context.commit()
 
             return web.Response(status=204)
-    
+
     @_handle_db_errors
     async def _post_update_all_courses(self, request: web.Request): # pylint: disable=unused-argument
         """
