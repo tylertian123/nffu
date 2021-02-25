@@ -35,9 +35,6 @@ COPY setup.py MANIFEST.in .
 COPY fenetre/ ./fenetre
 COPY --from=websrc-build /opt/build/fenetre/static ./fenetre/static
 
-ENV QUART_APP "fenetre.app:create_app()"
-
-RUN quart digest-compile
 RUN pip install .
 
 FROM debian:buster-slim
