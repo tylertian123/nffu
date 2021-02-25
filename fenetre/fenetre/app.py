@@ -1,13 +1,12 @@
 import quart.flask_patch
 
-from flask_static_digest import FlaskStaticDigest
 from quart import Quart, render_template, url_for, redirect, request, flash, session
 from quart_auth import login_required, Unauthorized, current_user, logout_user
 from datetime import timedelta
 
 from .db import init_app as db_init_app
 from .auth import init_app as auth_init_app, try_login_user, AuthenticationError, verify_signup_code, eula_required, EulaRequired
-from .static import setup_digest
+from .static import init_app as static_init_app, static_url_for
 from .lockbox import init_app as lockbox_init_app
 from .prefetch import resolve_preloads_for
 
@@ -15,9 +14,6 @@ import secrets
 
 # blueprints
 from .api import blueprint as api_blueprint, init_app as api_init_app
-
-# plugins
-static_digest = FlaskStaticDigest()
 
 def create_app():
     app = Quart(__name__)
@@ -29,12 +25,11 @@ def create_app():
         app.send_file_max_age_default = timedelta(weeks=52)
 
 
-    static_digest.init_app(app)
-
     db_init_app(app)
     auth_init_app(app)
     lockbox_init_app(app)
     api_init_app(app)
+    static_init_app(app)
     app.register_blueprint(api_blueprint)
 
     # static page routes (frontend)
@@ -118,9 +113,6 @@ def create_app():
 
     @app.route("/favicon.ico")
     async def forward_favicon():
-        return redirect(static_digest.static_url_for("static", filename="favicon.ico"))
-
-    # setup static digest commands
-    setup_digest(app)
+        return redirect(static_url_for("static", filename="favicon.ico"))
 
     return app

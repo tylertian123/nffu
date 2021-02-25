@@ -1,21 +1,18 @@
-import click
+from quart import url_for as quart_url_for, current_app
+import os
+import json
 
-from flask_static_digest.digester import compile as _compile
-from flask_static_digest.digester import clean as _clean
+def static_url_for(endpoint, **values):
+    if current_app.cache_manifest and "filename" in values:
+        values["filename"] = current_app.cache_manifest.get(values["filename"], values["filename"])
 
-def setup_digest(app):
-    @app.cli.command()
-    def digest_compile():
-        """Generate optimized static files and a cache manifest."""
-        _compile(str(app.static_folder),
-                 str(app.static_folder),
-                 app.config.get("FLASK_STATIC_DIGEST_BLACKLIST_FILTER"),
-                 app.config.get("FLASK_STATIC_DIGEST_GZIP_FILES"))
+    return quart_url_for(endpoint, **values)
 
+def init_app(app):
+    try:
+        with open(os.path.join(app.static_folder, "manifest.json")) as f:
+            app.cache_manifest = json.load(f)
+    except FileNotFoundError:
+        app.cache_manifest = None
 
-    @app.cli.command()
-    def digest_clean():
-        """Remove generated static files and cache manifest."""
-        _clean(str(app.static_folder),
-               app.config.get("FLASK_STATIC_DIGEST_BLACKLIST_FILTER"),
-               app.config.get("FLASK_STATIC_DIGEST_GZIP_FILES"))
+    app.add_template_global(static_url_for)
