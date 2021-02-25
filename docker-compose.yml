@@ -3,7 +3,7 @@ version: "3.7"
 services:
   lockbox:
     build: ./lockbox
-    image: docker-registry.i.mm12.xyz/nffu-lockbox:0.1.10
+    image: docker-registry.i.mm12.xyz/nffu-lockbox:0.1.11
     init: true
     secrets:
       - lockbox-credential-key
@@ -11,7 +11,7 @@ services:
       - LOCKBOX_CREDENTIAL_KEY_FILE=/run/secrets/lockbox-credential-key
   fenetre:
     build: ./fenetre
-    image: docker-registry.i.mm12.xyz/nffu-fenetre:0.1.10
+    image: docker-registry.i.mm12.xyz/nffu-fenetre:0.1.11
     ports:
       - "8083:8000"
     command: 'hypercorn fenetre.app:create_app() -b 0.0.0.0:8000 --access-logfile -'
