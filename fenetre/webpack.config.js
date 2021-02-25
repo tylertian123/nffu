@@ -3,18 +3,23 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
+const { WebpackManifestPlugin } = require('webpack-manifest-plugin');
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
 
 module.exports = (env, options) => {
-	return {
+	let config = {
 		entry: {
-			main: "./websrc/main.js",
-			login: "./websrc/login.js",
-			signup: "./websrc/signup.js"
+			main: "./main.js",
+			login: "./login.js",
+			signup: "./signup.js"
 		},
 		output: {
 			path: path.resolve(__dirname, './fenetre/static'),
-			filename: '[name].js'
+			filename: options.mode == 'development' ? '[name].js' : '[name].[contenthash].js',
+			publicPath: ""
 		},
+		context: path.resolve(__dirname, './websrc'),
 		module: {
 			rules: [
 				{
@@ -31,17 +36,30 @@ module.exports = (env, options) => {
 					use: {
 						loader: 'babel-loader'
 					}
+				},
+				{
+					test: /\.svg$/,
+					loader: 'file-loader',
+					options: {
+						name: options.mode == 'development' ? '[path][name].[ext]' : '[name].[contenthash].[ext]',
+						publicPath: "/static"
+					}
 				}
 			]
 		},
 		plugins: [
-			new MiniCssExtractPlugin(),
+			new CleanWebpackPlugin({
+				cleanOnceBeforeBuildPatterns: ['**/*', '!.keep']
+			}),
+			new MiniCssExtractPlugin({
+				filename: options.mode == 'development' ? '[name].css' : '[name].[contenthash].css'
+			}),
 			new CopyPlugin({
 				patterns: [
-					{ from: './websrc/favicon.ico' },
-					{ from: './websrc/logo.svg' }
+					{ from: './favicon.ico', to: options.mode == 'development' ? './favicon.ico' : './favicon.[contenthash].ico' },
 				]
-			})
+			}),
+			new WebpackManifestPlugin()
 		],
 		devtool: options.mode == 'development' ? 'eval-source-map' : false,
 		optimization: {
@@ -57,8 +75,16 @@ module.exports = (env, options) => {
 			minimize: options.mode == 'production',
 			minimizer: [
 				new TerserPlugin(),
-				new CssMinimizerPlugin()
+				new CssMinimizerPlugin(),
+				new ImageMinimizerPlugin({
+					minimizerOptions: {
+						plugins: [
+							['svgo', {plugins: [{removeViewBox: false}]}]
+						]
+					}
+				})
 			]
 		}
 	};
+	return config;
 }
