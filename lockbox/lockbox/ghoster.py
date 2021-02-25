@@ -15,6 +15,9 @@ from typing import List, Tuple
 from .documents import FormFieldType
 import collections
 import datetime
+import logging
+
+logger = logging.getLogger("ghoster")
 
 # Helper structs
 GhosterCredentials = collections.namedtuple("GhosterCredentials", "email tdsb_user tdsb_pass")
@@ -281,8 +284,8 @@ def fill_form(form_url: str, credentials: GhosterCredentials, components: List[T
                 if critical:
                     raise
                 else:
-                    # TODO: log this back into the caller, but for now we _sliently ignore it_
-                    pass
+                    # TODO: log this back into the caller, but for now we log it
+                    logger.warn(f"Ignoring error {e.args[0]} from noncritical field")
 
 
         # record screenshot of filled in page
@@ -372,6 +375,7 @@ def get_form_geometry(form_url: str, credentials: GhosterCredentials):
             email_tag = browser.find_element_by_class_name("freebirdFormviewerViewHeaderEmailAddress")
             browser.execute_script("arguments[0].innerText = '<redacted>'", email_tag)
         except NoSuchElementException:
+            logger.warn(f"Possible privacy breach: couldn't find an email to redact.")
             pass
 
         shot = browser.find_element_by_tag_name("html").screenshot_as_png
