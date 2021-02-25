@@ -38,17 +38,22 @@ function SubFieldEditor(props) {
 			</Col>
 		</Form.Row>
 		<Form.Row>
-			<Form.Group as={Col}>
-				<Form.Label>Field type</Form.Label>
-				<Form.Control as="select" custom value={props.field.kind} onChange={(e) => props.onChangeType(e.target.value)}>
-					<option value="text">Text</option>
-					<option value="long-text">Long answer</option>
-					<option value="date">Date</option>
-					<option value="multiple-choice">Multiple choice</option>
-					<option value="checkbox">Checkbox</option>
-					<option value="dropdown">Dropdown</option>
-				</Form.Control>
-			</Form.Group>
+			<Col md lg="10">
+				<Form.Group>
+					<Form.Label>Field type</Form.Label>
+					<Form.Control as="select" custom value={props.field.kind} onChange={(e) => props.onChangeType(e.target.value)}>
+						<option value="text">Text</option>
+						<option value="long-text">Long answer</option>
+						<option value="date">Date</option>
+						<option value="multiple-choice">Multiple choice</option>
+						<option value="checkbox">Checkbox</option>
+						<option value="dropdown">Dropdown</option>
+					</Form.Control>
+				</Form.Group>
+			</Col>
+			<Col md lg="2" className="d-flex justify-content-center flex-column">
+				<Form.Check onChange={(e) => props.onChangeCritical(e.target.checked)} checked={props.field.critical} label="Is critical?" custom id={props.field.index_on_page + "-swchk"} />
+			</Col>
 		</Form.Row>
 		<Form.Row>
 			<Form.Group as={Col}>
@@ -81,7 +86,8 @@ function FormFieldEditor(props) {
 						index_on_page: -1,
 						expected_label_segment: "",
 						kind: "text",
-						target_value: "''"
+						target_value: "''",
+						critical: true
 					}
 				];
 			case 'remove':
@@ -97,6 +103,9 @@ function FormFieldEditor(props) {
 				break;
 			case 'change_index':
 				n[action.index].index_on_page = action.value;
+				break;
+			case 'change_critical':
+				n[action.index].critical = action.value;
 				break;
 		}
 		return n;
@@ -130,6 +139,7 @@ function FormFieldEditor(props) {
 			onChangeSearch={v => dispatch({type: 'change_search', index: idx, value: v})}
 			onChangeType={v => dispatch({type: 'change_type', index: idx, value: v})}
 			onChangeIndex={v => dispatch({type: 'change_index', index: idx, value: v})}
+			onChangeCritical={v => dispatch({type: 'change_critical', index: idx, value: v})}
 			onRemove={() => dispatch({type: 'remove', index: idx})}
 		/>)}
 		<div className="d-flex w-100 justify-content-end">
