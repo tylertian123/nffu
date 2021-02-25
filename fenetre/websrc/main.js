@@ -13,6 +13,7 @@ import Nav from 'react-bootstrap/Nav'
 import Container from 'react-bootstrap/Container'
 
 import {UserInfoProvider, UserInfoContext, AdminOnly} from './common/userinfo';
+import NFFULogo from './logo.svg';
 
 import Home from './pane/home.js';
 import AuthCfg from './pane/authcfg.js';
@@ -27,7 +28,7 @@ function App() {
 			<Navbar.Brand>
 				<img
 					alt="nffu logo"
-					src={window.logourl}
+					src={NFFULogo}
 					width="32"
 					height="32"
 					className="d-inline-block align-middle"

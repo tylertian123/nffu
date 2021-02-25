@@ -4,7 +4,6 @@
 <html lang="en">
 	<head>
 		{{headerplate('main')}}
-		{{logoprovider()}}
 
 		{% for path, kind in calculated_fetches %}
 			<link rel="preload" href="{{path}}" as="{{kind}}" {{"crossorigin" if kind == "fetch" else ''}} />
