@@ -61,7 +61,7 @@ def setup_loggers(level: int):
     formatter = logging.Formatter("%(asctime)s - %(levelname)s: %(name)s: %(message)s")
     handler.setFormatter(formatter)
 
-    for name in ["scheduler", "task", "server", "db"]:
+    for name in ["scheduler", "task", "server", "db", "ghoster"]:
         logger = logging.getLogger(name)
         logger.setLevel(level)
         logger.addHandler(handler)
