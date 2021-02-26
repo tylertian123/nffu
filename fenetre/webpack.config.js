@@ -49,7 +49,8 @@ module.exports = (env, options) => {
 		},
 		plugins: [
 			new CleanWebpackPlugin({
-				cleanOnceBeforeBuildPatterns: ['**/*', '!.keep']
+				cleanOnceBeforeBuildPatterns: ['**/*', '!.keep'],
+				cleanStaleWebpackAssets: false
 			}),
 			new MiniCssExtractPlugin({
 				filename: options.mode == 'development' ? '[name].css' : '[name].[contenthash].css'
