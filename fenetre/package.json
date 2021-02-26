@@ -22,7 +22,6 @@
     "copy-webpack-plugin": "^7.0.0",
     "css-loader": "^5.0.1",
     "css-minimizer-webpack-plugin": "^1.1.5",
-    "file-loader": "^6.2.0",
     "formik": "^2.2.5",
     "image-minimizer-webpack-plugin": "^2.2.0",
     "imagemin-svgo": "^8.0.0",

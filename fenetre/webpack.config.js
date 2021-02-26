@@ -17,7 +17,8 @@ module.exports = (env, options) => {
 		output: {
 			path: path.resolve(__dirname, './fenetre/static'),
 			filename: options.mode == 'development' ? '[name].js' : '[name].[contenthash].js',
-			publicPath: ""
+			assetModuleFilename: options.mode == 'development' ? '[path][name][ext]' : '[name].[contenthash][ext]',
+			publicPath: "/static/"
 		},
 		context: path.resolve(__dirname, './websrc'),
 		module: {
@@ -39,11 +40,7 @@ module.exports = (env, options) => {
 				},
 				{
 					test: /\.svg$/,
-					loader: 'file-loader',
-					options: {
-						name: options.mode == 'development' ? '[path][name].[ext]' : '[name].[contenthash].[ext]',
-						publicPath: "/static"
-					}
+					type: 'asset/resource'
 				}
 			]
 		},
@@ -60,7 +57,9 @@ module.exports = (env, options) => {
 					{ from: './favicon.ico', to: options.mode == 'development' ? './favicon.ico' : './favicon.[contenthash].ico' },
 				]
 			}),
-			new WebpackManifestPlugin()
+			new WebpackManifestPlugin({
+				publicPath: ""
+			})
 		],
 		devtool: options.mode == 'development' ? 'eval-source-map' : false,
 		optimization: {
