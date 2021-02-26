@@ -1,5 +1,3 @@
-import quart.flask_patch
-
 from quart import Quart, render_template, url_for, redirect, request, flash, session
 from quart_auth import login_required, Unauthorized, current_user, logout_user
 from datetime import timedelta
