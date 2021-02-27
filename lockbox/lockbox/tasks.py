@@ -63,7 +63,7 @@ class LockboxTaskFailure(Exception):
     """
 
     def __init__(self, failure_type: LockboxFailureType, message: str, retry: bool = False):
-        super().__init__()
+        super().__init__(message)
         self.failure_type = failure_type
         self.message = message
         self.retry = retry
@@ -200,7 +200,7 @@ async def _get_tdsb_user_info(db: "db_.LockboxDB", user, password: str, warn_cb:
                          if item.course_period.endswith("a")]
             return info, school, timetable
     except aiohttp.ClientError as e:
-        raise LockboxTaskFailure(LockboxFailureType.TDSB_CONNECTS, "TDSB Connects failed") from e
+        raise LockboxTaskFailure(LockboxFailureType.TDSB_CONNECTS, f"{e.__class__.__name__}: {e}") from e
 
 
 async def _get_fieldexpr_context(db: "db_.LockboxDB", user, course, info: typing.Optional[tdsbconnects.User],
