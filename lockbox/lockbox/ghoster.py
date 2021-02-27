@@ -10,11 +10,12 @@ from selenium.webdriver.firefox.options import Options
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 from .documents import FormFieldType
 import collections
 import datetime
+import enum
 import logging
 
 logger = logging.getLogger("ghoster")
@@ -219,7 +220,23 @@ def _fill_in_field(browser: webdriver.Firefox, element: webdriver.firefox.webele
         raise NotImplementedError()
 
 
-def fill_form(form_url: str, credentials: GhosterCredentials, components: List[Tuple[int, str, FormFieldType, object, bool]], dry_run=False):
+class GhosterWarning:
+    """
+    Used by fill_form() to report warnings.
+
+    Contains a message and type.
+    """
+
+    class Type(enum.Enum):
+        NONCRITICAL_FIELD_FAILED = "noncritical-field-failed"
+    
+    def __init__(self, kind: "GhosterWarning.Type", message: str):
+        self.kind = kind
+        self.message = message
+
+
+def fill_form(form_url: str, credentials: GhosterCredentials, components: List[Tuple[int, str, FormFieldType, object, bool]],
+              dry_run=False) -> Tuple[Any, Any, List[GhosterWarning]]:
     """
     Fill in a form. Expects the URL, credentials and a description of what to fill in.
 
@@ -233,6 +250,8 @@ def fill_form(form_url: str, credentials: GhosterCredentials, components: List[T
     """
 
     with _create_browser() as browser:
+        warnings = []
+
         # load form
         browser.get(form_url)
 
@@ -284,8 +303,8 @@ def fill_form(form_url: str, credentials: GhosterCredentials, components: List[T
                 if critical:
                     raise
                 else:
-                    # TODO: log this back into the caller, but for now we log it
-                    logger.warn(f"Ignoring error {e.args[0]} from noncritical field")
+                    warnings.append(GhosterWarning(GhosterWarning.Type.NONCRITICAL_FIELD_FAILED, e.args[0]))
+                    logger.warning(f"Ignoring error {e.args[0]} from noncritical field")
 
 
         # record screenshot of filled in page
@@ -293,7 +312,7 @@ def fill_form(form_url: str, credentials: GhosterCredentials, components: List[T
 
         if dry_run:
             # if we're doing a dry run, just return the screenshots
-            return shot_pre, shot_pre
+            return shot_pre, shot_pre, warnings
 
         # locate submit button
         submit_button = browser.find_element_by_class_name("freebirdFormviewerViewNavigationSubmitButton")
@@ -306,7 +325,7 @@ def fill_form(form_url: str, credentials: GhosterCredentials, components: List[T
 
         shot_post = browser.find_element_by_tag_name("html").screenshot_as_png
 
-        return shot_pre, shot_post
+        return shot_pre, shot_post, warnings
 
 
 def get_form_geometry(form_url: str, credentials: GhosterCredentials):
@@ -375,8 +394,7 @@ def get_form_geometry(form_url: str, credentials: GhosterCredentials):
             email_tag = browser.find_element_by_class_name("freebirdFormviewerViewHeaderEmailAddress")
             browser.execute_script("arguments[0].innerText = '<redacted>'", email_tag)
         except NoSuchElementException:
-            logger.warn(f"Possible privacy breach: couldn't find an email to redact.")
-            pass
+            logger.warning("Possible privacy breach: couldn't find an email to redact.")
 
         shot = browser.find_element_by_tag_name("html").screenshot_as_png
 

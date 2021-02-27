@@ -335,9 +335,12 @@ async def _do_fill_form(db: "db_.LockboxDB", user, course, password: str, fe_con
             fail_type = "Unknown failure"
         logger.error(f"{log_prefix}: {fail_type} for user {user.pk}: {e}\n{traceback.format_exc()}")
         raise LockboxTaskFailure(LockboxFailureType.FORM_FILLING, f"{fail_type}: {e}", True) from e
-    # Finally... all is well
-    # Upload form and confirmation screenshots
-    fss, css = result
+
+    # Upload form and confirmation screenshots and check for potential warnings
+    fss, css, warnings = result
+    for warn in warnings:
+        # This should've already been logged by ghoster
+        await warn_cb(LockboxFailureType.FORM_FILLING, f"Warning: {warn.kind.value}: {warn.message}")
     fid = await db.shared_gridfs().upload_from_stream("form.png", fss)
     fill_result = ResultImpl(result=FillFormResultType.SUCCESS.value if FILL_FORM_SUBMIT_ENABLED else FillFormResultType.SUBMIT_DISABLED.value,
         course=course.pk, time_logged=datetime.datetime.utcnow(), form_screenshot_id=fid)
