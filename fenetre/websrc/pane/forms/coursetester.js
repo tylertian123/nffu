@@ -14,7 +14,7 @@ function IndividualTest(props) {
 
 	let headingstr = 'in-progress';
 	if (test.is_finished) {
-		headingstr = test.fill_result.result;
+		headingstr = test.fill_result !== null ? test.fill_result.result : "finished";
 	}
 	else {
 		if (!test.in_progress) {
@@ -28,7 +28,8 @@ function IndividualTest(props) {
 			<Link className="alert-link" to={`test/${test.id}`}>view results</Link>
 		</div>
 		<ul>
-			{test.is_finished && <li>finished at {new Date(test.fill_result.time_logged).toLocaleString('en-CA')}</li>}
+			{test.is_finished && test.fill_result !== null && <li>finished at {new Date(test.fill_result.time_logged).toLocaleString('en-CA')}</li>}
+			{test.is_finished && test.fill_result === null && <li>generated no results</li>}
 			<li>encountered {test.errors.length} errors</li>
 		</ul>
 	</ListGroup.Item>;
@@ -151,9 +152,9 @@ function CourseTestViewer() {
 		{!test.in_progress && !test.is_finished && <Alert className="d-flex align-items-center" variant="success"><Spinner className="mr-2" animation="border" /> pending...</Alert>}
 		<ul>
 			{test.is_finished && <li><i>finished</i></li>}
-
 			<li>started at {new Date(test.time_executed).toLocaleString('en-CA')}</li>
-			{test.is_finished && <li>finished at {new Date(test.fill_result.time_logged).toLocaleString('en-CA')}</li>}
+			{test.is_finished && test.fill_result !== null && <li>finished at {new Date(test.fill_result.time_logged).toLocaleString('en-CA')}</li>}
+			{test.is_finished && test.fill_result === null && <li>generated no results</li>}
 			<li>encountered {test.errors.length} errors</li>
 		</ul>
 		<h1>Simulated status page</h1>
@@ -162,7 +163,10 @@ function CourseTestViewer() {
 			status: test.fill_result.result,
 			related_course: test.fill_result.course,
 			last_filled_at: test.fill_result.time_logged
-		}} onlyOne baseUrl={`/api/v1/course/${idx}/test/${testidx}`} /> : <Alert className="d-flex align-items-center" variant="secondary"><Spinner className="mr-2" animation="border" /> waiting...</Alert>}
+		}} onlyOne baseUrl={`/api/v1/course/${idx}/test/${testidx}`} /> : <Alert className="d-flex align-items-center" variant="secondary">
+			{test.is_finished ? "No results generated" :
+			<><Spinner className="mr-2" animation="border" /> waiting...</>}
+		</Alert>}
 		<h2>Logged errors</h2>
 		{test.errors.length > 0 ? <ListGroup className="bg-light">
 			{test.errors.map((x) => <IndividualError key={x.id} errorData={x} />)}
