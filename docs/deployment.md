@@ -69,3 +69,7 @@ page from the login page.
 
 You might want to add additional terms to the Disclaimers page that all users are required to acknowledge. You can add whatever additional components you want by modifying the `fenetre/websrc/signup_wizard/sign_eula.js` file. Make sure
 you rebuild (and potentially redeploy) at least the `fenetre` container after doing this.
+
+## Further reading
+
+Now that you have a working NFFU instance, you should probably consult the [administration guide](./administration.md) for more information.
