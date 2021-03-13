@@ -18,8 +18,8 @@ form.
 
 ## How do I use it?
 
-If you're at BCI you can ask either of the authors and we'll send you a link to our hosted instance, but if you either don't trust us or otherwise need your own instance, follow the instructions in the [deployment guide](docs/deployment.md) to get
-one running.
+Follow the instructions in the [deployment guide](docs/deployment.md) to get an instance running, or ask around: somone may already be running one for your school/
+group of friends/whatever.
 
 ## Licensing
 
