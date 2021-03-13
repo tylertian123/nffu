@@ -319,6 +319,12 @@ class LockboxDB:
                     await self._shared_gridfs.delete(user.last_fill_form_result.confirmation_screenshot_id)
                 except gridfs.NoFile:
                     logger.warning(f"Fill form: Failed to delete previous result conformation page screenshot for user {user.pk}: No file")
+        # Delete fill form task
+        task = await self.TaskImpl.find_one({"kind": documents.TaskType.FILL_FORM.value, "owner": user})
+        if task is not None:
+            logger.info(f"Deleting fill form task for user {user.pk}")
+            await task.remove()
+            self._scheduler.update()
         await user.remove()
 
     async def delete_user_error(self, token: str, eid: str) -> None:
