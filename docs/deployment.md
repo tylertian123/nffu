@@ -55,16 +55,15 @@ to save some CPU and network).
 If you wish to prevent students from other schools from using the system, you can set the `LOCKBOX_SCHOOL` environment variable for lockbox to the code of
 the school `nffu` is intended for. If this env var is set, `nffu` will block out students from other schools when TDSB credentials are first entered.
 
-## FAQ
-
-TODO
-
 ## Advanced Tweaks
 
 ### Environment Variables
 
 There are some env vars that you can set for lockbox to change some settings such as the time it submits forms and does day checks, or disable form submission
 altogether. For the most up-to-date list, see the docstring for `/lockbox/lockbox/__init__.py`.
+
+You can also set the environment variable `FENETRE_SHOW_SIGNUP_PAGE` to `0` on fenetre to disable the link to the signup
+page from the login page.
 
 ### Adjusting the Disclaimers
 
