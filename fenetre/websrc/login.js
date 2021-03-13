@@ -44,8 +44,9 @@ function Login() {
 						</Form.Group>
 						<Button variant="success" type="submit">Go</Button>
 					</Form>
+					{window.show_signup_page && <>
 					<hr />
-					<p className="text-light">don't have an account? sign up <a href="/signup">here</a></p>
+					<p className="text-light">don't have an account? sign up <a href="/signup">here</a></p></>}
 				</Col>
 			</Row>
 		</Container>

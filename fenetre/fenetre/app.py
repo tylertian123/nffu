@@ -9,9 +9,12 @@ from .lockbox import init_app as lockbox_init_app
 from .prefetch import resolve_preloads_for
 
 import secrets
+import os
 
 # blueprints
 from .api import blueprint as api_blueprint, init_app as api_init_app
+
+SHOW_SIGNUP_PAGE = os.environ.get("FENETRE_SHOW_SIGNUP_PAGE", "1") == "1"
 
 def create_app():
     app = Quart(__name__)
@@ -59,7 +62,7 @@ def create_app():
                 return redirect(url_for("main"))
         elif await current_user.is_authenticated:
             return redirect(url_for("main"))
-        return await render_template("login.html")
+        return await render_template("login.html", show_signup_page=SHOW_SIGNUP_PAGE)
 
     @app.route("/logout")
     @login_required
