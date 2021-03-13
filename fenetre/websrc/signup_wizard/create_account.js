@@ -152,7 +152,7 @@ function SignupBase(props) {
 									{errors.code}
 								</Form.Control.Feedback>
 							</Form.Group>
-							<p>Confused? To sign up for <code>nffu</code> you need a sign up code. Try asking <code>latexbot</code> or <code>matbot</code> for one, or ask an administrator.</p>
+							<p>Confused? To sign up for <code>nffu</code> you need a sign up code. If you don't have one, try asking an administrator.</p>
 						</>) : (
 							<input type="hidden" value={props.code} name="code" />
 						)}
