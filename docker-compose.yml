@@ -9,12 +9,14 @@ services:
       - lockbox-credential-key
     environment:
       - LOCKBOX_CREDENTIAL_KEY_FILE=/run/secrets/lockbox-credential-key
+    restart: always
   fenetre:
     build: ./fenetre
     image: docker-registry.i.mm12.xyz/nffu-fenetre:0.1.13
     ports:
       - "8083:8000"
     command: 'hypercorn fenetre.app:create_app() -b 0.0.0.0:8000 --access-logfile -'
+    restart: always
   db:
     image: mongo:4.4
     volumes:
@@ -25,6 +27,7 @@ services:
           cpus: "0.25"
           memory: 64M
     command: --quiet --wiredTigerCacheSizeGB 0.05
+    restart: always
 
 secrets:
   lockbox-credential-key:

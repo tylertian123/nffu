@@ -31,7 +31,8 @@ $ dd if=/dev/urandom bs=1 count=32 of=lockbox-credential-key
 ```
 
 If you're deploying to a swarm, you should import this file as a secret, modify the compose file to set the secret as "external", and then use `docker stack deploy` to set up NFFU as a stack on the swarm. If you want to run it locally, 
-you can leave the file named like that and just do a normal `docker-compose up -d`. You may need to change additional settings to get it to survive a host reboot.
+you can leave the file named like that and just do a normal `docker-compose up -d`. You may need to change additional settings to get it to survive a host reboot (such as adding `restart: always` to
+all services in the `docker-compose.yml` file)
 
 You may also find it prudent to make sure the exposed port for web access is compatible with your network setup, the default is `8083`. NFFU isn't setup for HTTPS and was primarily designed to run behind some form of reverse proxy 
 for TLS.
