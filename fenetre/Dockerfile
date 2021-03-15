@@ -4,11 +4,11 @@ FROM node AS websrc-build
 
 WORKDIR /opt/build
 
-COPY package.json yarn.lock .
+COPY package.json yarn.lock ./
 
 RUN yarn install
 
-COPY webpack.config.js .babelrc .
+COPY webpack.config.js .babelrc ./
 COPY websrc/ ./websrc
 
 RUN mkdir fenetre && mkdir fenetre/static && yarn run build
@@ -31,7 +31,7 @@ WORKDIR /opt/build
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-COPY setup.py MANIFEST.in .
+COPY setup.py MANIFEST.in ./
 COPY fenetre/ ./fenetre
 COPY --from=websrc-build /opt/build/fenetre/static ./fenetre/static
 
